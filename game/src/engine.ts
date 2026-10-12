@@ -2,8 +2,10 @@ import { STAT_LABELS, type GameAction, type GameState, type Stats } from './cont
 import { ACTIVITIES, FIXTURE_EVENTS, FIXTURE_INITIAL_STATS, STAGES } from './fixtures/content';
 import { familyEvent, familySummary, firstFamilyScene, initialFamily, settleFamily } from './family';
 import { createRandomGame, reduceRandomGame } from './random-life';
+import { createCareerGame, reduceCareerGame } from './career-runtime';
 
 export function createGame(runId: string, seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0], version: GameState['rulesVersion'] = 'random-preview-v1'): GameState {
+  if (version === 'career-preview-v1') return createCareerGame(runId, seed);
   if (version === 'random-preview-v1') return createRandomGame(runId, seed);
   return { runId, revision: 0, seed: seed >>> 0, stageIndex: 0, stats: { ...FIXTURE_INITIAL_STATS }, pendingEvent: null, journal: [], processedActionIds: [], status: 'active', rulesVersion: version, contentVersion: version, ...(version === 'family-preview-v1' ? { family: initialFamily() } : {}) };
 }
@@ -12,6 +14,9 @@ function adjust(stats: Stats, effects: Partial<Stats>): Stats {
   return Object.fromEntries(Object.keys(STAT_LABELS).map(key => [key, Math.max(0, Math.min(100, stats[key as keyof Stats] + (effects[key as keyof Stats] ?? 0)))])) as Stats;
 }
 export function reduceGame(state: GameState, action: GameAction): GameState {
+  if (action.type === 'next-choice') return advanceToNextChoice(state, action);
+  if (state.rulesVersion === 'career-preview-v1') return reduceCareerGame(state, action);
+  if (action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance') return state;
   if (state.rulesVersion === 'random-preview-v1') return reduceRandomGame(state, action);
   if (action.type === 'tick' || action.type === 'control') return state;
   if (state.status === 'completed' || state.processedActionIds.includes(action.id)) return state;
@@ -48,4 +53,26 @@ export function reduceGame(state: GameState, action: GameAction): GameState {
   }
   const complete = state.stageIndex === STAGES.length - 1;
   return { ...state, ...(family ? { family } : {}), revision: state.revision + 1, stats: adjust(state.stats, choice.effects), stageIndex: nextEvent || complete ? state.stageIndex : state.stageIndex + 1, status: !nextEvent && complete ? 'completed' : 'active', pendingEvent: nextEvent, processedActionIds: [...state.processedActionIds, action.id], journal: [...state.journal, { id: action.id, stage: stage.id, title: state.pendingEvent.title, detail, effects: choice.effects }] };
+}
+
+function advanceToNextChoice(state: GameState, action: GameAction): GameState {
+  if (!state.life || state.pendingEvent || state.status !== 'active' || state.processedActionIds.includes(action.id)) return state;
+  // Reuse ordinary monthly progression, including finances and seeded draws.
+  // One click is one saved action; skipped time is not active player time.
+  let next = structuredClone(state);
+  next.life!.paused = false;
+  next.life!.speed = 16;
+  for (let i = 0; i < 4096; i++) {
+    const previous = next;
+    next = reduceGame(next, { type: 'tick', id: `${action.id}:advance:${i}`, elapsedMs: 1000 });
+    if (next === previous) return state;
+    if (!next.pendingEvent && next.status !== 'completed') continue;
+    next.life!.speed = state.life.speed;
+    next.life!.paused = true;
+    if (next.progress && state.progress) next.progress.activeMs = [...state.progress.activeMs];
+    next.revision = state.revision + 1;
+    next.processedActionIds = [...state.processedActionIds, action.id];
+    return next;
+  }
+  return state;
 }

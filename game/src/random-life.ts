@@ -1,10 +1,10 @@
-import { STAT_LABELS, type Activity, type GameAction, type GameEvent, type GameState, type LifeBackground, type MeetingRoute, type Person, type Stats } from './contracts';
+import { STAT_LABELS, TIME_SPEEDS, type Activity, type GameAction, type GameEvent, type GameState, type LifeBackground, type MeetingRoute, type Person, type Stats } from './contracts';
 import { STAGES } from './fixtures/content';
 import { initialFamily } from './family';
 
 // Fictional preview distributions and balance. These are NOT population statistics,
 // admission models, or approved production career requirements.
-export const RANDOM_RULES = { monthMs: 1000, stageEnds: [72, 144, 564, 684], startAge: 19, cooldownMonths: 6 } as const;
+export const RANDOM_RULES = { monthMs: 1000, stageEnds: [72, 144, 564, 684], startAge: 20, cooldownMonths: 6 } as const;
 export const nextRandom = (seed: number) => {
   const next = (seed + 0x6D2B79F5) >>> 0;
   let t = Math.imul(next ^ (next >>> 15), next | 1);
@@ -39,13 +39,15 @@ export function generateStart(seed: number) {
 }
 export const backgroundSummary = (b: LifeBackground) => `${b.region} · ${b.environment} · ${ { tight: '빠듯한 가정 형편', steady: '보통의 가정 형편', comfortable: '여유 있는 가정 형편' }[b.finances]} · ${ { limited: '가족의 지원이 제한적', steady: '필요할 때 기대는 가족', close: '가족과 가까운 유대' }[b.support]} · ${b.experience}`;
 export const elapsedMonths = (s: GameState) => Math.floor((s.life?.elapsedMs ?? 0) / RANDOM_RULES.monthMs);
-export const lifeAge = (s: GameState) => `${RANDOM_RULES.startAge + Math.floor(elapsedMonths(s) / 12)}세 ${elapsedMonths(s) % 12}개월`;
+// Saves created before startAge was stored began at 19.
+export const lifeStartAge = (s: GameState) => s.life?.startAge ?? 19;
+export const lifeAge = (s: GameState) => `${lifeStartAge(s) + Math.floor(elapsedMonths(s) / 12)}세 ${elapsedMonths(s) % 12}개월`;
 export function createRandomGame(runId: string, seed: number): GameState {
   const start = generateStart(seed);
   return {
     runId, seed: start.seed, revision: 0, stageIndex: 0, stats: start.stats, family: initialFamily(),
     rulesVersion: 'random-preview-v1', contentVersion: 'random-preview-v1', status: 'active', pendingEvent: null,
-    life: { initialSeed: seed >>> 0, background: start.background, elapsedMs: 0, focus: { main: 'study', supporting: 'rest' }, paused: true, speed: 1, seen: {}, flags: [], contacts: 0 },
+    life: { initialSeed: seed >>> 0, background: start.background, startAge: RANDOM_RULES.startAge, elapsedMs: 0, focus: { main: 'study', supporting: 'rest' }, paused: true, speed: 1, seen: {}, flags: [], contacts: 0 },
     journal: [{ id: 'background', stage: 'university', title: '의대 입학, 내가 지나온 시간', detail: backgroundSummary(start.background), effects: {} }], processedActionIds: [],
   };
 }
@@ -81,7 +83,7 @@ export const RANDOM_EVENTS: Definition[] = [
 ];
 const ROUTES: Record<string, MeetingRoute> = { 'offer-gwating': 'gwating', 'offer-blind-date': 'blind-date', 'offer-campus': 'campus' };
 const names = ['지우', '서우', '하람', '도윤', '수현', '윤서', '민재', '유진'];
-function person(seed: number, runId: string, month: number): { seed: number; person: Person } {
+export function person(seed: number, runId: string, month: number): { seed: number; person: Person } {
   const a = nextRandom(seed); const b = nextRandom(a.seed); const c = nextRandom(b.seed);
   return { seed: c.seed, person: { id: `${runId}:person:${month}`, name: names[Math.floor(a.value * names.length)], temperament: ['차분히 듣는 편', '호기심이 많은 편', '활동적인 편', '신중하게 가까워지는 편'][Math.floor(b.value * 4)], occupation: ['다른 학교 학생', '같은 학교 학생', '다른 분야에서 일하는 사람'][Math.floor(c.value * 3)] } };
 }
@@ -138,9 +140,10 @@ function record(s: GameState, id: string, title: string, detail: string, effects
   return { ...s, stats: adjustStats(s.stats, effects), journal: [...s.journal, { id, stage: STAGES[s.stageIndex].id, title, detail: `${lifeAge(s)} · ${detail}`, effects }] };
 }
 export function reduceRandomGame(state: GameState, action: GameAction): GameState {
+  if (action.type === 'next-choice' || action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance') return state;
   if (!state.life || !state.family || state.status === 'completed' || state.processedActionIds.includes(action.id)) return state;
   if (action.type === 'control') {
-    if ((action.paused !== undefined && typeof action.paused !== 'boolean') || (action.speed !== undefined && ![1, 2, 4, 8].includes(action.speed))) return state;
+    if ((action.paused !== undefined && typeof action.paused !== 'boolean') || (action.speed !== undefined && !TIME_SPEEDS.includes(action.speed))) return state;
     return commit({ ...state, life: { ...state.life, ...(action.paused !== undefined ? { paused: action.paused } : {}), ...(action.speed !== undefined ? { speed: action.speed } : {}) } }, action);
   }
   if (action.type === 'activity') {
@@ -241,14 +244,15 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
 
 // Validate the persisted random schema and reconstruct pending event content.
 // Reading a save never draws RNG or regenerates an invitation.
-export function validRandomState(s: GameState): boolean {
+export function validRandomState(s: GameState, stageEnds: readonly number[] = RANDOM_RULES.stageEnds): boolean {
   const life = s.life; const f = s.family;
   const uint = (n: unknown) => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
   if (s.rulesVersion !== 'random-preview-v1' || s.contentVersion !== 'random-preview-v1' || !life || !f
     || !uint(s.seed) || !uint(life.initialSeed) || !Number.isInteger(s.stageIndex) || s.stageIndex < 0 || s.stageIndex > 3
-    || !Number.isInteger(life.elapsedMs) || life.elapsedMs < 0 || life.elapsedMs > RANDOM_RULES.stageEnds[s.stageIndex] * RANDOM_RULES.monthMs
-    || (s.stageIndex > 0 && life.elapsedMs < RANDOM_RULES.stageEnds[s.stageIndex - 1] * RANDOM_RULES.monthMs)
-    || typeof life.paused !== 'boolean' || ![1, 2, 4, 8].includes(life.speed)
+    || !Number.isInteger(life.elapsedMs) || life.elapsedMs < 0 || life.elapsedMs > stageEnds[s.stageIndex] * RANDOM_RULES.monthMs
+    || (s.stageIndex > 0 && life.elapsedMs < stageEnds[s.stageIndex - 1] * RANDOM_RULES.monthMs)
+    || typeof life.paused !== 'boolean' || !TIME_SPEEDS.includes(life.speed)
+    || (life.startAge !== undefined && life.startAge !== 19 && life.startAge !== 20)
     || !life.focus || !['study', 'connect', 'rest'].includes(life.focus.main) || !['study', 'connect', 'rest'].includes(life.focus.supporting) || life.focus.main === life.focus.supporting
     || !Number.isInteger(life.contacts) || life.contacts < 0 || life.contacts > 20
     || !Array.isArray(life.flags) || new Set(life.flags).size !== life.flags.length || !life.flags.every(flag => ['club', 'asked-introduction', 'research', 'unmarried', 'childfree', 'scholarship'].includes(flag))
@@ -270,7 +274,7 @@ export function validRandomState(s: GameState): boolean {
     if (!Number.isInteger(life.childBornMonth) || life.childBornMonth < 72 || age < 0 || f.care === 'none'
       || f.children !== (age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young')) return false;
   }
-  const atEnd = life.elapsedMs === RANDOM_RULES.stageEnds[s.stageIndex] * RANDOM_RULES.monthMs;
+  const atEnd = life.elapsedMs === stageEnds[s.stageIndex] * RANDOM_RULES.monthMs;
   if (s.status === 'completed') return atEnd && s.stageIndex === 3 && s.pendingEvent === null && life.paused;
   const e = s.pendingEvent;
   if (!e) return !atEnd;

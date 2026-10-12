@@ -25,11 +25,11 @@ function RecordList({ entries }: { entries: LifeEntry[] }) {
   </li>)}</ul>;
 }
 
-export function LifeMap({ age, startAge = 19, endAge = 76, entries }: LifeMapProps) {
+export function LifeMap({ age, startAge = 20, endAge = 77, entries }: LifeMapProps) {
   const headingId = useId();
   const detailId = useId();
-  const start = Number.isFinite(startAge) ? Math.trunc(startAge) : 19;
-  const end = Math.max(start, Number.isFinite(endAge) ? Math.trunc(endAge) : 76);
+  const start = Number.isFinite(startAge) ? Math.trunc(startAge) : 20;
+  const end = Math.max(start, Number.isFinite(endAge) ? Math.trunc(endAge) : 77);
   const current = Number.isFinite(age) ? Math.trunc(age) : null;
   const [chosenYear, setChosenYear] = useState<number | null>(null);
   const selected = chosenYear !== null && chosenYear >= start && chosenYear <= end

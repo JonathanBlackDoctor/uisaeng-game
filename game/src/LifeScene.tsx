@@ -12,6 +12,7 @@ export interface LifeSceneProps {
   partnerName?: string;
   children?: 'none' | 'young' | 'school' | 'adult';
   eventTitle?: string;
+  workContext?: 'research' | 'preparation';
 }
 
 const STAGES = {
@@ -113,9 +114,11 @@ function Building({ stage }: { stage: LifeSceneProps['stage'] }) {
   </g>;
 }
 
-export default function LifeScene({ stage, age, month, running, focus, seed, relationship, partnerName, children = 'none', eventTitle }: LifeSceneProps) {
+export default function LifeScene({ stage, age, month, running, focus, seed, relationship, partnerName, children = 'none', eventTitle, workContext }: LifeSceneProps) {
   const id = useId();
-  const scene = STAGES[stage];
+  const scene = workContext && stage !== 'retirement' ? workContext === 'research'
+    ? { title: '연구실', label: '연구 생활', place: '연구실' }
+    : { title: '다음 지원 준비', label: '진로 준비', place: '작업 공간' } : STAGES[stage];
   const season = SEASONS[month < 2 || month === 11 ? 3 : month < 5 ? 0 : month < 8 ? 1 : 2];
   const palette = Number.isFinite(seed) ? ((Math.trunc(seed) % 4) + 4) % 4 : 0;
   const partnerRole = relationship === 'married' ? '배우자' : '연인';
@@ -125,7 +128,7 @@ export default function LifeScene({ stage, age, month, running, focus, seed, rel
   const peopleDescription = `주인공 · ${age}세${partner ? `, ${partnerLabel}` : ''}${childLabel ? `, ${childLabel}` : ''}`;
   const description = `${season.name}의 ${scene.place}. ${peopleDescription}. ${FOCUS[focus]}. ${running ? '시간이 흐르고 있습니다.' : '시간이 멈춰 있습니다.'}`;
   const childScale = children === 'young' ? .49 : children === 'school' ? .66 : .92;
-  const medical = (stage === 'training' || stage === 'career') && focus !== 'rest';
+  const medical = !workContext && (stage === 'training' || stage === 'career') && focus !== 'rest';
 
   return <section className="ls-root" data-running={running} data-season={season.key} aria-labelledby={`${id}-heading`}>
     <header className="ls-header">

@@ -1,6 +1,7 @@
 import { STAT_LABELS, type ArchivedRun, type GameState, type SaveEnvelope } from './contracts';
 import { familyEvent } from './family';
 import { validRandomState } from './random-life';
+import { validCareerGame } from './career-runtime';
 
 export class SaveError extends Error {}
 export class SaveConflictError extends SaveError {}
@@ -12,6 +13,7 @@ function validEffects(value: unknown) {
   return !!value && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([key, amount]) => key in STAT_LABELS && typeof amount === 'number' && Number.isFinite(amount));
 }
 function validFamily(s: GameState): boolean {
+  if (s.rulesVersion === 'career-preview-v1') return validCareerGame(s);
   if (s.rulesVersion === 'random-preview-v1') return validRandomState(s);
   if (s.life !== undefined || s.family?.partner !== undefined) return false;
   if (s.rulesVersion === 'fixture-v1') return s.contentVersion === 'fixture-v1' && s.family === undefined && !s.pendingEvent?.familyScene;
@@ -43,7 +45,7 @@ export function validState(value: unknown): value is GameState {
     && (s.status !== 'completed' || (s.stageIndex === 3 && s.pendingEvent === null))
     && Array.isArray(s.journal) && s.journal.every(e => e && typeof e.id === 'string' && typeof e.title === 'string' && typeof e.detail === 'string' && stages.includes(e.stage) && validEffects(e.effects))
     && Array.isArray(s.processedActionIds) && s.processedActionIds.every(id => typeof id === 'string')
-    && (s.pendingEvent === null || (!!s.pendingEvent && typeof s.pendingEvent.id === 'string' && s.pendingEvent.stage === stages[s.stageIndex] && ['integration-fixture', ...(s.rulesVersion === 'family-preview-v1' ? ['family-preview'] : []), ...(s.rulesVersion === 'random-preview-v1' ? ['random-preview'] : [])].includes(s.pendingEvent.provenance) && typeof s.pendingEvent.title === 'string' && typeof s.pendingEvent.body === 'string' && Array.isArray(s.pendingEvent.choices) && s.pendingEvent.choices.length > 0 && s.pendingEvent.choices.every(c => c && typeof c.id === 'string' && typeof c.label === 'string' && typeof c.description === 'string' && validEffects(c.effects))));
+    && (s.pendingEvent === null || (!!s.pendingEvent && typeof s.pendingEvent.id === 'string' && s.pendingEvent.stage === stages[s.stageIndex] && ['integration-fixture', ...(s.rulesVersion === 'family-preview-v1' ? ['family-preview'] : []), ...(['random-preview-v1','career-preview-v1'].includes(s.rulesVersion) ? ['random-preview'] : []), ...(s.rulesVersion === 'career-preview-v1' ? ['career-preview'] : [])].includes(s.pendingEvent.provenance) && typeof s.pendingEvent.title === 'string' && typeof s.pendingEvent.body === 'string' && Array.isArray(s.pendingEvent.choices) && s.pendingEvent.choices.length > 0 && s.pendingEvent.choices.every(c => c && typeof c.id === 'string' && typeof c.label === 'string' && typeof c.description === 'string' && validEffects(c.effects))));
 }
 function envelope(value: unknown): SaveEnvelope | null {
   if (value === undefined) return null;

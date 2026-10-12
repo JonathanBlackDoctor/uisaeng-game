@@ -20,3 +20,5 @@
 .life-layout:not(.welcome-layout) .lp-map{order:6}
 .life-layout:not(.welcome-layout) .completion{order:7}
 }
+
+.time-controls{flex-wrap:wrap;max-width:100%}.time-controls .next-choice{white-space:nowrap}

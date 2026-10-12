@@ -7,8 +7,18 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run"
+    "test": "node --experimental-strip-types --test tests/*.node.mjs && vitest run"
   },
-  "dependencies": { "react": "^19.1.1", "react-dom": "^19.1.1" },
-  "devDependencies": { "@types/react": "^19.1.16", "@types/react-dom": "^19.1.9", "typescript": "^5.9.3", "vite": "^7.1.12", "vitest": "^3.2.4", "fake-indexeddb": "^6.2.4" }
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vitest": "^3.2.4",
+    "fake-indexeddb": "^6.2.4"
+  }
 }
