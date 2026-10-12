@@ -1,0 +1,21 @@
+:root {
+  --brand-color: #294f46;
+}
+
+/* The approved transparent logo is a mask, so one variable controls its color. */
+.brand .brand-logo {
+  display: block;
+  width: 184px;
+  height: 40px;
+  flex-shrink: 0;
+  background-color: var(--brand-color);
+  -webkit-mask: url('./assets/uisaeng-logo.png') center / 145% auto no-repeat;
+  mask: url('./assets/uisaeng-logo.png') center / 145% auto no-repeat;
+}
+
+@media (max-width: 460px) {
+  .brand .brand-logo {
+    width: 161px;
+    height: 35px;
+  }
+}

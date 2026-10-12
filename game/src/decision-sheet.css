@@ -1,0 +1,207 @@
+.ds-sheet {
+  --ds-ink: #283e3c;
+  --ds-muted: #566761;
+  --ds-teal: #28645d;
+  box-sizing: border-box;
+  width: min(38rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #d8cbb4;
+  border-radius: 1.5rem;
+  background: #fcf6e9;
+  color: var(--ds-ink);
+  box-shadow: 0 1.5rem 5rem #162c3645, inset 0 1px #fffdf6;
+  font: 1rem/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: left;
+}
+
+.ds-sheet *,
+.ds-waiting * { box-sizing: border-box; }
+
+.ds-sheet::backdrop {
+  background: #172e3e99;
+  backdrop-filter: blur(5px);
+}
+
+.ds-sheet[open] { animation: ds-arrive 220ms ease-out both; }
+
+.ds-content {
+  max-height: calc(100vh - 2rem - 2px);
+  max-height: calc(100dvh - 2rem - 2px);
+  padding: 1.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 1rem;
+  background: radial-gradient(ellipse at top left, #e6bd5730, transparent 55%);
+}
+
+.ds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.ds-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ds-teal);
+  font-size: 0.8rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.ds-mark { color: #a55b3e; font-size: 1.25rem; }
+
+.ds-minimize,
+.ds-expand {
+  min-height: 44px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #c7cdbf;
+  border-radius: 0.75rem;
+  background: #fffaf0;
+  color: var(--ds-teal, #28645d);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ds-minimize { flex-shrink: 0; }
+.ds-minimize > span { margin-right: 0.25rem; }
+
+.ds-title {
+  margin: 0 0 1rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.5rem, 5vw, 2.15rem);
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.ds-body {
+  margin: 0 0 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.ds-hint { margin: 0 0 1.25rem; color: var(--ds-muted); font-size: 0.875rem; }
+.ds-choices { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.ds-choice-item { min-width: 0; }
+
+.ds-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 64px;
+  padding: 1rem;
+  border: 1px solid #c5cfc3;
+  border-radius: 1rem;
+  background: #fffdf6;
+  color: var(--ds-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.ds-number {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding-inline: 0.3rem;
+  border: 1px solid #b5cac0;
+  border-radius: 0.65rem;
+  background: #e6efe6;
+  color: var(--ds-teal);
+  font-size: 0.85rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-choice-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
+.ds-choice-label { display: block; margin-bottom: 0.2rem; font-weight: 750; }
+.ds-choice-description { display: block; color: var(--ds-muted); font-size: 0.875rem; line-height: 1.55; white-space: pre-wrap; }
+.ds-arrow { flex: 0 0 auto; color: #996044; font-size: 1.15rem; }
+.ds-choice:disabled { cursor: default; background: #f3f0e5; }
+.ds-choice:disabled .ds-number { background: #eceade; color: #566761; }
+
+.ds-status { min-height: 1.5em; margin: 1rem 0 0; color: var(--ds-muted); font-size: 0.8rem; }
+.ds-evidence { margin-top: 1.25rem; padding-top: 0.5rem; border-top: 1px solid #d8d6c6; }
+.ds-evidence > summary { min-height: 44px; padding-block: 0.65rem; color: var(--ds-teal); font-size: 0.875rem; font-weight: 650; cursor: pointer; }
+.ds-evidence-body { padding-block: 0.5rem; color: var(--ds-muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+.ds-evidence-body :where(img, video, iframe) { max-width: 100%; }
+.ds-evidence-body :where(pre, table) { max-width: 100%; overflow-x: auto; }
+
+.ds-sheet :focus-visible,
+.ds-waiting :focus-visible { outline: 3px solid #28645d; outline-offset: 3px; }
+.ds-title:focus-visible { outline-offset: 5px; border-radius: 0.25rem; }
+
+.ds-waiting {
+  position: fixed;
+  inset: auto 1rem max(1rem, env(safe-area-inset-bottom)) auto;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-sizing: border-box;
+  width: min(30rem, calc(100% - 2rem));
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  padding: 1rem;
+  overflow-y: auto;
+  border: 1px solid #c7cdbf;
+  border-left: 4px solid #a55b3e;
+  border-radius: 1rem;
+  background: #fcf6e9;
+  color: #283e3c;
+  box-shadow: 0 0.75rem 2.5rem #162c3630;
+  font: 1rem/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.ds-waiting-copy { flex: 1; min-width: 0; }
+.ds-waiting-status { margin: 0 0 0.25rem; color: #28645d; font-size: 0.8rem; font-weight: 700; }
+.ds-waiting-title { margin: 0; overflow-wrap: anywhere; font-size: 0.95rem; }
+.ds-expand { flex-shrink: 0; }
+.ds-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@media (hover: hover) {
+  .ds-choice:not(:disabled):hover { border-color: #28645d; background: #eef4ea; transform: translateY(-2px); }
+  .ds-minimize:hover, .ds-expand:hover { border-color: #28645d; background: #eef4ea; }
+}
+
+@media (max-width: 480px) {
+  .ds-sheet { width: calc(100% - 1rem); border-radius: 1.15rem; }
+  .ds-content { padding: 1.15rem; }
+  .ds-choice { gap: 0.65rem; padding: 0.85rem; }
+  .ds-waiting { right: 0.5rem; width: calc(100% - 1rem); gap: 0.65rem; padding: 0.85rem; }
+  .ds-arrow { display: none; }
+}
+
+@media (max-width: 340px) {
+  .ds-waiting { align-items: stretch; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-sheet[open] { animation: none; }
+  .ds-choice { transition: none; }
+  .ds-choice:not(:disabled):hover { transform: none; }
+}
+
+@keyframes ds-arrive {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

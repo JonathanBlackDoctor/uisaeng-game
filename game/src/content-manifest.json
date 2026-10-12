@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "status": "awaiting_design",
+  "productionRulesVersion": null,
+  "productionContentVersion": null,
+  "specialtyTarget": 26,
+  "approvedSpecialties": [],
+  "approvedEventCount": null,
+  "deliveredProductionEvents": 0,
+  "fixtureContent": {
+    "version": "fixture-v1",
+    "events": 4,
+    "countsTowardCompletion": false
+  },
+  "pending": [
+    "기준연도·제도 범위",
+    "턴 길이·생애 진행",
+    "성장·소모·판정",
+    "시험·수련·전공 및 복귀 조건",
+    "전공별 사건 목록·분량"
+  ],
+  "randomContent": {
+    "version": "random-preview-v1",
+    "approvalId": "homage-randomness-application-v1",
+    "status": "playable-preview",
+    "randomEventTypes": 22,
+    "milestoneTypes": 4,
+    "countsTowardCompletion": false,
+    "balanceStatus": "provisional-fictional-values"
+  },
+  "familyContent": {
+    "version": "family-preview-v1",
+    "approvalId": "romance-family-scope-v1",
+    "status": "playable-preview",
+    "meetingRoutes": [
+      "gwating",
+      "blind-date",
+      "campus"
+    ],
+    "scenes": 14,
+    "countsTowardCompletion": false
+  }
+}

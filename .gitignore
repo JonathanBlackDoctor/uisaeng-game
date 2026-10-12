@@ -1,0 +1,10 @@
+research/
+.orchestrator/
+node_modules/
+game/node_modules/
+game/dist/
+game/test-results/
+game/playwright-report/
+coverage/
+.task-inputs/
+*.log
