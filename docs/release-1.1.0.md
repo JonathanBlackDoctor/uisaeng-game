@@ -16,4 +16,12 @@
 - 전공과 관련 능력의 시너지를 성장·활동 보상·추가 수입과 현재 배율 표시에 반영한다.
 - 장소·전공·계절·복무·가족·생활 활동에 맞는 배경·복장·소품을 확장한다.
 
-고정된 통합 소스에 전체 테스트·타입 검사·운영 빌드와 실제 화면·저장 호환 검수를 실행한 뒤 기존 공개 주소에 배포한다. 세부 검증 및 공개 확인 결과는 배포 후 기록한다. 시뮬레이션 수치와 제도 표현은 게임 설정이며 실제 개인의 결과나 의료 제도를 재현하는 값이 아니다.
+## 검증과 공개 배포
+
+2026-10-14 02:00 KST 공개 배포 완료. [게임](https://jonathanblackdoctor.github.io/uisaeng-game/) · [커밋 1b4cf13](https://github.com/JonathanBlackDoctor/uisaeng-game/commit/1b4cf13e0d8189a679f651cb3853b9f95c5af9e3).
+
+고정본 158파일 중 원격과 다른 102파일을 반영했다. Vitest451개·Node37개·실제 이전 공개 저장 복사본의 호환5개, 총493개와 타입 검사·Pages 운영 빌드 통과. [Game checks](https://github.com/JonathanBlackDoctor/uisaeng-game/actions/runs/38434794478)와 [Pages](https://github.com/JonathanBlackDoctor/uisaeng-game/actions/runs/38434794427) 성공. 공개 HTML·버전·JS·CSS·OG의 SHA-256과 검증 빌드가 일치했다.
+
+로컬 및 공개 브라우저의 접근 권한 거부로 HQ의 통합 실플레이는 실행하지 못했다. 사용자가 완료된 개별 작업의 PC·모바일 UI 검수와 통합 자동검사로 배포하도록 승인했다. 공개 업데이트 후 버전1.1.0과 기존20세6개월·건강64/행복34/지식53/관계65·미납140만원·열린4선택 유지는 사용자가 직접 확인했다. 자동 검사와 인간 확인을 구분한다.
+
+고정본과 실패한 첫 시도는 별도 보존했다. 최종 근거는 `.orchestrator/github-sync/release-1.1-state.json`. JS 약762kB의 번들 크기 안내가 남는다. 시뮬레이션 수치와 제도 표현은 게임 설정이며 실제 개인의 결과나 의료 제도를 재현하는 값이 아니다. 고정 이후 시작된 논문 지표 교체는 이 버전에 포함하지 않았다.

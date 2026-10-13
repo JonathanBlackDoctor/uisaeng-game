@@ -3,6 +3,7 @@ import type { GameAction, GameState } from './contracts';
 import { LIFESTYLE_OPTIONS, lifestyleKeys, lifestyleSchedule, lifestyleAvailable, initialLifestyle, type Diet } from './lifestyle';
 import { LEGACY_RULES, currentStudent, mentoringSummary } from './legacy-goals';
 import MentoringRecord from './MentoringRecord';
+import PublicationRecord from './PublicationRecord';
 import { FINANCE_RULES, initialPortfolio, PLAN_AMOUNTS, type InvestmentRisk } from './portfolio';
 import { compactWon, exactWon } from './finance-view';
 
@@ -19,6 +20,7 @@ export default function LifestylePanel({ game, busy, act }: { game: GameState; b
         return <label className="lifestyle-option" key={key}><input type="checkbox" role="switch" checked={!!l.enabled[key]} disabled={disabled || unavailable} onChange={event => act({ type: 'lifestyle', id: crypto.randomUUID(), key, enabled: event.target.checked })}/><span>{o.label}<small>주 {o.hours}시간 · {o.income ? `월 수입 ${compactWon(o.income)}` : o.cost ? `월 ${compactWon(Math.round(o.cost * p.priceIndex / 1_000_000))}` : '비용 없음'}{!eligible && key === 'mentoring' ? ' · 직업 생활부터 가능' : schedule.suspended.includes(key) ? ' · 시간 부족으로 중단 중' : ''}</small>{key === 'family' && <small>가족과 함께 보낸 시간이 쌓입니다.</small>}{key === 'mentoring' && eligible && <small>{currentStudent(game) ? mentoringSummary(game) : `누적 ${LEGACY_RULES.mentoringMonths}개월 지도하면 1명`}</small>}</span></label>;
       })}
       <MentoringRecord game={game}/>
+      <PublicationRecord game={game}/>
       <label className="career-field"><span>식생활</span><select value={l.diet} disabled={disabled} onChange={event => act({ type: 'diet', id: crypto.randomUUID(), diet: event.target.value as Diet })}><option value="frugal">절약해서 먹기</option><option value="balanced">보통으로 먹기</option><option value="comfortable">여유 있게 챙겨 먹기</option></select></label>
     </details>
     <details><summary>저축·투자·상환</summary>

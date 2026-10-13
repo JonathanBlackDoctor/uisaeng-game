@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "decisions": [
     {
+      "id": "published-papers-lifetime-v1",
+      "date": "2026-10-14",
+      "status": "confirmed",
+      "source": "user",
+      "instruction": "‘발표한 논문·편’ 제안 후: 그렇게 해서 지표 교체해.",
+      "scope": "네 번째 생애 기록을 길러낸 제자에서 발표한 논문으로 교체",
+      "approved": [
+        "누적 진료·건, 순자산·원, 가족 시간·시간, 발표한 논문·편 표시",
+        "연구 활동으로 논문을 완성하고 교수·연구 진로를 보상",
+        "진행 화면·회고·보관함·공유 결과와 저장 호환 연결"
+      ],
+      "provisional": [
+        "연구력 50의 주활동 연구만 유지하면 12개월에 한 편",
+        "연구 모임·연구 직업·활동 중인 교수 경력에 따른 진행량 가산",
+        "연구력에 따른 0.5~1.5배 진행량과 논문당 작업량은 게임 시험 설정"
+      ],
+      "supersedes": "family-time-students-lifetime-v1의 제자 수 생애 지표만 대체. 기존 지도 활동·기록은 보존.",
+      "implementation": "docs/life-goals.md"
+    },
+    {
       "id": "family-time-students-lifetime-v1",
       "date": "2026-10-14",
       "status": "confirmed",
@@ -956,6 +976,17 @@
         "01a13613-dabb-74c0-ae43-2f5abde13287",
         "01a13617-8924-7cf3-a668-4a72da296c26"
       ]
+    },
+    {
+      "id": "release-publications-followup-v1",
+      "date": "2026-10-14",
+      "status": "confirmed",
+      "source": "user",
+      "sourceThreadId": "01a135ff-11ba-7313-9b9b-ebc14ef4e894",
+      "instruction": "이후에 지금 에이전트들이 진행하고 있는 작업들도 완료되면 그것도 묶어서 배포해",
+      "scope": "완료된 논문 지표 교체 후속을 1.1.0 고정본과 구분해 새 고정본·통합검수 후 기존 공개주소에 배포",
+      "plannedReleaseVersion": "1.1.1",
+      "workerThreadId": "01a13610-6957-7c82-9783-96d794b666c5"
     }
   ]
 }

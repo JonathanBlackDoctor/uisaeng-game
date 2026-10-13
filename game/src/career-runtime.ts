@@ -3,6 +3,7 @@ import { initialIncidents, upgradeIncidents, advanceIncidents, requiredIncident,
 import { initialJourney, upgradeJourney, requiredJourney, journeyEvent, settleJourney, advanceJourney, validJourney, finishJourney } from './specialty-journey';
 import { initialEncounters, settleEncounters, validEncounters } from './life-goals';
 import { initialLegacy, validLegacy } from './legacy-goals';
+import { initialPublications, validPublications } from './publications';
 import { applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, INSTITUTIONS, SPECIALTIES, validCareer } from './career';
 import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy, fundEducationDue } from './economy';
 import { familyFunding } from './background';
@@ -78,6 +79,7 @@ export function createCareerGame(runId: string, seed: number): GameState {
   s.journey = initialJourney();
   s.encounters = initialEncounters();
   s.legacy = initialLegacy();
+  s.publications = initialPublications();
   s.dynamics = initialDynamics(seed);
   s.incidents = initialIncidents(seed);
   s.abilities = initialAbilities(s);
@@ -523,6 +525,7 @@ export function validCareerGame(s: GameState): boolean {
   const p = s.progress;
   if (!validEncounters(s)) return false;
   if (!validLegacy(s)) return false;
+  if (!validPublications(s)) return false;
   if (!validAbilities(s.abilities, elapsedMonths(s))) return false;
   if (!validStories(s.stories, elapsedMonths(s)) || !validStoryContext(s)) return false;
   if (!s.life || !validCampus(s.campus, elapsedMonths(s)) || !validDepth(s.depth, elapsedMonths(s)) || !validDynamics(s.dynamics, elapsedMonths(s)) || !validLifestyle(s.lifestyle, elapsedMonths(s)) || !validPortfolio(s.portfolio, s)) return false;

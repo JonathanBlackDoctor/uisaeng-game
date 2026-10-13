@@ -47,6 +47,7 @@ export interface GameState {
   economy?: EconomyState;
   encounters?: import('./life-goals').EncounterRecord;
   legacy?: import('./legacy-goals').LegacyRecord;
+  publications?: import('./publications').PublicationRecord;
   progress?: CareerProgress;
   campus?: CampusState;
   depth?: CareerDepth;

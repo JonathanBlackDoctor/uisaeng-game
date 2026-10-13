@@ -1,8 +1,9 @@
 import type { GameState } from './contracts';
 import { compactWon, exactWon } from './finance-view';
 import { encounterLabel, monthlyEncounters, netAssets, nextGoal } from './life-goals';
-import { familyTimeLabel, mentoringSummary, studentsLabel } from './legacy-goals';
-import MentoringRecord from './MentoringRecord';
+import { familyTimeLabel } from './legacy-goals';
+import { publicationLabel, publicationSummary } from './publications';
+import PublicationRecord from './PublicationRecord';
 import './life-goals.css';
 
 export default function LifeGoals({ game }: { game: GameState }) {
@@ -19,9 +20,9 @@ export default function LifeGoals({ game }: { game: GameState }) {
     <div><span>가족과 보낸 시간</span><strong>{familyTimeLabel(game)}</strong>
       {active && !game.lifestyle?.enabled.family && <small>생활 설정에서 가족 시간을 마련하세요.</small>}
     </div>
-    <div><span>길러낸 제자</span><strong>{studentsLabel(game)}</strong>
-      {active && <small>{mentoringSummary(game)}</small>}
-      <MentoringRecord game={game}/>
+    <div><span>발표한 논문</span><strong>{publicationLabel(game)}</strong>
+      {active && !game.publications?.current && <small>{publicationSummary(game)}</small>}
+      <PublicationRecord game={game}/>
     </div>
   </div>;
 }

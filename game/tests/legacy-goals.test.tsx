@@ -8,6 +8,7 @@ import { lifestyleSchedule, validLifestyle } from '../src/lifestyle';
 import { openGameDatabase, persistGame, loadGame, validState } from '../src/storage';
 import { resultShareData } from '../src/result-share';
 import LifeGoals from '../src/LifeGoals';
+import MentoringRecord from '../src/MentoringRecord';
 import LifestylePanel from '../src/LifestylePanel';
 import PlayOverview from '../src/PlayOverview';
 import type { GameState } from '../src/contracts';
@@ -69,14 +70,14 @@ describe('family time and students', () => {
     const restored = JSON.parse(JSON.stringify(s));
     advance(s, 2000, ['mentoring']); advance(restored, 2000, ['mentoring']);
     expect(restored.legacy).toEqual(s.legacy); expect(restored.journal).toEqual(s.journal);
-    expect(renderToStaticMarkup(<LifeGoals game={s}/>)).toContain('진료 계획과 인계 과정 마침');
+    expect(renderToStaticMarkup(<MentoringRecord game={s}/>)).toContain('진료 계획과 인계 과정 마침');
   });
   it('provides research mentoring and lets a retired doctor continue the same student', () => {
     const s = working(); s.career!.practice = 'research';
     advance(s, 1000, ['mentoring']); s.stageIndex = 3;
     advance(s, 23000, ['mentoring']);
     expect(trainedStudents(s)).toHaveLength(1);
-    expect(renderToStaticMarkup(<LifeGoals game={s}/>)).toContain('독립 연구 과제 마침');
+    expect(renderToStaticMarkup(<MentoringRecord game={s}/>)).toContain('독립 연구 과제 마침');
   });
   it('uses the shared time budget and blocks mentoring before career or before opening a clinic', () => {
     let s = createCareerGame('availability', 42);
@@ -126,9 +127,9 @@ describe('family time and students', () => {
   it('shows both records in the overview and sharing without claiming uncompleted students', () => {
     const s = working(); advance(s, 1000, ['family', 'mentoring']);
     const html = renderToStaticMarkup(<PlayOverview game={s} busy={false} onAbilities={() => {}}>시간</PlayOverview>);
-    expect(html).toContain('가족과 보낸 시간'); expect(html).toContain('길러낸 제자');
-    expect(resultShareData(s).text).toContain('가족과 보낸 시간 24시간 (집계 시작 이후) · 길러낸 제자 0명');
-    s.status = 'completed'; expect(renderToStaticMarkup(<LifeGoals game={s}/>)).toContain('지도 미완료');
+    expect(html).toContain('가족과 보낸 시간'); expect(html).toContain('발표한 논문'); expect(html).not.toContain('길러낸 제자');
+    expect(resultShareData(s).text).toContain('가족과 보낸 시간 24시간 (집계 시작 이후) · 발표한 논문 0편');
+    s.status = 'completed'; expect(renderToStaticMarkup(<MentoringRecord game={s}/>)).toContain('지도 미완료');
   });
   it('preserves both records over a full life, choices, duplicate ticks and archive restoration', async () => {
     let s = createCareerGame('legacy-life', 42);

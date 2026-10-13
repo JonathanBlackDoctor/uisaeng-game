@@ -1,5 +1,6 @@
 import { encounterLabel, netAssets } from './life-goals';
-import { familyTimeLabel, studentsLabel } from './legacy-goals';
+import { familyTimeLabel } from './legacy-goals';
+import { publicationLabel } from './publications';
 import { compactWon } from './finance-view';
 import Opening from './Opening';
 import IdentityPanel from './IdentityPanel';
@@ -257,7 +258,7 @@ function App() {
         </>}
         {(view === 'journal' || (view === 'archive' && selectedArchive)) && <section className="panel journal"><div className="section-heading"><div><h3>{selectedArchive ? '보관된 회고' : '나의 생애 기록'}</h3><p>기록을 읽는 동안 게임 시간은 흐르지 않습니다.</p></div></div>{(selectedArchive?.state ?? game)?.status === 'completed' && <ResultShare key={(selectedArchive?.state ?? game)!.runId} game={(selectedArchive?.state ?? game)!}/>} {(selectedArchive ? selectedArchive.state.family : game?.family) && <p className="family-card">{familySummary((selectedArchive ? selectedArchive.state.family : game?.family)!)}</p>}{shownJournal.length === 0 ? <p className="empty">아직 남긴 기록이 없습니다. 첫 번째 선택을 해 보세요.</p> : <JournalHistory key={selectedArchive?.runId ?? game?.runId} entries={shownJournal}/>}</section>}
 
-        {view === 'archive' && !selectedArchive && <section className="panel journal"><h3>회고 보관함</h3>{history.length === 0 ? <p className="empty">이야기를 끝내면 이곳에 회고가 남습니다.</p> : history.map((record, i) => <button className="archive-card" key={record.runId} onClick={() => setSelectedArchive(record)}><span><strong>나의 {i + 1}번째 이야기</strong><small>{new Date(record.archivedAt).toLocaleDateString('ko-KR')} · {record.state.journal.length}개 기록</small>{record.state.career && <small>누적 진료 {encounterLabel(record.state)} · 순자산 {netAssets(record.state) === null ? '기록 없음' : compactWon(netAssets(record.state)!)}</small>}{record.state.career && <small>가족과 보낸 시간 {familyTimeLabel(record.state)} · 길러낸 제자 {studentsLabel(record.state)}</small>}</span><span>기록 펼치기 →</span></button>)}</section>}
+        {view === 'archive' && !selectedArchive && <section className="panel journal"><h3>회고 보관함</h3>{history.length === 0 ? <p className="empty">이야기를 끝내면 이곳에 회고가 남습니다.</p> : history.map((record, i) => <button className="archive-card" key={record.runId} onClick={() => setSelectedArchive(record)}><span><strong>나의 {i + 1}번째 이야기</strong><small>{new Date(record.archivedAt).toLocaleDateString('ko-KR')} · {record.state.journal.length}개 기록</small>{record.state.career && <small>누적 진료 {encounterLabel(record.state)} · 순자산 {netAssets(record.state) === null ? '기록 없음' : compactWon(netAssets(record.state)!)}</small>}{record.state.career && <small>가족과 보낸 시간 {familyTimeLabel(record.state)} · 발표한 논문 {publicationLabel(record.state)}</small>}</span><span>기록 펼치기 →</span></button>)}</section>}
       </>}
       <footer className="disclosure"><div><span><a href="https://1in8b.life/ko/" target="_blank" rel="noreferrer">80억 분의 1</a>을 오마주한 게임</span><button className="text-button" onClick={download} disabled={!db}>저장 기록 백업</button></div><details><summary>게임 안내</summary><p>인물과 사건, 능력치와 금액은 게임을 위한 창작 설정입니다. 실제 의료 제도나 개인의 삶을 예측하지 않습니다.</p></details>{APP_DISPLAY_VERSION && <small className="app-version">버전 {APP_DISPLAY_VERSION}</small>}</footer>
     </main>

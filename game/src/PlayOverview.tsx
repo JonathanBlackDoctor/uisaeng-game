@@ -3,7 +3,8 @@ import type { ChoiceResult } from './choice-feedback';
 import { STAT_LABELS, type GameState } from './contracts';
 import { compactWon, exactWon, financeView } from './finance-view';
 import { encounterLabel, netAssets } from './life-goals';
-import { familyTimeLabel, studentsLabel } from './legacy-goals';
+import { familyTimeLabel } from './legacy-goals';
+import { publicationLabel } from './publications';
 import FinanceSummary from './FinanceSummary';
 import { incidentSummary } from './major-events';
 
@@ -36,7 +37,7 @@ export default function PlayOverview({ game, children, busy, onAbilities, feedba
     {(game.career || assets !== null) && <div className="overview-finance" aria-label="생애 기록과 재정">
       {game.career && <div className="overview-goal"><span>누적 진료</span><strong>{encounterLabel(game)}</strong></div>}
       {game.career && <div className="overview-goal"><span>가족과 보낸 시간</span><strong>{familyTimeLabel(game)}</strong></div>}
-      {game.career && <div className="overview-goal"><span>길러낸 제자</span><strong>{studentsLabel(game)}</strong></div>}
+      {game.career && <div className="overview-goal"><span>발표한 논문</span><strong>{publicationLabel(game)}</strong></div>}
       {assets !== null && game.status === 'completed' && <div className="overview-goal"><span>순자산</span><strong title={exactWon(assets)}>{compactWon(assets)}</strong></div>}
       {finance && game.status !== 'completed' && <>
         <div><span>보유금</span><strong title={exactWon(game.economy!.cash)}>{compactWon(game.economy!.cash)}</strong></div>

@@ -2,6 +2,7 @@ import type { GameState, Stats } from './contracts';
 import { adjustStats, elapsedMonths, lifeAge } from './random-life';
 import { practiceAbilities, FOCUS_ABILITIES } from './abilities';
 import { accrueLegacy, canMentor, LEGACY_RULES } from './legacy-goals';
+import { accruePublications } from './publications';
 
 export const LIFESTYLE_RULES = { version: 'lifestyle-provisional-1', provisional: true,
   availableHours: [20, 12, 18, 35], focusHours: 6 };
@@ -56,6 +57,7 @@ export function accrueLifestyle(s: GameState, simulatedMs: number) {
   upgradeLifestyle(s);
   const l = s.lifestyle!, active = lifestyleSchedule(s).active;
   accrueLegacy(s, simulatedMs, active);
+  accruePublications(s, simulatedMs, active);
   for (const k of active) l.accrued[k] += simulatedMs;
   l.dietAccrued[l.diet] += simulatedMs;
 }
