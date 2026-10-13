@@ -4,6 +4,7 @@ import type { GameState } from '../src/contracts';
 import { createCareerGame, careerEvent } from '../src/career-runtime';
 import { reduceGame } from '../src/engine';
 import { CLUBS, advanceCampus, initialCampus, validCampus } from '../src/campus';
+import { opportunitySubset, OPPORTUNITY_RULES } from '../src/opportunities';
 import { ECONOMY_RULES, fundEducationDue, initialEconomy, settleEconomyMonth } from '../src/economy';
 import { loadGame, openGameDatabase, persistGame, validState } from '../src/storage';
 
@@ -11,7 +12,7 @@ const tick = (s: GameState) => reduceGame(s, { type: 'tick', id: `t:${s.revision
 const choose = (s: GameState, id: string) => reduceGame(s, { type: 'choose', id: `c:${s.revision}`, eventId: s.pendingEvent!.id, choiceId: id });
 function answer(s: GameState, club = 'pass') {
   const e = s.pendingEvent!, k = e.randomKey;
-  if (k === 'club-required' || k === 'campus-club-kind') return club;
+  if (k === 'club-required' || k === 'campus-club-kind') return e.choices.some(c => c.id === club) ? club : e.choices[0].id;
   if (k === 'funding') return e.choices.some(c => c.id === 'education-plan') ? 'education-plan' : 'loan';
   if (k === 'campus-invitation') return 'lead';
   if (k === 'campus-next-step') return 'specialty';
@@ -37,7 +38,8 @@ const news = (s: GameState) => s.journal.filter(j => j.id.startsWith('auto:campu
 
 describe('campus life', () => {
   it.each(CLUBS.map(c => [c.id, c.specialty, c.project]))('connects %s to a project, mentor and %s opportunity', async (id: string, specialty: string, project: string) => {
-    let s = until(start(), s => s.campus?.milestones.includes('campus-next-step') === true, id);
+    const seed = Array.from({ length: 100 }, (_, i) => i + 1).find(n => opportunitySubset(createCareerGame('probe', n), CLUBS, 'club', OPPORTUNITY_RULES.clubs).some(c => c.id === id))!;
+    let s = until(start(seed), s => s.campus?.milestones.includes('campus-next-step') === true, id);
     expect(s.campus!.club).toBe(id);
     expect(s.campus!.project).toBe('finished');
     expect(s.campus!.mentorMeetings).toBeGreaterThanOrEqual(4);
@@ -115,7 +117,7 @@ describe('campus life', () => {
       expect(s.campus).toBeDefined();
       if (key === 'club-required') {
         expect(s.pendingEvent!.randomKey).toBe('campus-club-kind');
-        s = choose(s, 'band'); expect(s.campus!.club).toBe('band');
+        const offered = s.pendingEvent!.choices[0].id; s = choose(s, offered); expect(s.campus!.club).toBe(offered);
       }
       if (key === 'rotation-5') expect(s.career!.explored).toContain('emergency');
     } finally { db.close(); }

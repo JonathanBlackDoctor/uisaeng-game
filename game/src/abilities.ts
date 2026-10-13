@@ -207,7 +207,7 @@ export function abilityEvent(s: GameState, key: string): Pick<GameEvent, 'title'
 export function nextAbilityEvent(s: GameState): string | null {
   const a = s.abilities, m = month(s);
   if (!a || m % ABILITY_RULES.eventSpacing) return null;
-  const eligible = ABILITY_SITUATIONS.filter(e => e.eligible(s) && m - (a.seen[e.key] ?? -100) >= ABILITY_RULES.eventCooldown);
+  const eligible = ABILITY_SITUATIONS.filter(e => e.eligible(s) && a.seen[e.key] === undefined);
   if (!eligible.length || draw(a) >= ABILITY_RULES.eventChance) return null;
   const chosen = weightedAbilityPick(eligible, draw(a), e => (e.focus === s.progress?.focus ? 2 : 1) * (0.7 + abilityScore(s, e.skills) / 100));
   a.seen[chosen.key] = m;

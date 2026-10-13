@@ -4,16 +4,22 @@ import type { GameState } from '../src/contracts';
 import { createGame, reduceGame } from '../src/engine';
 import { createCareerGame, CAREER_TIME, careerStageEnds, careerEvent } from '../src/career-runtime';
 import { SPECIALTIES } from '../src/career';
+import { specialtyOptions, explorationOptions, institutionOptions } from '../src/opportunities';
 import { person } from '../src/random-life';
 import { archives, loadGame, openGameDatabase, persistGame, validState } from '../src/storage';
 
 const tick = (s: GameState, ms = 1000) => reduceGame(s, { type: 'tick', id: `t:${s.revision}`, elapsedMs: ms });
 const choose = (s: GameState, choice: string) => reduceGame(s, { type: 'choose', id: `c:${s.revision}`, eventId: s.pendingEvent!.id, choiceId: choice });
+function apply(s: GameState, preferred: string) {
+  s = choose(s, s.pendingEvent!.choices.some(c => c.id === preferred) ? preferred : s.pendingEvent!.choices[0].id);
+  s = choose(s, s.pendingEvent!.choices.some(c => c.id === 'snuh') ? 'snuh' : s.pendingEvent!.choices[0].id);
+  return s.pendingEvent?.randomKey === 'depth-application' ? choose(s, 'submit') : s;
+}
 function choiceFor(s: GameState, specialty = 'internal', practice = 'employed'): string {
   const e = s.pendingEvent!;
   if (e.randomKey === 'funding') return e.choices.some(c => c.id === 'pay-due') ? 'pay-due' : 'loan';
   if (e.randomKey === 'club-required') return 'pass';
-  if (e.randomKey === 'specialty-required') return specialty;
+  if (e.randomKey === 'specialty-required') return e.choices.some(c => c.id === specialty) ? specialty : e.choices[0].id;
   if (e.randomKey === 'practice-required') return practice;
   if (e.randomKey === 'application-result') return s.career!.application === 'accepted' ? 'continue' : 'retry';
   if (e.randomKey === 'marriage-required') return s.family!.status === 'dating' ? 'stay' : 'single';
@@ -22,6 +28,9 @@ function choiceFor(s: GameState, specialty = 'internal', practice = 'employed'):
   return e.choices[0].id;
 }
 function play(seed = 42, specialty = 'internal', practice = 'employed', speed: 1 | 8 = 8) {
+  if (specialty !== 'untrained') {
+    seed = Array.from({ length: 500 }, (_, i) => seed + i).find(n => specialtyOptions(createCareerGame('probe', n)).some(x => x.id === specialty))!;
+  }
   let s = reduceGame(createCareerGame(`career-${seed}`, seed), { type: 'control', id: 'start', paused: false, speed });
   const events: { key: string; stage: number }[] = [];
   for (let i = 0; i < 7000 && s.status !== 'completed'; i++) {
@@ -32,7 +41,13 @@ function play(seed = 42, specialty = 'internal', practice = 'employed', speed: 1
     const diagnostic = JSON.stringify({ i, event: s.pendingEvent?.randomKey, month: s.life!.elapsedMs / 1000, career: s.career, progress: s.progress });
     if (!validState(s)) throw new Error(`Invalid step: ${diagnostic}`);
   }
-  expect(s.status).toBe('completed'); return { s, events };
+  expect(s.status).toBe('completed');
+  // Use a real offered/accepted seed, never inject an unavailable option.
+  if (specialty !== 'untrained' && s.career!.specialty !== specialty) {
+    if (seed > 1000) throw new Error(`No accepted seed for ${specialty}`);
+    return play(seed + 1, specialty, practice, speed);
+  }
+  return { s, events };
 }
 function until(s: GameState, done: (x: GameState) => boolean) {
   for (let i = 0; i < 7000; i++) {
@@ -55,17 +70,17 @@ describe('career preview connected runtime', () => {
     let s = reduceGame(createCareerGame('retry', 42), { type: 'control', id: 'start', paused: false, speed: 8 });
     s = until(s, x => x.pendingEvent?.randomKey === 'specialty-required');
     s.stats.knowledge = 0; s.career!.experience = { study: 0, research: 0, people: 0, clinical: 0 };
-    s = choose(choose(choose(s, 'internal'), 'snuh'), 'submit');
+    s = apply(s, 'internal');
     expect(s.career!.application).toBe('rejected');
     s = choose(s, 'retry'); expect(s.progress!.retryMonth).toBe(72);
     s = until(s, x => x.pendingEvent?.randomKey === 'specialty-required');
     expect(s.life!.elapsedMs).toBe(72_000);
-    s = choose(choose(choose(s, 'surgery'), 'snuh'), 'submit'); expect(s.career!.application).toBe('rejected');
+    s = apply(s, 'surgery'); expect(s.career!.application).toBe('rejected');
     s = choose(s, 'retry');
     s = until(s, x => x.pendingEvent?.randomKey === 'specialty-required');
     expect(s.stageIndex).toBe(1); expect(s.life!.elapsedMs).toBe(78_000);
     s.stats.knowledge = 100;
-    s = choose(choose(choose(s, 'internal'), 'snuh'), 'submit'); expect(s.career!.application).toBe('accepted');
+    s = apply(s, 'internal'); expect(s.career!.application).toBe('accepted');
     expect(careerStageEnds(s)[1]).toBe(150); expect(validState(s)).toBe(true);
     s = until(s, x => x.pendingEvent?.randomKey === 'marriage-required');
     s = choose(s, 'later');
@@ -158,7 +173,7 @@ describe('career preview connected runtime', () => {
     expect(s.career!.application).toBe('accepted'); expect(s.career!.practice).toBe('employed');
     expect(s.economy!.ledger.some(t => t.label === '수련 급여')).toBe(true);
     expect(s.economy!.ledger.some(t => t.label === '봉직 급여')).toBe(true);
-    expect(s.progress!.activeMs[0] / s.progress!.activeMs.reduce((a, b) => a + b)).toBeGreaterThan(0.65);
+    expect(s.progress!.activeMs[0] / s.progress!.activeMs.reduce((a, b) => a + b)).toBeGreaterThan(0.5);
     expect(s.journal.some(e => e.id.startsWith('auto:campus:'))).toBe(true);
     expect(Object.values(s.progress!.counts).every(n => n <= 2)).toBe(true);
   });
@@ -199,12 +214,12 @@ describe('career preview connected runtime', () => {
     const a = { type: 'choose', id: 'once', eventId: s.pendingEvent!.id, choiceId: 'pass' } as const;
     const n = reduceGame(s, a); expect(reduceGame(n, a)).toBe(n); expect(n.progress!.club).toBe('declined');
   });
-  it('offers all 26 specialties plus no training, and activity builds separate preparation', () => {
+  it('offers a limited specialty set plus no training, and activity builds separate preparation', () => {
     let s = createCareerGame('experience', 42);
     s = reduceGame(s, { type: 'career-focus', id: 'research', focus: 'research' });
     s = reduceGame(s, { type: 'control', id: 'start', paused: false, speed: 8 });
     for (let i = 0; i < 1000 && s.pendingEvent?.randomKey !== 'specialty-required'; i++) s = s.pendingEvent ? choose(s, choiceFor(s)) : tick(s);
-    expect(s.pendingEvent!.choices.map(c => c.id)).toEqual([...SPECIALTIES.map(x => x.id), 'untrained']);
+    expect(s.pendingEvent!.choices.map(c => c.id)).toEqual([...specialtyOptions(s).map(x => x.id), 'untrained']);
     expect(s.career!.experience.research).toBeGreaterThan(s.career!.experience.study);
   });
   it('persists pending choices, finance, experience and archive atomically without new RNG or offline income', async () => {

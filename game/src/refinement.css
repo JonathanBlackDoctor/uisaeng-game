@@ -31,6 +31,13 @@ h1, h2, h3, h4 { letter-spacing: -.035em; }
 .scene-card { border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .scene-card .ls-header { padding: 18px 22px; }
 .scene-card .ls-root { background: #fff; font-family: inherit; }
+.scene-card .ls-canvas { width: 100%; max-width: 100%; height: auto; max-height: clamp(150px, 22vh, 230px); margin-left: 0; }
+.stats-panel .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stats-panel .stat-top { flex-wrap: wrap; gap: 3px; font-size: 12px; }
+.stats-panel .stat strong { width: 100%; margin: 2px 0 0; font-size: 24px; }
+.stats-panel .stat strong small { font-size: 10px; }
+.stats-panel .stat-icon { display: none; }
+.stats-panel .section-heading { margin-bottom: 8px; }
 .ls-header h2 { font-family: inherit; font-size: 22px; font-weight: 600; }
 .ls-eyebrow { font-size: 12px; color: var(--muted); letter-spacing: 0; }
 .ls-scene-caption { justify-content: flex-end; font-size: 13px; }
@@ -118,6 +125,9 @@ h1, h2, h3, h4 { letter-spacing: -.035em; }
   .nav { font-size: 13px; min-height: 44px; }
   .content { padding: 22px 18px; }
   .life-layout, .welcome-layout { grid-template-columns: 1fr; gap: 22px; }
+  .life-layout:not(.welcome-layout) .career-panel { display: contents; }
+  .life-layout:not(.welcome-layout) .career-panel > * { order: 3; min-width: 0; }
+  .life-layout:not(.welcome-layout) .career-panel > .money-summary { order: 0; margin: 0; padding: 12px 0; border-top: 0; }
   .life-layout:not(.welcome-layout) .stats-panel { padding: 4px 0 18px; border-top: 0; border-bottom: 1px solid var(--line); }
   .life-layout:not(.welcome-layout) .stat-top { font-size: 12px; }
   .life-layout:not(.welcome-layout) .stat strong { font-size: 24px; margin-top: 4px; }
@@ -146,3 +156,5 @@ h1, h2, h3, h4 { letter-spacing: -.035em; }
   .ds-content { padding: 22px 18px; }
   .ds-title { font-size: 22px; }
 }
+
+.app-version { display: block; margin-top: 12px; text-align: right; font-size: 8px; line-height: 1.4; color: var(--muted); font-weight: 400; letter-spacing: 0; }

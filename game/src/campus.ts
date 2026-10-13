@@ -3,6 +3,7 @@ import { type Experience, SPECIALTIES } from './career';
 import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { STAGES } from './fixtures/content';
 import { practiceAbilities, FOCUS_ABILITIES, abilityEventWeight, weightedAbilityPick } from './abilities';
+import { opportunitySubset, OPPORTUNITY_RULES } from './opportunities';
 
 // Fictional campus stories and adjustable game effects, never real admissions data.
 export const CAMPUS_RULES = { version: 'campus-stories-provisional-2', provisional: true, monthlyChance: 0.72, maxQuietMonths: 2, cooldown: 10, repeatLimit: 2, experienceGain: 3 };
@@ -31,9 +32,9 @@ function note(s: GameState, id: string, title: string, detail: string, effects: 
   s.stats = adjustStats(s.stats, effects);
   s.journal.push({ id, stage: STAGES[s.stageIndex].id, title, detail: `${lifeAge(s)} · ${detail}`, effects });
 }
-export function campusChoice(s: GameState, key: string): Pick<GameEvent, 'title' | 'body' | 'choices'> | null {
+export function campusChoice(s: GameState, key: string, legacy = false): Pick<GameEvent, 'title' | 'body' | 'choices'> | null {
   const club = campusClub(s);
-  if (key === 'club-required' || key === 'campus-club-kind') return { title: '어떤 동아리를 할까', body: '점심시간, 동아리 부스를 돌아봅니다. 정기적으로 함께할 사람과 활동을 골라봅니다.', choices: [...CLUBS.map(c => option(c.id, c.name, c.detail, { relationships: 2 })), option('pass', '동아리 없이 지내기', '친구·취미·수업에서 다른 경험을 쌓습니다.')] };
+  if (key === 'club-required' || key === 'campus-club-kind') return { title: '어떤 동아리를 할까', body: '점심시간, 동아리 부스를 돌아봅니다. 정기적으로 함께할 사람과 활동을 골라봅니다.', choices: [...(legacy ? CLUBS : opportunitySubset(s, CLUBS, 'club', OPPORTUNITY_RULES.clubs)).map(c => option(c.id, c.name, c.detail, { relationships: 2 })), option('pass', '동아리 없이 지내기', '친구·취미·수업에서 다른 경험을 쌓습니다.')] };
   if (key === 'campus-invitation' && club) return { title: club.project, body: club.invitation, choices: [option('lead', '함께 맡아보기', '세 달간 준비 · 활동 경험과 선배와의 후속 기회', { health: -2, relationships: 2 }), option('help', '한 번만 도와주기', '시간을 조금 내고 남은 일정은 지킵니다.', { relationships: 1 }), option('decline', '이번에는 빠지기', '지금 하고 있는 일에 집중합니다.', { health: 1 })] };
   if (key === 'campus-next-step' && club) return { title: `${club.mentor.split(' 선배 ')[1]} 선배의 연락`, body: `${club.project} 때 함께한 선배가 연락했습니다. 다음에는 전공 이야기를 더 나누거나 동아리 후배들을 함께 챙길 수 있습니다.`, choices: [option('specialty', `${SPECIALTIES.find(x => x.id === club.specialty)!.name} 더 알아보기`, '관심 전공을 바꾸고 관련 경험을 쌓습니다.', { knowledge: 2 }), option('mentor', '후배와 활동 이어가기', '선배와의 인연을 이어가며 모임 경험을 쌓습니다.', { relationships: 3 }), option('own', '내 일정 먼저 챙기기', '쉬는 시간을 확보합니다.', { health: 2 })] };
   const milestones: Record<string, Pick<GameEvent, 'title' | 'body' | 'choices'>> = {

@@ -14,6 +14,7 @@ export interface DecisionSheetProps {
   onChoose: (choiceId: string) => void;
   evidence?: ReactNode;
   onAbilities?: () => void;
+  updateNotice?: ReactNode;
 }
 
 // A new event gets a fresh sheet, including its focus and accidental-input guard.
@@ -21,7 +22,7 @@ export default function DecisionSheet(props: DecisionSheetProps) {
   return <EventDecisionSheet key={props.event.id} {...props} />;
 }
 
-function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities }: DecisionSheetProps) {
+function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities, updateNotice }: DecisionSheetProps) {
   const id = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -175,7 +176,8 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities }: De
             </button>
           </header>
           <h2 ref={titleRef} tabIndex={-1} className="ds-title" id={`${id}-title`}>{event.title}</h2>
-          <p className="ds-body" id={`${id}-body`}>{event.body}</p>
+          <p className="ds-body" id={`${id}-body`}>{event.body.replaceAll('이 미리보기에서는', '게임에서는')}</p>
+          {!minimized && updateNotice}
           {onAbilities && <button type="button" className="subtle-button ability-open" onClick={onAbilities} disabled={busy}>능력 보기</button>}
           <ol className="ds-choices" aria-label="선택지">
             {event.choices.map((choice, index) => (
@@ -221,6 +223,7 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities }: De
           </button>
         </aside>
       )}
+      {minimized && updateNotice && <div className="ds-update-minimized">{updateNotice}</div>}
     </>,
     document.body,
   );

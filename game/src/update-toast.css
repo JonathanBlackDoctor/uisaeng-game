@@ -1,0 +1,10 @@
+.update-toast { position: fixed; z-index: 1100; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid #c8d2c8; border-radius: 8px; background: #fff; color: #263c35; box-shadow: 0 4px 20px #263c351a; font-size: 13px; }
+.update-toast > div { min-width: 0; }
+.update-toast p { margin: 0; }
+.update-toast button { min-height: 44px; padding: 8px 10px; border: 1px solid #c8d2c8; border-radius: 6px; font-size: 13px; white-space: nowrap; }
+.update-toast .update-apply { background: #294f46; color: #fff; border-color: #294f46; }
+.update-toast .update-later { background: transparent; color: #59675f; }
+.update-toast .update-error { max-width: 260px; margin-top: 4px; color: #8b3d32; overflow-wrap: anywhere; }
+.ds-sheet .update-toast { position: static; width: auto; max-width: 100%; margin: 12px 0; box-shadow: none; }
+.ds-update-minimized .update-toast { bottom: max(116px, calc(env(safe-area-inset-bottom) + 116px)); }
+@media (max-width: 420px) { .update-toast { gap: 6px; padding: 10px; font-size: 12px; } .update-toast button { padding: 7px 8px; font-size: 12px; } .update-toast .update-error { max-width: 140px; } }

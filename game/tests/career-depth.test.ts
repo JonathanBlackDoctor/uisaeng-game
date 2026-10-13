@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { GameState, TimeSpeed } from '../src/contracts';
 import { reduceGame } from '../src/engine';
 import { SPECIALTIES, type Practice } from '../src/career';
+import { institutionOptions } from '../src/opportunities';
 import { CLUBS } from '../src/campus';
 import { createCareerGame, careerEvent } from '../src/career-runtime';
 import { advanceDepth, DEPTH_RUNTIME, initialDepth, incidentDepth, requiredDepth, INSTITUTION_OPPORTUNITIES } from '../src/career-depth';
@@ -10,7 +11,7 @@ import { SPECIALTY_DEPTH } from '../src/specialty-depth';
 import { economyAction } from '../src/economy';
 import { loadGame, openGameDatabase, persistGame, validState } from '../src/storage';
 
-const tick = (s: GameState, ms = 1000) => reduceGame(s, { type: 'tick', id: `t:${s.revision}`, elapsedMs: ms });
+const tick = (s: GameState, ms = 500) => reduceGame(s, { type: 'tick', id: `t:${s.revision}`, elapsedMs: ms });
 const choose = (s: GameState, choiceId: string, id = `c:${s.revision}`) => reduceGame(s, {
   type: 'choose', id, eventId: s.pendingEvent!.id, choiceId,
 });
@@ -52,7 +53,7 @@ function automaticChoice(s: GameState) {
   return event.choices[0].id;
 }
 
-function reach(s: GameState, done: (s: GameState) => boolean, ms = 1000) {
+function reach(s: GameState, done: (s: GameState) => boolean, ms = 500) {
   for (let i = 0; i < 1200; i++) {
     if (done(s)) return s;
     s = s.pendingEvent ? choose(s, automaticChoice(s)) : tick(s, ms);
@@ -64,7 +65,8 @@ function reach(s: GameState, done: (s: GameState) => boolean, ms = 1000) {
 
 describe('hospital application and education routes', () => {
   it.each(['snuh', 'asan'])('%s confirms documents before applying and can revise without consuming an attempt', (institution: string) => {
-    const before = atMonth(66);
+    const seed = Array.from({ length: 100 }, (_, i) => i + 1).find(n => { const x = atMonth(66, 'internal', 'employed', n); x.career!.attempts = 0; x.progress!.selectedSpecialty = 'internal'; return institutionOptions(x).some(y => y.id === institution); })!;
+    const before = atMonth(66, 'internal', 'employed', seed);
     before.stageIndex = 0;
     before.career!.application = 'none';
     before.career!.specialty = null;

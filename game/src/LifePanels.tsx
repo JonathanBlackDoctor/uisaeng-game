@@ -21,7 +21,7 @@ function recordedAge(detail: string): number | null {
 
 function RecordList({ entries }: { entries: LifeEntry[] }) {
   return <ul className="lp-records">{entries.map(entry => <li key={entry.id}>
-    <strong>{entry.title}</strong><p>{entry.detail}</p>
+    <strong>{entry.title}</strong><p>{entry.detail.replaceAll('이 미리보기에서는', '게임에서는')}</p>
   </li>)}</ul>;
 }
 
@@ -138,7 +138,7 @@ export function RecentLifeFeed({ entries, limit = 5, onOpenJournal }: RecentLife
       : <ol className="lp-feed-list">{recent.map(entry => <li key={entry.id} className={newIds.has(entry.id) ? 'lp-feed-item lp-new-record' : 'lp-feed-item'}>
         <span className="lp-feed-dot" aria-hidden="true" /><article>
           <details className="lp-feed-detail"><summary><span className="lp-feed-title">{entry.title}</span></summary>
-            <p>{entry.detail}</p></details>
+            <p>{entry.detail.replaceAll('이 미리보기에서는', '게임에서는')}</p></details>
         </article>
       </li>)}</ol>}
   </section>;

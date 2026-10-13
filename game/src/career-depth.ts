@@ -191,6 +191,7 @@ export function advanceDepth(s: GameState) {
 // Stable, specialty-keyed fictional story draws preserve speed/save consistency.
 export function incidentDepth(s: GameState): string | null {
   const d = s.depth, c = s.career, x = incidentSubject(s), m = month(s);
+  if (d && Object.keys(d.decisions).filter(k => k.startsWith('depth-incident:')).length >= 2) return null;
   if (!d || !c || !x || s.stageIndex !== 2 || c.practice === 'research' || c.practice === 'undecided' || m % 12 !== 0 || m - d.lastIncident < DEPTH_RUNTIME.incidentCooldown) return null;
   let hash = (s.life!.initialSeed ^ m) >>> 0;
   for (const char of `${x.id}:${DEPTH_RULES.version}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;

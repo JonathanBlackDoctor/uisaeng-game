@@ -6,6 +6,7 @@ import type { LifeDynamics } from './life-dynamics';
 import type { AbilityState } from './abilities';
 import type { LifestyleState, LifestyleKey, Diet } from './lifestyle';
 import type { PortfolioState, InvestmentRisk } from './portfolio';
+import type { LifeStories } from './life-stories';
 export const STAT_LABELS = { health: '건강', happiness: '행복', knowledge: '지식', relationships: '관계' } as const;
 export type Stat = keyof typeof STAT_LABELS;
 export type Stats = Record<Stat, number>;
@@ -32,7 +33,7 @@ export interface RandomLife {
   childBornMonth?: number;
 }
 export type FamilyScene = 'meeting' | 'gwating' | 'blind-date' | 'campus' | 'confession' | 'cc-life' | 'distance' | 'marriage' | 'parenthood' | 'care' | 'growth' | 'couple-life' | 'single-life' | 'family-recap';
-export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
+export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
 export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats> }
 export interface GameState {
   runId: string; revision: number; seed: number; stageIndex: number; stats: Stats;
@@ -49,9 +50,11 @@ export interface GameState {
   abilities?: AbilityState;
   lifestyle?: LifestyleState;
   portfolio?: PortfolioState;
+  stories?: LifeStories;
 }
 export interface CareerProgress {
   version: 1;
+  clockVersion?: 2;
   focus: 'study' | 'research' | 'clinical' | 'people' | 'rest' | 'work';
   club: 'pending' | 'joined' | 'declined';
   marriage: 'pending' | 'later' | 'settled';
