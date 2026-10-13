@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import CareerPanel from '../src/CareerPanel';
 import { createCareerGame, careerEvent, CAREER_TIME } from '../src/career-runtime';
 import { reduceGame } from '../src/engine';
+import { pacingStoryLimit } from '../src/pacing';
 import { CLUBS } from '../src/campus';
 import { SPECIALTIES, INSTITUTIONS } from '../src/career';
 import { explorationOptions, specialtyOptions, institutionOptions } from '../src/opportunities';
@@ -92,11 +93,12 @@ describe('limited opportunities and shorter pacing', () => {
     expect(Object.values(fast.s.progress!.counts).every(n => n <= 1)).toBe(true);
     expect(fast.keys.some(k => k.endsWith(':follow'))).toBe(false);
     expect(Object.values(fast.s.stories!.decisions).every(d => d.followed)).toBe(true);
-    expect(Object.keys(fast.s.stories!.decisions)).toHaveLength(STORY_RULES.perStage.reduce<number>((a, b) => a + b, 0));
-    for (let stage = 0; stage < 4; stage++) expect(Object.keys(fast.s.stories!.decisions).filter(id => LIFE_STORIES.find(x => x.id === id)!.stage === stage).length).toBe(STORY_RULES.perStage[stage]);
+    expect(Object.keys(fast.s.stories!.decisions)).toHaveLength(6);
+    for (let stage = 0; stage < 4; stage++) expect(Object.keys(fast.s.stories!.decisions).filter(id => LIFE_STORIES.find(x => x.id === id)!.stage === stage).length).toBe(pacingStoryLimit({ ...fast.s, stageIndex: stage }));
   }, 15000);
   it('migrates old fractional time without rejecting or replaying monthly settlement', () => {
     const old = createCareerGame('old-clock', 7); delete old.progress!.clockVersion; delete old.stories;
+    delete old.progress!.pacingVersion;
     old.progress!.remainder = 19000; expect(validState(old)).toBe(true);
     old.life!.paused = false;
     const next = reduceGame(old, { type: 'tick', id: 'migrate', elapsedMs: 1 });

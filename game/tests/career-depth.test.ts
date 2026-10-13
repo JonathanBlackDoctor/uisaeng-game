@@ -2,16 +2,18 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import type { GameState, TimeSpeed } from '../src/contracts';
 import { reduceGame } from '../src/engine';
+import { careerMonthMs } from '../src/pacing';
 import { SPECIALTIES, type Practice } from '../src/career';
 import { institutionOptions } from '../src/opportunities';
 import { CLUBS } from '../src/campus';
 import { createCareerGame, careerEvent } from '../src/career-runtime';
 import { advanceDepth, DEPTH_RUNTIME, initialDepth, incidentDepth, requiredDepth, INSTITUTION_OPPORTUNITIES } from '../src/career-depth';
 import { SPECIALTY_DEPTH } from '../src/specialty-depth';
+import { initialJourney } from '../src/specialty-journey';
 import { economyAction } from '../src/economy';
 import { loadGame, openGameDatabase, persistGame, validState } from '../src/storage';
 
-const tick = (s: GameState, ms = 500) => reduceGame(s, { type: 'tick', id: `t:${s.revision}`, elapsedMs: ms });
+const tick = (s: GameState, ms = Math.min(1000, careerMonthMs(s))) => reduceGame(s, { type: 'tick', id: `t:${s.revision}`, elapsedMs: ms });
 const choose = (s: GameState, choiceId: string, id = `c:${s.revision}`) => reduceGame(s, {
   type: 'choose', id, eventId: s.pendingEvent!.id, choiceId,
 });
@@ -19,6 +21,8 @@ const choose = (s: GameState, choiceId: string, id = `c:${s.revision}`) => reduc
 // A saved, accepted trainee/doctor: keep the tests focused on the new decisions.
 function atMonth(month: number, specialty = 'internal', practice: Practice = 'employed', seed = 42) {
   const s = createCareerGame('depth-test', seed);
+  // This pre-existing career fixture has no pending admission/service decisions.
+  delete s.identity;
   s.stageIndex = month < 150 ? 1 : 2;
   Object.assign(s.life!, { elapsedMs: month * 1000, paused: false, speed: 1 });
   Object.assign(s.career!, { specialty, institution: 'snuh', application: 'accepted', attempts: 1,
@@ -28,6 +32,8 @@ function atMonth(month: number, specialty = 'internal', practice: Practice = 'em
     resolved: ['clinical-case', 'practice-required'] });
   s.campus!.lastMonth = s.campus!.lastAmbient = month;
   s.depth = initialDepth();
+  // This synthetic save begins here; do not backfill newly added career chapters.
+  s.journey = initialJourney(month);
   s.depth.decisions['depth-institution'] = { choice: 'evaluation', month: 73, followed: true };
   s.depth.institutionPath = 'evaluation';
   if (s.stageIndex === 2) {
@@ -53,7 +59,7 @@ function automaticChoice(s: GameState) {
   return event.choices[0].id;
 }
 
-function reach(s: GameState, done: (s: GameState) => boolean, ms = 500) {
+function reach(s: GameState, done: (s: GameState) => boolean, ms?: number) {
   for (let i = 0; i < 1200; i++) {
     if (done(s)) return s;
     s = s.pendingEvent ? choose(s, automaticChoice(s)) : tick(s, ms);
@@ -85,7 +91,10 @@ describe('hospital application and education routes', () => {
     expect(revised.career!.attempts).toBe(0);
     expect(revised.seed).toBe(before.seed);
     const submitted = choose(choose(revised, institution), 'submit');
-    expect(submitted.pendingEvent!.randomKey).toBe('application-result');
+    if (submitted.career!.application === 'accepted') {
+      expect(submitted.pendingEvent?.randomKey).not.toBe('application-result');
+      expect(submitted.journal.some(x => x.id === 'auto:application:1')).toBe(true);
+    } else expect(submitted.pendingEvent!.randomKey).toBe('application-result');
     expect(submitted.career!.institution).toBe(institution);
     expect(submitted.career!.attempts).toBe(1);
     expect(submitted.depth!.pendingInstitution).toBeUndefined();
@@ -207,15 +216,20 @@ describe('workload has actual monthly financial and health effects', () => {
     const learning = reach(schedule(base, 'learning'), s => s.life!.elapsedMs === 163_000);
     const income = practice === 'clinic' ? DEPTH_RUNTIME.extendedRevenue : DEPTH_RUNTIME.extendedSalary;
     const cost = practice === 'clinic' ? DEPTH_RUNTIME.extendedCost : 0;
-    expect(extended.economy!.cash - balanced.economy!.cash).toBe(3 * (income - cost));
-    expect(extended.economy!.income - balanced.economy!.income).toBe(income);
+    // Workload changes fatigue and therefore exponential synergy on variable earnings.
+    // Reconcile those real ledger entries before asserting the fixed workload payment.
+    const performance = (s: GameState, onlyLast = false) => s.economy!.ledger
+      .filter(t => /^month:\d+:performance$/.test(t.id) && t.month > 160 && (!onlyLast || t.month === 163))
+      .reduce((sum, t) => sum + t.cashDelta, 0);
+    expect(extended.economy!.cash - balanced.economy!.cash - performance(extended) + performance(balanced)).toBe(3 * (income - cost));
+    expect(extended.economy!.income - balanced.economy!.income - performance(extended, true) + performance(balanced, true)).toBe(income);
     expect(extended.economy!.expenses - balanced.economy!.expenses).toBe(cost);
     expect(extended.economy!.ledger.filter(t => t.id.startsWith('depth-month:') && t.cashDelta > 0)).toHaveLength(3);
     expect(extended.economy!.ledger.filter(t => t.label === '추가 진료 운영비')).toHaveLength(practice === 'clinic' ? 3 : 0);
     // The workload costs exactly two health; subsequent condition-based recovery may soften the net gap.
     expect(extended.journal.find(j => j.id === 'depth-load:162')?.effects.health).toBe(-2);
     expect(extended.stats.health).toBeLessThan(balanced.stats.health);
-    expect(learning.economy!.cash - balanced.economy!.cash).toBe(-3 * DEPTH_RUNTIME.learningCost);
+    expect(learning.economy!.cash - balanced.economy!.cash - performance(learning) + performance(balanced)).toBe(-3 * DEPTH_RUNTIME.learningCost);
     expect(learning.economy!.expenses - balanced.economy!.expenses).toBe(DEPTH_RUNTIME.learningCost);
     expect(learning.stats.health - balanced.stats.health).toBe(1);
     expect(learning.depth!.skill - balanced.depth!.skill).toBe(3);

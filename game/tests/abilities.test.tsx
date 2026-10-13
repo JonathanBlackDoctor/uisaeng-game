@@ -8,6 +8,11 @@ import { reduceGame } from '../src/engine';
 import { rollEffort } from '../src/life-dynamics';
 import { AbilityContent } from '../src/AbilityPanel';
 import AbilitySummary, { relevantAbilities } from '../src/AbilitySummary';
+import { LEGACY_ABILITY_MEMBERS, legacyGame } from '../src/ability-schema';
+import { abilityState, migrateAbilities, upgradeAbilities } from '../src/abilities';
+import { initialAbilities as legacyInitial, ABILITY_SITUATIONS as legacySituations, settleAbilityEvent as legacySettle } from '../src/abilities-legacy';
+import { initialPeer } from '../src/relationships';
+import { initialStories } from '../src/life-stories';
 import { openGameDatabase, persistGame, loadGame, validState } from '../src/storage';
 import type { GameState } from '../src/contracts';
 
@@ -16,12 +21,12 @@ function choose(s: GameState, id: string, action = 'answer') {
   return reduceGame(s, { type: 'choose', id: action, eventId: s.pendingEvent!.id, choiceId: id });
 }
 describe('detailed abilities', () => {
-  it('creates 30 reproducible varied skills, with every one used by an activity', () => {
+  it('creates six reproducible varied skills, with every one used by an activity', () => {
     const a = createCareerGame('a', 42), b = createCareerGame('b', 42), c = createCareerGame('a', 43);
-    expect(ABILITIES).toHaveLength(30); expect(a.abilities).toEqual(b.abilities);
+    expect(ABILITIES).toHaveLength(6); expect(a.abilities).toEqual(b.abilities);
     expect(a.abilities!.values).not.toEqual(c.abilities!.values);
-    expect(new Set(Object.values(a.abilities!.values)).size).toBeGreaterThan(20);
-    expect(new Set(Object.values(FOCUS_ABILITIES).flat()).size).toBe(30);
+    expect(new Set(Object.values(a.abilities!.values)).size).toBeGreaterThan(4);
+    expect(new Set(Object.values(FOCUS_ABILITIES).flat()).size).toBe(6);
     expect(validState(a)).toBe(true);
   });
   it('separates acquired skill from health, happiness, knowledge, relationship and fatigue effects', () => {
@@ -29,22 +34,22 @@ describe('detailed abilities', () => {
     good.stats = { health: 90, happiness: 90, knowledge: 90, relationships: 90 };
     const tired = structuredClone(good); tired.dynamics!.fatigue = 24;
     tired.stats = { health: 10, happiness: 10, knowledge: 10, relationships: 10 };
-    expect(abilityPerformance(good, 'procedures').current).toBeGreaterThan(abilityPerformance(tired, 'procedures').current);
+    expect(abilityPerformance(good, 'technique').current).toBeGreaterThan(abilityPerformance(tired, 'technique').current);
     expect(good.abilities!.values).toEqual(tired.abilities!.values);
     for (const k of ['health', 'happiness', 'knowledge', 'relationships'] as const) {
       const lower = structuredClone(good); lower.stats[k] = 0;
-      practiceAbilities(good, ['analysis'], 2, '연구'); practiceAbilities(lower, ['analysis'], 2, '연구');
-      expect(good.abilities!.values.analysis).toBeGreaterThan(lower.abilities!.values.analysis);
+      practiceAbilities(good, ['research'], 2, '연구'); practiceAbilities(lower, ['research'], 2, '연구');
+      expect(good.abilities!.values.research).toBeGreaterThan(lower.abilities!.values.research);
     }
   });
-  it('grows practiced skills, decays unused skills, caps student procedures and processes each month once', () => {
+  it('grows practiced skills, decays unused skills, caps student technique and processes each month once', () => {
     const s = createCareerGame('growth', 5); setSkills(s, 40); s.progress!.focus = 'study';
     for (let m = 1; m <= 24; m++) { s.life!.elapsedMs = m * 1000; advanceAbilities(s); }
-    expect(s.abilities!.values.memory).toBeGreaterThan(40);
-    expect(s.abilities!.values.business).toBeLessThan(40);
-    expect(s.abilities!.changes.business!.reason).toMatch(/쓰지 않은/);
+    expect(s.abilities!.values.judgment).toBeGreaterThan(40);
+    expect(s.abilities!.values.management).toBeLessThan(40);
+    expect(s.abilities!.changes.management!.reason).toMatch(/쓰지 않은/);
     const snapshot = structuredClone(s); advanceAbilities(s); expect(s).toEqual(snapshot);
-    practiceAbilities(s, ['procedures'], 100, '실습'); expect(s.abilities!.values.procedures).toBe(45);
+    practiceAbilities(s, ['technique'], 100, '실습'); expect(s.abilities!.values.technique).toBe(45);
     expect(validAbilities(s.abilities, 24)).toBe(true);
   });
   it('keeps old pending choices intact and upgrades from the current month without replaying history', () => {
@@ -60,7 +65,7 @@ describe('detailed abilities', () => {
   it('uses skills in outcomes and event weights without consuming RNG on inspection', () => {
     const low = createCareerGame('weights', 8), high = structuredClone(low); setSkills(low, 0); setSkills(high, 90);
     const snapshot = structuredClone(high);
-    abilityPerformance(high, 'sociability'); abilityEventWeight(high, 'friend'); abilityEvent(high, 'ability-team');
+    abilityPerformance(high, 'communication'); abilityEventWeight(high, 'friend'); abilityEvent(high, 'ability-team');
     expect(high).toEqual(snapshot);
     expect(abilityEventWeight(high, 'friend')).toBeGreaterThan(abilityEventWeight(low, 'friend'));
     let a = 0, b = 0;
@@ -76,6 +81,7 @@ describe('detailed abilities', () => {
     const low = createCareerGame('scenario', 42); setSkills(low, 0);
     low.progress!.focus = situation.focus;
     if (situation.key === 'ability-practice') low.life!.elapsedMs = 36000;
+    if (situation.key === 'ability-technique') low.life!.elapsedMs = 36000;
     const high = structuredClone(low); setSkills(high, 90);
     expect(abilityEvent(low, situation.key)!.choices.map(c => c.id)).not.toContain('advanced');
     high.pendingEvent = careerEvent(high, situation.key);
@@ -117,7 +123,7 @@ describe('detailed abilities', () => {
     const db = await openGameDatabase('abilities-' + crypto.randomUUID());
     try { await persistGame(db, s, null); expect((await loadGame(db))!.state).toEqual(s); }
     finally { db.close(); }
-    for (const bad of [null, [], { ...s.abilities!, values: {} }, { ...s.abilities!, seed: -1 }, { ...s.abilities!, specialties: { fake: 80 } }, { ...s.abilities!, values: { ...s.abilities!.values, memory: NaN } }, { ...s.abilities!, changes: { memory: { month: 1, delta: 1, reason: '미래' } } }]) expect(validAbilities(bad, 0)).toBe(false);
+    for (const bad of [null, [], { ...s.abilities!, values: {} }, { ...s.abilities!, seed: -1 }, { ...s.abilities!, specialties: { fake: 80 } }, { ...s.abilities!, values: { ...s.abilities!.values, judgment: NaN } }, { ...s.abilities!, changes: { judgment: { month: 1, delta: 1, reason: '미래' } } }]) expect(validAbilities(bad, 0)).toBe(false);
     expect(validAbilities(undefined, 0)).toBe(true);
   });
   it('keeps skill growth, opportunity draws and specialty state identical at different time speeds', () => {
@@ -137,19 +143,19 @@ describe('detailed abilities', () => {
   it('renders actual acquired and effective values with plain Korean labels', () => {
     const s = createCareerGame('view', 2); setSkills(s, 50); s.stats.health = 0; s.dynamics!.fatigue = 24;
     s.progress!.focus = 'rest';
-    practiceAbilities(s, ['stamina'], 1, '운동');
+    practiceAbilities(s, ['selfManagement'], 1, '운동');
     const html = renderToStaticMarkup(<AbilityContent game={s}/>);
     expect(html).toContain('쌓은 실력'); expect(html).toContain('현재 수행력'); expect(html).toContain('운동');
-    expect(html).toContain(abilityPerformance(s, 'stamina').current.toFixed(1));
+    expect(html).toContain(abilityPerformance(s, 'selfManagement').current.toFixed(1));
     expect(html).not.toContain('provisional');
-    expect(html.match(/class="ability-row"/g)).toHaveLength(3);
-    expect(html).toContain('다른 능력 보기');
+    expect(html.match(/class="ability-row(?: ability-relevant)?"/g)).toHaveLength(6);
+    expect(html).toContain('상세 능력 6가지');
   });
   it('shows actual event gates without changing saved choices or RNG', () => {
     const s = createCareerGame('impact', 42); setSkills(s, 0);
     s.pendingEvent = careerEvent(s, 'ability-schedule');
     const snapshot = structuredClone(s);
-    expect(relevantAbilities(s)).toEqual(['planning', 'concentration', 'persistence']);
+    expect(relevantAbilities(s)).toEqual(['management', 'judgment', 'selfManagement']);
     const html = renderToStaticMarkup(<AbilitySummary game={s} decision/>);
     expect(html).toContain('55부터');
     expect(s).toEqual(snapshot);
@@ -161,13 +167,72 @@ describe('detailed abilities', () => {
   });
   it('only labels current-month growth as this month and hides effects for legacy saves', () => {
     const s = createCareerGame('growth-summary', 42); s.progress!.focus = 'study';
-    practiceAbilities(s, ['memory'], 2, '공부');
+    practiceAbilities(s, ['judgment'], 2, '공부');
     const snapshot = structuredClone(s);
-    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toContain('기억력 +');
+    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toContain('판단력 +');
     expect(s).toEqual(snapshot);
     s.life!.elapsedMs += 1000;
     expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).not.toContain('이번 달');
     delete s.abilities;
     expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toBe('');
+  });
+  it('maps all 30 old skills once, retaining averages, recent changes, usage, specialty and RNG without mutating input', () => {
+    const s = createCareerGame('migration', 42), old = legacyInitial(legacyGame(s));
+    old.lastMonth = 12;
+    old.changes.memory = { month: 12, delta: 1.6, reason: '공부' };
+    old.changes.reasoning = { month: 11, delta: 1, reason: '지난 공부' };
+    old.used.memory = 12; old.specialties.internal = 10; old.seen['ability-team'] = 6;
+    const snapshot = structuredClone(old), converted = migrateAbilities(old);
+    const members = Object.values(LEGACY_ABILITY_MEMBERS).flat();
+    expect(members).toHaveLength(30); expect(new Set(members).size).toBe(30);
+    expect(converted.version).toBe(2); expect(Object.keys(converted.values)).toHaveLength(6);
+    expect(converted.seed).toBe(old.seed); expect(converted.specialties).toEqual(old.specialties);
+    expect(converted.seen).toEqual(old.seen); expect(converted.used.judgment).toBe(12);
+    expect(converted.changes.judgment).toEqual({ month: 12, delta: 0.2, reason: '공부' });
+    expect(converted.values.judgment).toBe(Math.round(LEGACY_ABILITY_MEMBERS.judgment.reduce((n, id) => n + old.values[id], 0) / 8 * 10) / 10);
+    expect(validAbilities(converted, 12)).toBe(true); expect(old).toEqual(snapshot);
+    legacyGame(s).abilities = old; s.life!.elapsedMs = 12000;
+    expect(abilityState(s)).toEqual(converted); expect(legacyGame(s).abilities).toEqual(old);
+    upgradeAbilities(s); const first = structuredClone(s); upgradeAbilities(s); expect(s).toEqual(first);
+  });
+  it.each(legacySituations)('restores and settles old $key choices under their original rules, then migrates once', (situation: (typeof legacySituations)[number]) => {
+    const s = createCareerGame('old-pending', 42); s.progress!.focus = situation.focus;
+    if (situation.key === 'ability-practice') s.life!.elapsedMs = 36000;
+    legacyGame(s).abilities = legacyInitial(legacyGame(s));
+    for (const id of Object.keys(legacyGame(s).abilities!.values)) (legacyGame(s).abilities!.values as Record<string, number>)[id] = 90;
+    s.pendingEvent = careerEvent(s, situation.key, false, false, true);
+    const old = structuredClone(s), expected = structuredClone(s);
+    expect(validState(s)).toBe(true);
+    expect(s.pendingEvent!.choices.some(c => c.id === 'advanced')).toBe(true);
+    expect(legacySettle(legacyGame(expected), situation.key, 'advanced', 'old-answer')).toBe(true);
+    const result = choose(s, 'advanced', 'old-answer');
+    expect(result.abilities).toEqual(migrateAbilities(legacyGame(expected).abilities!));
+    expect(result.stats).toEqual(expected.stats); expect(validState(result)).toBe(true);
+    expect(choose(JSON.parse(JSON.stringify(s)), 'advanced', 'old-answer')).toEqual(result);
+    expect(s).toEqual(old);
+    const tampered = structuredClone(s); tampered.pendingEvent!.body += '임의 수정';
+    expect(validState(tampered)).toBe(false);
+  });
+  it('keeps all four stats meaningful for performance and makes every new ability relevant to choices', () => {
+    const s = createCareerGame('influences', 42); setSkills(s, 50);
+    s.stats = { health: 50, happiness: 50, knowledge: 50, relationships: 50 };
+    for (const def of ABILITIES) for (const stat of Object.keys(s.stats) as (keyof typeof s.stats)[]) {
+      const higher = structuredClone(s); higher.stats[stat] = 70;
+      expect(abilityPerformance(higher, def.id).current).toBeGreaterThan(abilityPerformance(s, def.id).current);
+    }
+    expect(new Set(ABILITY_SITUATIONS.map(e => e.gate))).toEqual(new Set(ABILITIES.map(a => a.id)));
+  });
+  it('restores an old ability save and its original peer name without accepting another person', () => {
+    const s = createCareerGame('old-peer', 4091869858);
+    s.stories = initialStories();
+    legacyGame(s).abilities = legacyInitial(legacyGame(s));
+    s.stories!.peer = { ...initialPeer(s), person: { ...initialPeer(s).person, name: '민재' } };
+    s.pendingEvent = careerEvent(s, 'club-required', false, false, true);
+    expect(validState(s)).toBe(true);
+    const restored = choose(s, s.pendingEvent!.choices[0].id);
+    expect(restored.abilities!.version).toBe(2); expect(validState(restored)).toBe(true);
+    expect(restored.stories!.peer!.person.name).toBe('민재');
+    const altered = structuredClone(s); altered.stories!.peer!.person.name = '윤서';
+    expect(validState(altered)).toBe(false);
   });
 });

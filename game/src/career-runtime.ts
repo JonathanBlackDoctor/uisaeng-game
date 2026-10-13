@@ -1,5 +1,8 @@
 import { TIME_SPEEDS, type CareerProgress, type GameAction, type GameEvent, type GameState, type Stats } from './contracts';
+import { initialIncidents, upgradeIncidents, advanceIncidents, requiredIncident, incidentEvent, settleIncident, validIncidents } from './major-events';
+import { initialJourney, upgradeJourney, requiredJourney, journeyEvent, settleJourney, advanceJourney, validJourney, finishJourney } from './specialty-journey';
 import { initialEncounters, settleEncounters, validEncounters } from './life-goals';
+import { initialLegacy, validLegacy } from './legacy-goals';
 import { applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, INSTITUTIONS, SPECIALTIES, validCareer } from './career';
 import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy, fundEducationDue } from './economy';
 import { familyFunding } from './background';
@@ -9,13 +12,18 @@ import { adjustStats, createRandomGame, elapsedMonths, eligibleEvents, lifeAge, 
 import { STAGES } from './fixtures/content';
 import { initialDynamics, upgradeDynamics, advanceDynamics, settleVariableEarnings, resolveChoiceEffort, validDynamics } from './life-dynamics';
 import { initialAbilities, upgradeAbilities, advanceAbilities, abilityEvent, nextAbilityEvent, settleAbilityEvent, practiceAbilityChoice, abilityEventWeight, weightedAbilityPick, specialtyAbilityBonus, learnSpecialty, validAbilities } from './abilities';
-import { initialLifestyle, accrueLifestyle, settleLifestyle, monthlyDietFactor, lifestyleKeys, lifestyleSchedule, validLifestyle } from './lifestyle';
+import { initialLifestyle, upgradeLifestyle, accrueLifestyle, settleLifestyle, monthlyDietFactor, lifestyleKeys, lifestyleSchedule, lifestyleAvailable, validLifestyle } from './lifestyle';
 import { initialPortfolio, preparePortfolio, coverDueFromSavings, finishPortfolio, transferPortfolio, validPortfolio, PLAN_AMOUNTS } from './portfolio';
 import { explorationOptions, specialtyOptions, institutionOptions } from './opportunities';
 import { initialStories, advanceStories, storyEvent, requiredStory, settleStory, validStories, finishStories, upgradeStoryPeople, validStoryContext } from './life-stories';
+import { designEvent } from './event-design';
+import { careerMonthMs, compactPacing, PACING_RULES } from './pacing';
+import { initialIdentity, identityEvent, requiredIdentity, settleIdentity, advanceService, isServing, waitingForGraduationService, calendarMonths, validIdentity, medicalPlacement } from './identity';
+import { SERVICE_EVIDENCE } from './service-evidence';
 
 // Provisional active time, excluding reading decisions, manual pause and hidden tabs.
-// Base active time: 72*6s + 612*0.5s = 12.3 minutes, excluding decisions/pauses.
+// Legacy saves: 12.3 active minutes. New runs use pacing.ts (7.995 active minutes).
+// Including decision reading, the measured representative runs target roughly 70% total time.
 export const CAREER_TIME = { monthMs: [6_000, 500, 500, 500], provisional: true, maxRandomPerKind: 1, randomSpacing: 12, randomChance: 0.18 };
 export const CAREER_FOCUS: Record<CareerProgress['focus'], { label: string; detail: string; effects: Partial<Stats> }> = {
   study: { label: '공부', detail: '수업과 시험을 준비합니다.', effects: { knowledge: 1, health: -1 } },
@@ -44,8 +52,9 @@ function finish(s: GameState, action: GameAction) {
   s.revision++; s.processedActionIds.push(action.id); return s;
 }
 function upgradeCampus(s: GameState) {
+  upgradeJourney(s);
   if (s.progress && s.progress.clockVersion === undefined) {
-    s.progress.remainder = Math.floor(s.progress.remainder * CAREER_TIME.monthMs[s.stageIndex] / (s.stageIndex === 0 ? 20_000 : 1_000));
+    s.progress.remainder = Math.floor(s.progress.remainder * careerMonthMs(s) / (s.stageIndex === 0 ? 20_000 : 1_000));
     s.progress.clockVersion = 2;
   }
   s.stories ??= initialStories(elapsedMonths(s));
@@ -62,26 +71,40 @@ function upgradeCampus(s: GameState) {
 export function createCareerGame(runId: string, seed: number): GameState {
   const s = createRandomGame(runId, seed);
   s.rulesVersion = s.contentVersion = 'career-preview-v1';
+  s.identity = initialIdentity(seed);
   s.career = initialCareer(); s.economy = initialEconomy(s.life!.background.finances, familyFunding(s.life!.background).initialCash);
   s.campus = initialCampus();
   s.depth = initialDepth();
+  s.journey = initialJourney();
   s.encounters = initialEncounters();
+  s.legacy = initialLegacy();
   s.dynamics = initialDynamics(seed);
+  s.incidents = initialIncidents(seed);
   s.abilities = initialAbilities(s);
   s.lifestyle = initialLifestyle(); s.portfolio = initialPortfolio(seed);
   s.progress = { version: 1, clockVersion: 2, focus: 'study', club: 'pending', marriage: 'pending', resolved: [], counts: {}, activeMs: [0, 0, 0, 0], remainder: 0, retryMonth: 0, result: '' };
+  s.progress.pacingVersion = PACING_RULES.version;
   s.journal[0].title = '의대 입학';
   s.journal[0].detail = `${lifeAge(s)} · ${s.journal[0].detail}`;
   return s;
 }
-export function careerEvent(s: GameState, key: string, legacyOptions = false, legacyStory = false): GameEvent | null {
+export function careerEvent(s: GameState, key: string, legacyOptions = false, legacyStory = false, legacyChoices = false): GameEvent | null {
   const p = s.progress!, c = s.career!, e = s.economy!, subject = spec(s);
   let title: string, body: string, choices: GameEvent['choices'];
   const campus = (s.campus || key.startsWith('campus-')) ? campusChoice(s, key, legacyOptions) : null;
   const depth = key.startsWith('depth-') ? depthEvent(s, key) : null;
   const ability = key.startsWith('ability-') ? abilityEvent(s, key) : null;
   const story = key.startsWith('story:') ? storyEvent(s, key, legacyStory) : null;
-  if (story) {
+  const journey = key.startsWith('journey:') ? journeyEvent(s, key) : null;
+  const identity = key.startsWith('service:') || key.startsWith('identity:') ? identityEvent(s, key) : null;
+  const incident = key.startsWith('incident:') ? incidentEvent(s, key) : null;
+  if (incident) {
+    ({ title, body, choices } = incident);
+  } else if (identity) {
+    ({ title, body, choices } = identity);
+  } else if (journey) {
+    ({ title, body, choices } = journey);
+  } else if (story) {
     ({ title, body, choices } = story);
   } else if (ability) {
     ({ title, body, choices } = ability);
@@ -147,18 +170,55 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
   const applicationSource = key === 'depth-application' && s.depth?.pendingInstitution ? (s.depth.pendingInstitution === 'snuh'
     ? { text: '서울대학교병원 2026년 공고는 온라인 접수와 방문 접수를 모두 요구했습니다.', url: 'https://dept.snuh.org/dept/RTO/content.do?menuId=002003', sha256: 'ffaf83d4296437cb3fe8d8d52acf6e67d709fd00ffa06838b1f7a75e6ab50384' }
     : { text: '서울아산병원 2026년 공고는 지원서 작성과 교육수련팀 방문 접수 시간을 안내했습니다.', url: 'https://edtr.amc.seoul.kr/education/service/template/view.do?seq=75', sha256: 'aeed9ee3523b05390be302a71d16a9b0a4c1fe356ad8f4c2c47cabef25392a06' }) : undefined;
-  return { id: `${s.runId}:career:${key}:${elapsedMonths(s)}:${s.revision}`, stage: stage(s), title, body, choices, provenance: 'career-preview', randomKey: key,
+  const serviceSource = key === 'service:plan' ? SERVICE_EVIDENCE.army : key === 'service:timing' ? SERVICE_EVIDENCE['medical-training'] : key === 'service:placement' && medicalPlacement(s) === 'public-health' ? SERVICE_EVIDENCE['public-health'] : undefined;
+  return designEvent(s, { id: `${s.runId}:career:${key}:${elapsedMonths(s)}:${s.revision}`, stage: stage(s), title, body, choices, provenance: 'career-preview', randomKey: key,
     ...(!legacyOptions && (['specialty-required', 'institution-required', 'campus-club-kind'].includes(key) || (key === 'club-required' && s.campus)) ? { opportunityVersion: 1 as const } : {}),
-    ...(info ? { sourceNote: { text: info.fact, url: info.url, sha256: info.sha256 } } : applicationSource ? { sourceNote: applicationSource } : {}) };
+    ...(info ? { sourceNote: { text: info.fact, url: info.url, sha256: info.sha256 } } : applicationSource ? { sourceNote: applicationSource } : serviceSource ? { sourceNote: serviceSource } : {}) }, legacyChoices);
 }
 function pending(s: GameState, key: string) { s.pendingEvent = careerEvent(s, key); }
+function automaticSupport(s: GameState) {
+  const m = elapsedMonths(s);
+  if (s.stageIndex === 0 && m >= 6 && !has(s, 'scholarship-required')) {
+    resolved(s, 'scholarship-required');
+    if (!s.life!.flags.includes('scholarship')) {
+      const draw = nextRandom(s.seed); s.seed = draw.seed;
+      const accepted = draw.value < 0.45 + s.stats.knowledge / 400;
+      if (accepted) s.life!.flags.push('scholarship');
+      log(s, 'auto:scholarship', '장학금 심사 결과', accepted
+        ? '학업 기록으로 장학금을 신청해 선발됐습니다. 다음 달부터 재학 중 매달 지원을 받습니다.'
+        : '학업 기록으로 장학금을 신청했지만 이번에는 선발되지 않았습니다.');
+    }
+  }
+  if (s.economy!.due <= 0) return;
+  // A free, one-time grant has no competing use. Apply it before asking how
+  // to cover the remaining shortfall; borrowing and work remain decisions.
+  if (s.economy!.cash < s.economy!.due && !s.economy!.ledger.some(t => t.kind === 'grant')) {
+    const grant = economyAction(s.economy!, 'auto:living-grant', 'grant', m);
+    if (grant.ok) {
+      s.economy = grant.state;
+      log(s, 'auto:living-grant', '생활 지원금', `일회성 지원 ${won(ECONOMY_RULES.grantAmount)}을 받아 미납액에 보탰습니다.`);
+    }
+  }
+  if (s.economy!.cash >= s.economy!.due) {
+    s.economy = economyAction(s.economy!, `auto:due:${m}`, 'pay-due', m).state;
+  }
+}
 function required(s: GameState): string | null {
   const m = elapsedMonths(s), c = s.career!, p = s.progress!;
+  automaticSupport(s);
+  if (p.result && c.application === 'accepted') {
+    log(s, `auto:application:${c.attempts}`, '수련 지원 결과', p.result);
+    p.result = '';
+  }
   if (s.economy!.due > 0) return 'funding';
+  const identity = requiredIdentity(s, careerStageEnds(s)[1]);
+  if (identity) return identity;
+  if (isServing(s)) return null;
+  const incident = requiredIncident(s); if (incident) return incident;
   if (s.stageIndex === 0) {
     if (p.club === 'pending' && m >= 1) return 'club-required';
-    if (m >= 6 && !has(s, 'scholarship-required')) return 'scholarship-required';
     const campus = requiredCampus(s); if (campus) return campus;
+    if (waitingForGraduationService(s)) return null;
     if (m >= 66 && c.application === 'none' && !p.selectedSpecialty) return 'specialty-required';
     if (m >= 66 && c.application === 'none' && p.selectedSpecialty) return s.depth?.pendingInstitution ? 'depth-application' : 'institution-required';
   }
@@ -169,6 +229,16 @@ function required(s: GameState): string | null {
   if (s.stageIndex >= 2 && c.practice === 'undecided') return 'practice-required';
   if (s.stageIndex === 2 && c.practice === 'clinic' && !s.economy!.ledger.some(t => t.kind === 'open-clinic')) return 'clinic-funding';
   const depth = requiredDepth(s); if (depth) return depth;
+  const journey = requiredJourney(s);
+  if (journey) {
+    const event = careerEvent(s, journey)!;
+    const qualification = journey.startsWith('journey:fellow-review:') && event.choices.find(c => c.id === 'qualify');
+    if (qualification && settleJourney(s, journey, 'qualify')) {
+      log(s, `auto:qualification:${journey}`, event.title, qualification.description, qualification.effects);
+      return required(s);
+    }
+    return journey;
+  }
   const story = requiredStory(s); if (story) return story;
   if (s.stageIndex === 2 && m >= 156 && !has(s, 'clinical-case')) return 'clinical-case';
   if (!s.depth && s.stageIndex === 2 && c.practice !== 'research' && m >= 216 && !has(s, 'patient-loss')) return 'patient-loss';
@@ -176,7 +246,12 @@ function required(s: GameState): string | null {
   if (m >= careerStageEnds(s)[s.stageIndex]) {
     if (s.stageIndex === 1 && c.application === 'rejected' && c.practice === 'undecided') return 'specialty-required';
     if (s.stageIndex === 0 && !['accepted', 'untrained'].includes(c.application) && c.practice !== 'research' && !(c.application === 'rejected' && p.retryMonth > m)) return 'specialty-required';
-    return 'stage-end';
+    const event = careerEvent(s, 'stage-end')!;
+    log(s, `auto:stage:${s.stageIndex}`, event.title, event.body);
+    if (s.stageIndex === 0) s.campus!.automaticFunding = false;
+    if (s.stageIndex === 3) { s.status = 'completed'; s.life!.paused = true; finishStories(s); finishJourney(s); return null; }
+    s.stageIndex++;
+    return required(s);
   }
   return null;
 }
@@ -187,14 +262,17 @@ function advanceMonth(s: GameState) {
   advanceAbilities(s);
   preparePortfolio(s);
   s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s), familyMonthly: funding.monthly, familySemester: funding.semester });
-  if (s.life!.childBornMonth !== undefined) { const age = m - s.life!.childBornMonth; s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young'; }
+  if (s.life!.childBornMonth !== undefined) { const age = calendarMonths(s) - s.life!.childBornMonth; s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young'; }
   advanceCampus(s);
   advanceStories(s);
   advanceDepth(s);
+  advanceJourney(s);
   advanceDynamics(s);
   settleVariableEarnings(s);
   settleLifestyle(s);
+  advanceIncidents(s);
   coverDueFromSavings(s);
+  automaticSupport(s);
   if (s.stageIndex === 0 && s.campus?.automaticFunding && s.economy.due > 0) s.economy = fundEducationDue(s.economy, `month:${m}:planned-funding`, m);
   finishPortfolio(s);
   if (s.stageIndex > 0 && [84, 108, 132, 168, 192, 240, 360, 480].includes(m)) {
@@ -210,11 +288,17 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
   upgradeCampus(s);
   upgradeDepth(s);
   s.encounters ??= initialEncounters(elapsedMonths(s));
-  upgradeAbilities(s);
-  if (key.startsWith('story:')) {
+  if (!key.startsWith('ability-')) upgradeAbilities(s);
+  if (key.startsWith('incident:')) {
+    if (!settleIncident(s, key, id)) return null;
+  } else if (key.startsWith('service:') || key.startsWith('identity:')) {
+    if (!settleIdentity(s, key, id)) return null;
+  } else if (key.startsWith('journey:')) {
+    if (!settleJourney(s, key, id)) return null;
+  } else if (key.startsWith('story:')) {
     if (!settleStory(s, key, id)) return null;
   } else if (key.startsWith('ability-')) {
-    if (!settleAbilityEvent(s, key, id, action.id)) return null;
+    if (!settleAbilityEvent(s, key, id, action.id, e.choiceVersion)) return null;
   } else if (key === 'depth-application' && id === 'revise') {
     delete s.depth!.pendingInstitution; pending(s, 'institution-required');
   } else if (key === 'institution-required' && ['snuh', 'asan'].includes(id)) {
@@ -258,7 +342,7 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
     delete s.depth!.pendingInstitution;
     s.career = result.state; s.progress!.result = result.detail;
     if (result.accepted) s.progress!.trainingStartMonth = Math.max(72, elapsedMonths(s));
-    pending(s, 'application-result');
+    if (!result.accepted) pending(s, 'application-result');
   } else if (key === 'application-result') {
     s.progress!.result = '';
     if (id === 'retry') {
@@ -278,10 +362,10 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
   }
   else if (key === 'stage-end') {
     if (s.stageIndex === 0) s.campus!.automaticFunding = false;
-    if (s.stageIndex === 3) { s.status = 'completed'; s.life!.paused = true; finishStories(s); }
+    if (s.stageIndex === 3) { s.status = 'completed'; s.life!.paused = true; finishStories(s); finishJourney(s); }
     else s.stageIndex++;
   } else resolved(s, key);
-  log(s, action.id, e.title, key.startsWith('story:') ? choice.description : choice.label, choice.effects);
+  log(s, action.id, e.title, key.startsWith('story:') || key.startsWith('journey:') ? choice.description : choice.label, choice.effects);
   resolveChoiceEffort(s, key, id, action.id);
   practiceAbilityChoice(s, key, id);
   return s;
@@ -289,12 +373,15 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
 export function reduceCareerGame(state: GameState, action: GameAction): GameState {
   if (action.type === 'next-choice') return state;
   if (state.status === 'completed' || state.processedActionIds.includes(action.id) || !state.progress || !state.career || !state.economy || !state.life) return state;
+  if (isServing(state) && !['tick', 'control', 'choose', 'finance'].includes(action.type)) return state;
   if (['lifestyle', 'diet', 'money-plan', 'investment-risk', 'savings-buffer', 'money-transfer'].includes(action.type)) {
     if (state.pendingEvent && !(action.type === 'money-transfer' && ['withdraw', 'sell'].includes(action.kind) && state.pendingEvent.randomKey === 'funding')) return state;
     const s = structuredClone(state);
     s.lifestyle ??= initialLifestyle(elapsedMonths(s)); s.portfolio ??= initialPortfolio(s.life!.initialSeed, elapsedMonths(s));
+    upgradeLifestyle(s);
     if (action.type === 'lifestyle') {
       if (!lifestyleKeys.includes(action.key) || typeof action.enabled !== 'boolean' || s.lifestyle.enabled[action.key] === action.enabled) return state;
+      if (action.enabled && !lifestyleAvailable(s, action.key)) return state;
       s.lifestyle.enabled[action.key] = action.enabled;
       if (action.enabled && lifestyleSchedule(s).suspended.length > lifestyleSchedule(state).suspended.length) return state;
     } else if (action.type === 'diet') {
@@ -384,11 +471,20 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   upgradeDepth(s);
   upgradeDynamics(s);
   upgradeAbilities(s);
+  upgradeIncidents(s);
   s.lifestyle ??= initialLifestyle(elapsedMonths(s)); s.portfolio ??= initialPortfolio(s.life!.initialSeed, elapsedMonths(s));
   const keyNow = required(s); if (keyNow) { pending(s, keyNow); return finish(s, action); }
+  if (s.status === 'completed') return finish(s, action);
+  if (isServing(s)) {
+    const before = s.identity!.service.elapsedMs;
+    advanceService(s, action.elapsedMs);
+    s.progress!.activeMs[s.stageIndex] += (s.identity!.service.elapsedMs - before) / s.life!.speed;
+    const key = required(s); if (key) pending(s, key);
+    return finish(s, action);
+  }
   let remaining = action.elapsedMs * s.life!.speed;
   while (remaining > 0 && !s.pendingEvent && s.status === 'active') {
-    const duration = CAREER_TIME.monthMs[s.stageIndex];
+    const duration = careerMonthMs(s);
     const simulated = s.life!.elapsedMs % RANDOM_RULES.monthMs;
     const need = ((1000 - simulated) * duration - s.progress!.remainder) / 1000;
     const used = Math.min(remaining, need);
@@ -401,11 +497,12 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
     if (s.life!.elapsedMs % 1000 !== 0 || progress === 0) break;
     advanceMonth(s);
     const key = required(s); if (key) { pending(s, key); break; }
+    if ((s.status as GameState['status']) === 'completed') break;
     const incident = incidentDepth(s); if (incident) { pending(s, incident); break; }
     const abilityKey = nextAbilityEvent(s); if (abilityKey) { pending(s, abilityKey); break; }
     const m = elapsedMonths(s);
     const chance = nextRandom(s.seed); s.seed = chance.seed;
-    if (m % CAREER_TIME.randomSpacing !== 0 || chance.value >= CAREER_TIME.randomChance) continue;
+    if (m % CAREER_TIME.randomSpacing !== 0 || chance.value >= (compactPacing(s) ? PACING_RULES.randomChance : CAREER_TIME.randomChance)) continue;
     const candidates = eligibleEvents(s).filter(d => !['club', 'mentor', 'research', 'research-followup', 'study-cost'].includes(d.key) && (s.progress!.counts[d.key] ?? 0) < CAREER_TIME.maxRandomPerKind && !(d.key === 'marriage' && s.progress!.marriage === 'settled'));
     if (!candidates.length) continue;
     const draw = nextRandom(s.seed); s.seed = draw.seed;
@@ -420,8 +517,12 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   return finish(s, action);
 }
 export function validCareerGame(s: GameState): boolean {
+  if (!validIncidents(s)) return false;
+  if (!validIdentity(s)) return false;
+  if (!validJourney(s)) return false;
   const p = s.progress;
   if (!validEncounters(s)) return false;
+  if (!validLegacy(s)) return false;
   if (!validAbilities(s.abilities, elapsedMonths(s))) return false;
   if (!validStories(s.stories, elapsedMonths(s)) || !validStoryContext(s)) return false;
   if (!s.life || !validCampus(s.campus, elapsedMonths(s)) || !validDepth(s.depth, elapsedMonths(s)) || !validDynamics(s.dynamics, elapsedMonths(s)) || !validLifestyle(s.lifestyle, elapsedMonths(s)) || !validPortfolio(s.portfolio, s)) return false;
@@ -431,34 +532,39 @@ export function validCareerGame(s: GameState): boolean {
     || !p.counts || typeof p.counts !== 'object' || Array.isArray(p.counts) || Object.values(p.counts).some(n => !Number.isInteger(n) || n < 0 || n > 2)
     || !Array.isArray(p.activeMs) || p.activeMs.length !== 4 || p.activeMs.some(n => !Number.isFinite(n) || n < 0)
     || (p.clockVersion !== undefined && p.clockVersion !== 2)
-    || !Number.isInteger(p.remainder) || p.remainder < 0 || p.remainder >= (p.clockVersion === 2 ? CAREER_TIME.monthMs[s.stageIndex] : s.stageIndex === 0 ? 20_000 : 1_000)
+    || (p.pacingVersion !== undefined && p.pacingVersion !== 1)
+    || !Number.isInteger(p.remainder) || p.remainder < 0 || p.remainder >= (p.clockVersion === 2 ? careerMonthMs(s) : s.stageIndex === 0 ? 20_000 : 1_000)
     || !Number.isInteger(p.retryMonth) || p.retryMonth < 0 || typeof p.result !== 'string' || (p.selectedSpecialty !== undefined && !SPECIALTIES.some(x => x.id === p.selectedSpecialty)) || !s.life) return false;
   if ((p.marriageRetryMonth !== undefined && (!Number.isSafeInteger(p.marriageRetryMonth) || p.marriageRetryMonth < 0 || p.marriageRetryMonth > elapsedMonths(s) + 36))
     || (p.trainingStartMonth !== undefined && (!Number.isSafeInteger(p.trainingStartMonth) || p.trainingStartMonth < 72 || p.trainingStartMonth > Math.max(72, elapsedMonths(s) + 6)))) return false;
   const base: GameState = { ...s, rulesVersion: 'random-preview-v1', contentVersion: 'random-preview-v1' };
   if (base.pendingEvent?.provenance === 'career-preview') base.pendingEvent = null;
   const ends = careerStageEnds(s);
+  if ((s.pendingEvent?.randomKey?.startsWith('service:') || s.pendingEvent?.randomKey?.startsWith('identity:'))
+    && requiredIdentity(s, ends[1]) !== s.pendingEvent.randomKey) return false;
   const atEnd = s.life.elapsedMs === ends[s.stageIndex] * 1000;
   if (atEnd && s.status === 'active') base.pendingEvent = randomEvent(base, 'milestone');
   if (!validRandomState(base, ends)) return false;
   if (!s.pendingEvent || s.pendingEvent.provenance !== 'career-preview') return true;
-  const canonical = careerEvent(s, s.pendingEvent.randomKey!);
+  if (s.pendingEvent.choiceVersion !== undefined && s.pendingEvent.choiceVersion !== 1) return false;
+  const legacyChoices = s.pendingEvent.choiceVersion === undefined;
+  const canonical = careerEvent(s, s.pendingEvent.randomKey!, false, false, legacyChoices);
   // Event identity is fixed before revision increments and persists across restore.
   if (!canonical || !s.pendingEvent.id.startsWith(`${s.runId}:career:${s.pendingEvent.randomKey}:${elapsedMonths(s)}:`)) return false;
   const matches = (event: GameEvent) => JSON.stringify({ ...event, id: s.pendingEvent!.id }) === JSON.stringify(s.pendingEvent);
   if (matches(canonical)) return true;
   // Preserve exact, already-open pre-release story text; arbitrary edits still fail.
   if (s.pendingEvent.randomKey?.startsWith('story:')) {
-    const legacy = careerEvent(s, s.pendingEvent.randomKey, false, true);
+    const legacy = careerEvent(s, s.pendingEvent.randomKey, false, true, legacyChoices);
     if (legacy && matches(legacy)) return true;
   }
   if (s.pendingEvent.opportunityVersion === undefined && ['club-required', 'campus-club-kind', 'specialty-required', 'institution-required'].includes(canonical.randomKey!)) {
-    const legacy = careerEvent(s, canonical.randomKey!, true);
+    const legacy = careerEvent(s, canonical.randomKey!, true, false, legacyChoices);
     if (legacy && matches(legacy)) return true;
   }
   // Exact legacy snapshots remain readable while subsequent events use the new content.
   if (s.campus && ['funding', 'club-required'].includes(canonical.randomKey!)) {
-    const legacy = careerEvent({ ...s, campus: undefined }, canonical.randomKey!);
+    const legacy = careerEvent({ ...s, campus: undefined }, canonical.randomKey!, false, false, legacyChoices);
     if (legacy && matches(legacy)) return true;
   }
   // Preserve already-pending events from the first career preview build.

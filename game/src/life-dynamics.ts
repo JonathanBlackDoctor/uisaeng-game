@@ -1,7 +1,7 @@
 import type { GameState, Stats, CareerProgress } from './contracts';
 import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { ECONOMY_RULES } from './economy';
-import { focusAbilityModifier, abilityFatigueRelief } from './abilities';
+import { focusAbilityModifier, abilityFatigueRelief, specialtySynergy } from './abilities';
 import { familyFatigueModifier } from './background';
 
 type Focus = CareerProgress['focus'];
@@ -53,9 +53,9 @@ function record(s: GameState, id: string, title: string, detail: string, effects
   s.journal.push({ id, stage: ['university', 'training', 'career', 'retirement'][s.stageIndex] as 'university', title,
     detail: `${lifeAge(s)} · ${detail}`, effects: actual });
 }
-function effortEffects(focus: Focus, grade: number): Partial<Stats> {
+function effortEffects(focus: Focus, grade: number, synergy = 1): Partial<Stats> {
   const target = relevant[focus];
-  return { [target]: grade < 0 ? grade * 2 : grade + 1,
+  return { [target]: grade < 0 ? grade * 2 : (grade + 1) * synergy,
     ...(focus !== 'rest' ? { happiness: grade } : { happiness: Math.max(0, grade + 1) }) };
 }
 export function resolveChoiceEffort(s: GameState, eventKey: string, choice: string, actionId: string) {
@@ -72,12 +72,13 @@ export function resolveChoiceEffort(s: GameState, eventKey: string, choice: stri
   if (d.attempts.includes(actionId)) return;
   d.attempts.push(actionId);
   const grade = rollEffort(s, focus);
+  const synergy = specialtySynergy(s, focus);
   if (focus in s.career!.experience) {
     const k = focus as keyof NonNullable<GameState['career']>['experience'];
-    s.career!.experience[k] = clamp(s.career!.experience[k] + grade * 3, 0, 100);
+    s.career!.experience[k] = clamp(s.career!.experience[k] + Math.round(grade * 3 * (grade > 0 ? synergy : 1)), 0, 100);
   }
-  if (eventKey.startsWith('depth-') && s.depth) s.depth.skill = clamp(s.depth.skill + grade * 2, 0, 100);
-  record(s, `${actionId}:effort`, `${labels[focus]}의 결과`, outcomes[grade + 2], effortEffects(focus, grade));
+  if (eventKey.startsWith('depth-') && s.depth) s.depth.skill = clamp(s.depth.skill + Math.round(grade * 2 * (grade > 0 ? synergy : 1)), 0, 100);
+  record(s, `${actionId}:effort`, `${labels[focus]}의 결과`, outcomes[grade + 2], effortEffects(focus, grade, synergy));
 }
 
 /** Called once after the existing monthly content. Old saves start at their current month. */
@@ -98,13 +99,15 @@ export function advanceDynamics(s: GameState) {
   // Past success or failure matters, but cannot lock a focus into one outcome for decades.
   if (m % 3 === 0) for (const key of focuses) d.momentum[key] -= Math.sign(d.momentum[key]);
   const grade = rollEffort(s, focus);
+  const synergy = specialtySynergy(s, focus);
   if (focus in s.career!.experience) {
     const k = focus as keyof NonNullable<GameState['career']>['experience'];
-    s.career!.experience[k] = clamp(s.career!.experience[k] + [-2, 0, 3, 6, 9][grade + 2], 0, 100);
+    const gain = [-2, 0, 3, 6, 9][grade + 2];
+    s.career!.experience[k] = clamp(s.career!.experience[k] + Math.round(gain * (gain > 0 ? synergy : 1)), 0, 100);
   }
   s.career!.lastMonth = m;
   if (m % DYNAMICS_RULES.quarter !== 0) return;
-  const effects = effortEffects(focus, grade);
+  const effects = effortEffects(focus, grade, synergy);
   // Maintaining every stat takes time. High values have a larger upkeep burden.
   for (const key of Object.keys(s.stats) as (keyof Stats)[]) {
     const neglected = key !== relevant[focus] && !(key === 'happiness' && ['rest', 'people'].includes(focus));
@@ -136,8 +139,9 @@ export function variableEarnings(s: GameState): number {
   if (s.stageIndex === 0) return f === 'work' ? Math.round(ECONOMY_RULES.universityWorkMonthly * d.momentum.work / 30) : 0;
   if (s.stageIndex !== 2 && !(s.stageIndex === 1 && s.career.application !== 'accepted')) return 0;
   const practice = s.career.practice;
-  if (practice === 'clinic') return s.economy.ledger.some(t => t.kind === 'open-clinic') ? Math.round(ECONOMY_RULES.clinicRevenue * clamp(momentum / 45, -0.5, 0.8)) : 0;
-  if (practice === 'research') return Math.round(ECONOMY_RULES.researchIncome * clamp(momentum / 60, -0.35, 0.5));
+  const synergy = momentum > 0 ? specialtySynergy(s, practice === 'research' ? 'research' : 'clinical') : 1;
+  if (practice === 'clinic') return s.economy.ledger.some(t => t.kind === 'open-clinic') ? Math.round(ECONOMY_RULES.clinicRevenue * clamp(momentum / 45, -0.5, 0.8) * synergy) : 0;
+  if (practice === 'research') return Math.round(ECONOMY_RULES.researchIncome * clamp(momentum / 60, -0.35, 0.5) * synergy);
   return 0;
 }
 export function settleVariableEarnings(s: GameState) {

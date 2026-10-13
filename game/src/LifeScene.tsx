@@ -1,12 +1,15 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { sceneRoom, seasonIndex, type NotebookState, type SceneActivity } from './scene-state';
 import './life-scene.css';
+import type { ServiceRoute } from './identity';
+import { OutdoorBackdrop, RoomFurniture, SeasonalDetails, SPECIALTY_VISUALS } from './SceneScenery';
 
 export interface LifeSceneProps {
   stage: 'university' | 'training' | 'career' | 'retirement';
   age: number;
   month: number;
   running: boolean;
-  focus: 'study' | 'connect' | 'rest';
+  focus: SceneActivity;
   seed: number;
   relationship: 'single' | 'dating' | 'married';
   partnerName?: string;
@@ -15,167 +18,248 @@ export interface LifeSceneProps {
   workContext?: 'research' | 'preparation';
   reaction?: 'learning' | 'connection' | 'rest' | null;
   companionName?: string;
+  notebook?: NotebookState;
+  guestName?: string;
+  awaitingChoice?: boolean;
+  serviceRoute?: ServiceRoute;
+  specialty?: string;
+  exercise?: boolean;
+  extraStudy?: boolean;
 }
 
-const STAGES = {
-  university: { title: '캠퍼스', label: '대학 생활', place: '캠퍼스' },
-  training: { title: '수련 병원', label: '수련 생활', place: '병원' },
-  career: { title: '일터', label: '의사 생활', place: '진료 공간' },
-  retirement: { title: '공원', label: '은퇴 생활', place: '공원' },
+const ROOMS = {
+  campus: { title: '캠퍼스', accent: '#85966c', wall: '#e9eddb', label: '수업 사이의 여유' },
+  park: { title: '공원', accent: '#859c7b', wall: '#e7edde', label: '동네에서 쉬어 가는 중' },
+  'military-clinic': { title: '군 진료실', accent: '#788967', wall: '#e0e6d8', label: '진료실에서' },
+  'public-health': { title: '보건지소', accent: '#879e7c', wall: '#e9ecdd', label: '지역의 진료실에서' },
+  barracks: { title: '부대 생활관', accent: '#59684c', wall: '#dfe3d7', label: '생활관에서' },
+  library: { title: '열람실', accent: '#b48a43', wall: '#f0eee7', label: '책을 펼쳐 둔 오후' },
+  ward: { title: '병동', accent: '#517f80', wall: '#e8eeeb', label: '차트를 확인하는 중' },
+  clinic: { title: '진료실', accent: '#577f79', wall: '#e9eeea', label: '일터에서' },
+  research: { title: '연구실', accent: '#6c799a', wall: '#e9ebef', label: '자료를 살펴보는 중' },
+  preparation: { title: '작업 공간', accent: '#a18356', wall: '#efede7', label: '다음 지원을 준비하며' },
+  home: { title: '집', accent: '#b77a60', wall: '#f1eae3', label: '잠깐 쉬어 가는 중' },
+  lounge: { title: '휴게 공간', accent: '#7d8a60', wall: '#eceee5', label: '일상 사이의 여유' },
 };
-const FOCUS = { study: '공부', connect: '친구 만나기', rest: '휴식' };
 const SEASONS = [
-  { key: 'spring', name: '봄', sky: '#e7eeeb', ground: '#d8dfba', leaf: '#8bac83', accent: '#dfada4' },
-  { key: 'summer', name: '여름', sky: '#dcecee', ground: '#c8d7ad', leaf: '#608b72', accent: '#e0bd76' },
-  { key: 'autumn', name: '가을', sky: '#f2e6d6', ground: '#ded1ae', leaf: '#bd8556', accent: '#cc735c' },
-  { key: 'winter', name: '겨울', sky: '#e3e9ed', ground: '#e9e9df', leaf: '#a3b6ad', accent: '#afbec5' },
+  { name: '봄', sky: '#dce7df', leaf: '#9eb69b' },
+  { name: '여름', sky: '#cddfe4', leaf: '#78998a' },
+  { name: '가을', sky: '#e8d9c6', leaf: '#c49d70' },
+  { name: '겨울', sky: '#dce2e8', leaf: '#b6c4c5' },
 ];
-const SKIN = ['#b97c5c', '#e3b68e', '#93614e', '#d29973'];
-const HAIR = ['#39312e', '#635047', '#443b39', '#775846'];
-const CLOTHES = ['#417a78', '#a46253', '#656e8d', '#8c794d'];
+const SKINS = ['#d9ad8e', '#b78063', '#e3bda2', '#956d59'];
+type Vars = CSSProperties & Record<`--${string}`, string | number>;
 
-// These decorative scenes are game illustrations, not biographical facts.
-// Only the supplied relationship/children state determines who is present.
-function Person({ x, y, scale = 1, skin, hair, shirt, older = false, medical = false, book = false }: {
-  x: number; y: number; scale?: number; skin: string; hair: string; shirt: string;
-  older?: boolean; medical?: boolean; book?: boolean;
+// Sample the latest season on a wall-clock cadence. Fast-forward never queues
+// intermediate seasons; the actual date remains in the game's time ribbon.
+function useAmbientSeason(month: number, running: boolean) {
+  const target = seasonIndex(month);
+  const latest = useRef(target);
+  latest.current = target;
+  const [shown, setShown] = useState(target);
+  useEffect(() => {
+    if (!running) { setShown(latest.current); return; }
+    const timer = window.setInterval(() => setShown(latest.current), 3000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  useEffect(() => { if (!running) setShown(target); }, [target, running]);
+  return { ...SEASONS[shown], index: shown };
+}
+
+function useStoryGuest(name: string | undefined, notebook: NotebookState) {
+  const [shown, setShown] = useState(name);
+  const previous = useRef(notebook);
+  useEffect(() => {
+    const wasOffered = previous.current === 'offered';
+    previous.current = notebook;
+    if (name) { setShown(name); return; }
+    if (wasOffered && notebook === 'kept') {
+      const timer = window.setTimeout(() => setShown(undefined), 2800);
+      return () => window.clearTimeout(timer);
+    }
+    setShown(undefined);
+  }, [name, notebook]);
+  return shown;
+}
+
+function Actor({ x, scale = 1, palette, older = false, medical = false, military = false, visible = true, pose = 'study', identity, facing = 1, outfit = 'casual', season = 0 }: {
+  x: number; scale?: number; palette: number; older?: boolean; medical?: boolean;
+  visible?: boolean; pose?: SceneActivity | 'wait'; identity: string; facing?: number; military?: boolean;
+  outfit?: 'casual' | 'hoodie' | 'cardigan' | 'scrubs' | 'lab-coat'; season?: number;
 }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <ellipse cx="0" cy="3" rx="26" ry="6" fill="#3c4b43" opacity=".13" />
-      <g className="ls-person">
-        <path d="M-14-52l-3 49h12l7-39 6 39h12l-3-49" fill="#46545b" />
-        <path d="M-19-1h15v6h-21q-1-5 6-6m27 0h13q7 1 7 6H8" fill="#343c3e" />
-        <path d="M-20-100q20-13 40 0l8 52q-28 9-56 0z" fill={medical ? '#faf7ed' : shirt} />
-        <path d="M-21-97l-13 39q-3 9 3 10t9-8l11-32m32-9 13 39q3 9-3 10t-9-8L11-88" fill={medical ? '#faf7ed' : shirt} stroke={medical ? '#d7d9d2' : shirt} strokeWidth="2" />
-        <path d="M-30-54v9m60-9v9" stroke={skin} strokeWidth="9" strokeLinecap="round" />
-        <path d="M-7-112v15q7 7 14 0v-15" fill={skin} />
-        <ellipse cy="-127" rx="20" ry="24" fill={skin} />
-        <path d="M-20-125q-7-32 19-31 29-2 22 33l-7-15q-16 8-31 1z" fill={older ? '#a5a49b' : hair} />
-        <path d="M-7-125h1m12 0h1" stroke="#3e3430" strokeWidth="3" strokeLinecap="round" />
-        <path d="M-4-115q4 3 8 0" fill="none" stroke="#754f43" strokeWidth="1.7" strokeLinecap="round" />
-        {older && <path d="M-13-120l4 1m18 0 4-1" stroke="#886d60" strokeWidth="1" />}
-        {medical && <>
-          <path d="m-9-99 9 18 9-18M0-81v31" fill="none" stroke="#c4cfc8" strokeWidth="2" />
-          <path d="M-12-95v17q0 10 8 10t8-10v-15" fill="none" stroke="#527875" strokeWidth="2.5" />
-          <circle cx="5" cy="-77" r="3.5" fill="#527875" />
-          <rect x="10" y="-80" width="10" height="8" rx="1" fill="#d6e4dd" />
-        </>}
-        {book && <g transform="translate(17 -66) rotate(-12)"><rect width="20" height="27" rx="2" fill="#e0bb76" /><path d="M4 0v27m4-19h9m-9 5h7" stroke="#fff4d9" strokeWidth="2" /></g>}
+  const previousX = useRef(x);
+  const [moving, setMoving] = useState(false);
+  useEffect(() => {
+    if (previousX.current === x) return;
+    previousX.current = x;
+    setMoving(true);
+    const timer = window.setTimeout(() => setMoving(false), 850);
+    return () => window.clearTimeout(timer);
+  }, [x]);
+  const leaning = pose === 'rest' ? -8 : pose === 'study' ? 7 : 0;
+  return <g className="ls-actor-position" data-actor={identity} data-outfit={military ? 'military-tracksuit' : medical && outfit === 'casual' ? 'medical' : outfit} data-pose={pose} data-moving={moving} style={{ transform: `translate(${x}px, 350px)`, opacity: visible ? 1 : 0 }}>
+    <g style={{ transform: `scale(${scale * facing}, ${scale})` }}>
+      <ellipse cy="19" rx="35" ry="7" fill="#273e38" opacity=".09" />
+      <g className="ls-legs" fill="none" stroke={military ? '#303d43' : '#344441'} strokeWidth="15" strokeLinecap="round">
+        <g className="ls-leg-left"><path d="M-11-40 -18-13 -12 13" /><path d="M-16 14h20" strokeWidth="9" /></g>
+        <g className="ls-leg-right"><path d="M10-40 26-12 23 13" /><path d="M20 14h19" strokeWidth="9" /></g>
+      </g>
+      <g className="ls-torso-pose" style={{ transform: `rotate(${leaning}deg)` }}>
+        <g className="ls-breath">
+          <path className="ls-shirt" d="M-26-108 Q0-120 26-108 L31-43 Q0-33-30-43Z" fill="var(--ls-sleeve)" />
+          {!military && <g className="ls-outfit-details" fill="none" stroke={outfit === 'scrubs' ? '#c4ddd1' : '#dce2d2'} strokeWidth="2.5">
+            {outfit === 'hoodie' && <><path d="M-17-107q17 21 34 0M-8-100v21m16-21v21M-14-62h28v12h-28Z"/><path d="M-24-108q-7-17 10-19h28q17 2 10 19"/></>}
+            {outfit === 'cardigan' && <><path d="M-13-108 0-81l13-27M0-81v37"/>{[-73,-62,-51].map(y => <circle key={y} cx="4" cy={y} r="1.4" fill="#e4dbc7" stroke="none"/>)}</>}
+            {outfit === 'scrubs' && <><path d="m-12-108 12 17 12-17M11-87h13v12H11Z"/><path d="M-22-49h44" opacity=".5"/></>}
+            {outfit === 'lab-coat' && <path d="m-11-109 11 24 11-24M0-85v41m-21-24h13v14h-13m21-32h15v12H13Z" stroke="#a8bab6"/>}
+            {outfit === 'casual' && !medical && season === 1 && <path d="M-23-86h46m-47 9h48" opacity=".55"/>}
+          </g>}
+          {military && <g className="ls-tracksuit-details" fill="none" stroke="#d6dcd7" strokeWidth="3">
+            <path d="M-24-94h48M0-108v64"/><path d="M-11-110 0-101 11-110"/>
+            <path d="M12-84h10" stroke="#bcc6ab" strokeWidth="5"/>
+          </g>}
+          <path d="M-6-121v16q6 8 12 0v-16" fill={SKINS[palette]} />
+          <g className="ls-head-pose" style={{ transform: `rotate(${pose === 'study' ? 9 : pose === 'connect' ? -6 : 0}deg)` }}>
+            <rect x="-20" y="-162" width="40" height="48" rx="19" fill={SKINS[palette]} />
+            <path d="M-21-140v-12q0-25 24-23 23 1 20 29l-9-11q-11 12-32 6v15Z" fill={older ? '#b2b2a8' : '#343d3b'} />
+            <g className="ls-eyes" fill="#303936"><circle cx="-5" cy="-140" r="1.8"/><circle cx="10" cy="-140" r="1.8"/></g>
+            <path d="M1-126q4 3 8-1" fill="none" stroke="#805f4c" strokeWidth="1.7" strokeLinecap="round" />
+          </g>
+          <g className="ls-coat-details" style={{ opacity: medical ? 1 : 0 }} fill="none" stroke="#698c85" strokeWidth="2">
+            <path d="m-10-105 10 17 10-17M0-88v42M-14-100v20q0 12 10 10t10-11"/><circle cx="7" cy="-82" r="4"/><path d="M14-86h12v12H14z" fill="#c1d4cb" stroke="none"/>
+          </g>
+          <g className="ls-arm-pose ls-arm-back" style={{ transform: `rotate(${pose === 'rest' ? 18 : pose === 'study' ? -36 : -14}deg)` }}>
+            <path d="M-22-99 -34-67 -12-56" fill="none" stroke="var(--ls-sleeve)" strokeWidth="15" strokeLinecap="round"/><path d="M-12-56 -4-54" stroke={SKINS[palette]} strokeWidth="11" strokeLinecap="round"/>
+          </g>
+          <g className="ls-arm-pose ls-arm-front" style={{ transform: `rotate(${pose === 'study' ? -58 : pose === 'connect' ? -82 : pose === 'rest' ? 12 : -23}deg)` }}>
+            <g className="ls-hand-motion" style={{ '--ls-hand-angle': pose === 'study' ? '6deg' : pose === 'connect' ? '12deg' : '1deg' } as Vars}>
+              <path d="M24-99 30-66 39-43" fill="none" stroke="var(--ls-sleeve)" strokeWidth="15" strokeLinecap="round"/><path d="M39-43 40-35" stroke={SKINS[palette]} strokeWidth="11" strokeLinecap="round"/>
+              <path className="ls-pen" d="M35-38 49-29" stroke="#36443e" strokeWidth="2.5" strokeLinecap="round" style={{ opacity: pose === 'study' ? 1 : 0 }}/>
+            </g>
+          </g>
+        </g>
       </g>
     </g>
-  );
-}
-
-function Tree({ x, y, leaf, winter, scale = 1 }: { x: number; y: number; leaf: string; winter: boolean; scale?: number }) {
-  return <g transform={`translate(${x} ${y}) scale(${scale})`}>
-    <path d="M0 0v-119m0 54-29-33m29 14 29-40" fill="none" stroke="#8c7862" strokeWidth="9" strokeLinecap="round" />
-    <g className="ls-canopy" fill={leaf} opacity={winter ? '.35' : '1'}>
-      <ellipse cx="-24" cy="-119" rx="38" ry="45" /><ellipse cx="22" cy="-131" rx="43" ry="49" /><ellipse cy="-162" rx="38" ry="40" />
-      <path d="M-43-139q20-22 44-24" fill="none" stroke="#fff9e9" strokeWidth="5" opacity=".22" strokeLinecap="round" />
-    </g>
-    {winter && <path d="M-46-159q15-21 31-12m8-27q24-12 39 9" fill="none" stroke="#faf8ef" strokeWidth="7" strokeLinecap="round" />}
   </g>;
 }
 
-function Building({ stage }: { stage: LifeSceneProps['stage'] }) {
-  if (stage === 'retirement') return <g>
-    <path d="M218 298v-103m130 103V195" stroke="#a79377" strokeWidth="9" />
-    <path d="m191 199 92-58 92 58z" fill="#818f80" /><path d="M205 201h156" stroke="#586f64" strokeWidth="8" />
-    <path d="M220 266h125m-125 17h125m-115 0v23m104-23v23" stroke="#aa8062" strokeWidth="8" strokeLinecap="round" />
-    <path d="M707 240v66m-40-46h80m-80 16h80m-69 0v30m59-30v30" stroke="#aa8062" strokeWidth="7" strokeLinecap="round" />
-    <path d="M703 222v-45" stroke="#6e8079" strokeWidth="5" /><circle cx="703" cy="166" r="13" fill="#f5dfab" />
-  </g>;
-  const campus = stage === 'university';
-  const training = stage === 'training';
-  return <g>
-    <rect x="220" y={campus ? 155 : 133} width="360" height={campus ? 153 : 175} rx="5" fill={campus ? '#c3a58a' : '#e6dfcf'} />
-    <rect x="234" y={campus ? 166 : 145} width="332" height="10" fill={campus ? '#e3cdb0' : '#c4d2cb'} />
-    {campus ? <>
-      <path d="m209 157 192-68 192 68z" fill="#73847c" /><path d="M246 144h309" stroke="#d4d5bc" strokeWidth="4" />
-      <circle cx="400" cy="126" r="17" fill="#f8edcf" /><path d="M400 115v12l8 4" fill="none" stroke="#637b75" strokeWidth="3" strokeLinecap="round" />
-    </> : <>
-      <rect x="360" y="110" width="86" height="36" rx="5" fill="#54847d" />
-      <path d="M403 118v20m-10-10h20" stroke="#f6f1df" strokeWidth="6" />
-      <rect x="590" y="192" width="111" height="115" rx="4" fill="#c0cdc4" />
-      <rect x="601" y="206" width="86" height="31" rx="2" fill="#729b99" />
-      <path d="M603 252h84m-84 14h84" stroke="#e6e9dc" strokeWidth="4" />
-    </>}
-    {[264, 324, 456, 516].map(x => <g key={x}>
-      <rect x={x} y="187" width="34" height="43" rx="2" fill="#72928e" />
-      <path d={`M${x + 3} 190l28 35m-13-38v43m-18-21h34`} stroke="#d6e2d4" strokeWidth="2" />
-      <rect x={x - 3} y="231" width="40" height="5" rx="1" fill="#f1e5cf" />
-      <rect x={x} y="252" width="34" height="39" rx="2" fill="#73958e" />
-      <path d={`M${x + 17} 252v39`} stroke="#d6e2d4" strokeWidth="2" />
-    </g>)}
-    <path d="M376 308v-77q24-23 48 0v77" fill="#597b77" />
-    <path d="M400 237v70m-20-47h40" stroke="#bccdc0" strokeWidth="3" />
-    <path d="M369 308h62m-67 7h72" stroke="#b5ad99" strokeWidth="6" />
-    {training && <path d="M231 267h20m-10-10v20" stroke="#f6f2e5" strokeWidth="5" />}
-    {!campus && <path d="M467 162h76" stroke="#7c9d90" strokeWidth="4" />}
-  </g>;
-}
-
-export default function LifeScene({ stage, age, month, running, focus, seed, relationship, partnerName, children = 'none', eventTitle, workContext, reaction, companionName }: LifeSceneProps) {
+export default function LifeScene({ stage, age, month, running, focus, seed, relationship, partnerName, children = 'none', eventTitle, workContext, reaction, companionName, guestName, notebook = 'none', awaitingChoice = false, serviceRoute, specialty, exercise, extraStudy }: LifeSceneProps) {
   const id = useId();
-  const scene = workContext && stage !== 'retirement' ? workContext === 'research'
-    ? { title: '연구실', label: '연구 생활', place: '연구실' }
-    : { title: '다음 지원 준비', label: '진로 준비', place: '작업 공간' } : STAGES[stage];
-  const season = SEASONS[month < 2 || month === 11 ? 3 : month < 5 ? 0 : month < 8 ? 1 : 2];
+  const room = serviceRoute ? serviceRoute === 'army' ? 'barracks' : serviceRoute === 'doctor' ? 'military-clinic' : 'public-health' : sceneRoom(stage, focus, workContext, notebook);
+  const military = room === 'barracks';
+  const scene = ROOMS[room];
+  const season = useAmbientSeason(month, running);
+  const storyGuest = useStoryGuest(guestName, notebook);
   const palette = Number.isFinite(seed) ? ((Math.trunc(seed) % 4) + 4) % 4 : 0;
-  const partnerRole = relationship === 'married' ? '배우자' : '연인';
-  const partner = relationship !== 'single';
-  const partnerLabel = partnerName?.trim() ? `${partnerName.trim()} · ${partnerRole}` : partnerRole;
+  const outdoor = room === 'campus' || room === 'park';
+  const domestic = room === 'home' || room === 'lounge' || outdoor;
+  const medical = room === 'ward' || room === 'clinic' || room === 'military-clinic' || room === 'public-health';
+  const shownSpecialty = medical && !serviceRoute ? specialty : undefined;
+  const equipment = shownSpecialty ? SPECIALTY_VISUALS[shownSpecialty]?.equipment : undefined;
+  const outfit = military ? 'casual' : room === 'research' ? 'lab-coat' : medical ? (equipment === 'surgical' || equipment === 'monitor') ? 'scrubs' : 'casual' : season.index === 1 ? 'casual' : stage === 'university' ? 'hoodie' : 'cardigan';
+  const computer = room === 'research' || room === 'clinic';
+  const guest = storyGuest || (focus === 'connect' ? companionName : undefined);
+  const partner = domestic && relationship !== 'single' && !guest;
+  const child = domestic && children !== 'none';
+  const guestLabel = guest || (partner ? partnerName || (relationship === 'married' ? '배우자' : '연인') : '');
+  const pose = awaitingChoice ? 'wait' : storyGuest && notebook === 'kept' ? 'study' : guestLabel || reaction === 'connection' ? 'connect' : reaction === 'rest' ? 'rest' : reaction === 'learning' ? 'study' : focus;
+  const activity = awaitingChoice ? '이야기를 듣는 중' : pose === 'study' ? (computer ? '자료를 살펴보는 중' : '책을 읽는 중') : pose === 'connect' ? guestLabel ? '함께 이야기하는 중' : '잠깐의 여유' : '쉬는 중';
   const childLabel = { none: '', young: '어린 자녀', school: '학령기 자녀', adult: '성인 자녀' }[children];
-  const peopleDescription = `주인공 · ${age}세${partner ? `, ${partnerLabel}` : ''}${childLabel ? `, ${childLabel}` : ''}${companionName ? `, 동기 ${companionName}` : ''}`;
-  const description = `${season.name}의 ${scene.place}. ${peopleDescription}. ${FOCUS[focus]}. ${running ? '시간이 흐르고 있습니다.' : '시간이 멈춰 있습니다.'}`;
-  const childScale = children === 'young' ? .49 : children === 'school' ? .66 : .92;
-  const medical = !workContext && (stage === 'training' || stage === 'career') && focus !== 'rest';
+  const description = `${scene.title}. 주인공 ${age}세. ${military ? '관물대와 군용 침구가 놓인 침상. 활동복을 입고 있습니다. ' : ''}${activity}.${guestLabel ? ` 함께 있는 사람: ${guestLabel}.` : ''}${child ? ` ${childLabel}.` : ''}${notebook === 'kept' ? ' 함께 확인한 노트가 책상에 놓여 있습니다.' : ''}`;
+  const vars: Vars = { '--ls-accent': scene.accent, '--ls-wall': scene.wall, '--ls-sky': season.sky, '--ls-leaf': season.leaf, '--ls-sleeve': military ? '#495961' : outfit === 'scrubs' ? '#638b87' : medical || outfit === 'lab-coat' ? '#fcfcf7' : ['#657b72', '#ad785e', '#76819a', '#867b62'][palette] };
 
-  return <section className="ls-root" data-running={running} data-season={season.key} aria-labelledby={`${id}-heading`}>
-    <header className="ls-header">
-      <div><p className="ls-eyebrow">{scene.label} <span aria-hidden="true">/</span> {season.name}</p><h2 id={`${id}-heading`}>{scene.title}</h2></div>
-    </header>
+  return <section className="ls-root" data-running={running} data-room={room} data-service={serviceRoute} data-notebook={notebook} aria-labelledby={`${id}-heading`} style={vars}>
+    <header className="ls-header"><h2 id={`${id}-heading`}>{scene.title}</h2><span>{SEASONS[seasonIndex(month)].name}</span></header>
     <div className="ls-art">
-      <svg className="ls-canvas" viewBox="0 0 960 480" role="img" aria-labelledby={`${id}-title ${id}-description`}>
-        <title id={`${id}-title`}>{`${season.name}의 ${scene.place}와 인물`}</title>
-        <desc id={`${id}-description`}>{description}</desc>
+      <svg className="ls-canvas" viewBox="0 0 800 460" role="img" aria-labelledby={`${id}-title ${id}-desc`}>
+        <title id={`${id}-title`}>{`${scene.title}에서의 일상`}</title><desc id={`${id}-desc`}>{description}</desc>
+        <defs>
+          <clipPath id={`${id}-window`}><rect x="435" y="48" width="230" height="192" rx="56"/></clipPath>
+          <linearGradient id={`${id}-light`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fffdf0" stopOpacity=".7"/><stop offset="1" stopColor="#fffdf0" stopOpacity="0"/></linearGradient>
+        </defs>
         <g aria-hidden="true">
-          <rect width="960" height="480" fill={season.sky} />
-          <circle cx="741" cy="78" r="33" fill="#f6dc9f" opacity=".8" /><circle cx="741" cy="78" r="46" fill="#faf1d7" opacity=".35" />
-          <g className="ls-cloud ls-cloud-one" fill="#fffaf0" opacity=".8"><path d="M75 96q-8-17 13-23 6-26 29-19 22-15 34 11 27-1 26 24 11 13-10 15H85q-12 0-10-8" /></g>
-          <g className="ls-cloud ls-cloud-two" fill="#fffaf0" opacity=".65"><path d="M503 71q-6-15 15-18 7-23 25-17 19-11 29 9 25-1 24 21 9 12-8 13h-75q-12 0-10-8" /></g>
-          <path d="M0 270q114-69 224-30t189 2 226-14 321 18v234H0z" fill={season.ground} />
-          <path d="M0 273q170-52 291-13t246-6 423-3" fill="none" stroke={season.leaf} opacity=".15" strokeWidth="18" />
-          <Building stage={stage} />
-          <path d="M395 310q-31 42 50 64t-67 106H738q-23-76-145-107T424 310" fill="#f0e2c7" />
-          <path d="M420 319q-8 37 106 58t53 103" fill="none" stroke="#fff8e8" strokeWidth="3" opacity=".6" />
-          <Tree x={130} y={340} leaf={season.leaf} winter={season.key === 'winter'} scale={1.15} />
-          <Tree x={830} y={329} leaf={season.leaf} winter={season.key === 'winter'} />
-          <Tree x={916} y={302} leaf={season.leaf} winter={season.key === 'winter'} scale={.7} />
-          <g fill={season.leaf}><ellipse cx="244" cy="324" rx="44" ry="20" /><ellipse cx="290" cy="330" rx="32" ry="15" /><ellipse cx="744" cy="323" rx="39" ry="19" /></g>
-          <g fill={season.accent}>
-            {[248, 267, 289, 729, 751].map((x, i) => <circle key={x} cx={x} cy={314 + (i % 3) * 6} r="4" />)}
+          <g style={{ display: outdoor ? 'none' : undefined }}>
+          <path className="ls-wall" d="M0 0h800v460H0z"/>
+          <path d="M0 340h800v120H0z" fill="#d9dbd2" opacity=".42"/>
+          <path d="M0 340h800" stroke="#9ba69a" opacity=".2"/>
+          <g clipPath={`url(#${id}-window)`}>
+            <rect className="ls-sky" x="435" y="48" width="230" height="192"/>
+            <circle cx="606" cy="99" r="24" fill="#faf5dc"/>
+            <g className="ls-cloud"><path d="M442 107q8-19 26-10 6-15 23-6 17-4 20 16Z" fill="#fafbf4" opacity=".72"/></g>
+            <path d="M410 218 485 177 533 199 583 160 685 224v35H410Z" fill="#8ea8a0" opacity=".25"/>
+            <g className="ls-tree"><path d="M621 256V139m0 58-24-21m24 1 17-17" stroke="#6b8273" strokeWidth="3" fill="none"/><path className="ls-leaf" d="M585 177q-16-24 10-36-4-25 23-28 26-1 26 28 25 15 7 39-29 17-66-3"/></g>
+            <SeasonalDetails season={season.index}/>
           </g>
-          <g transform="translate(342 350)"><path d="M0 0h47m-47 10h47M5 11v19m37-19v19" stroke="#9d795b" strokeWidth="6" strokeLinecap="round" /></g>
-          <g transform="translate(675 365)"><rect x="-12" y="-28" width="25" height="28" rx="3" fill="#7f9687" /><path d="M-14-29h29" stroke="#536f66" strokeWidth="4" /></g>
-          <Person x={partner || childLabel ? 472 : 495} y={400} skin={SKIN[palette]} hair={HAIR[palette]} shirt={CLOTHES[palette]} older={age >= 60} medical={medical} book={reaction ? reaction === 'learning' : focus === 'study'} />
-          {companionName && <Person x={380} y={401} scale={.95} skin={SKIN[(palette + 3) % 4]} hair={HAIR[(palette + 1) % 4]} shirt={CLOTHES[(palette + 3) % 4]} older={age >= 60}/>}
-          {partner && <Person x={550} y={397} scale={.94} skin={SKIN[(palette + 1) % 4]} hair={HAIR[(palette + 2) % 4]} shirt={CLOTHES[(palette + 1) % 4]} />}
-          {childLabel && <Person x={partner ? 617 : 565} y={412} scale={childScale} skin={SKIN[(palette + 2) % 4]} hair={HAIR[(palette + 1) % 4]} shirt={CLOTHES[(palette + 2) % 4]} book={children === 'school'} />}
-          {season.key !== 'winter' && <g className="ls-leaves" fill={season.accent}><path d="M178 282q12-8 16 3-12 7-16-3m593-78q12-8 16 3-12 7-16-3" /></g>}
-          <g fill={season.leaf} opacity=".7"><path d="m70 421 4-13 4 13m120 20 4-12 4 12m572-24 4-13 4 13m76 28 4-12 4 12" /></g>
-          {season.key === 'winter' && <g fill="#faf8ef" opacity=".8"><ellipse cx="237" cy="428" rx="27" ry="5" /><ellipse cx="756" cy="390" rx="18" ry="4" /><ellipse cx="128" cy="345" rx="45" ry="6" /></g>}
+          <rect x="435" y="48" width="230" height="192" rx="56" fill="none" stroke="#fcfcf7" strokeWidth="10"/>
+          <path d="M550 50v190M425 244h250" stroke="#fcfcf7" strokeWidth="8"/>
+          <path d="M449 246h201L518 394H229Z" fill={`url(#${id}-light)`} opacity=".5"/>
+          </g>
+          {outdoor && <OutdoorBackdrop room={room} season={season.index}/>}
+          <RoomFurniture room={room} specialty={shownSpecialty} children={children} exercise={exercise} extraStudy={extraStudy} retired={stage === 'retirement'}/>
+
+          {military && <g className="ls-barracks-furniture">
+            <path d="M0 340h800v120H0z" fill="#b7bdaf"/>
+            <path d="M0 380h800M0 420h800" stroke="#9fa795" strokeWidth="2"/>
+            {[98, 172, 246].map(x => <g key={x}>
+              <rect x={x} y="68" width="68" height="207" rx="3" fill="#7a856f" stroke="#56634f" strokeWidth="3"/>
+              <path d={`M${x + 10} 90h48m-48 7h48m-48 7h48M${x + 55} 157v22`} stroke="#c0c8b6" strokeWidth="3"/>
+              <rect x={x + 21} y="119" width="26" height="12" rx="1" fill="#e1e4d7"/>
+            </g>)}
+            <g stroke="#586452" strokeWidth="7" strokeLinecap="round">
+              <path d="M555 269v105m181-105v105M555 342h181"/>
+              <rect x="550" y="292" width="192" height="45" rx="4" fill="#747f60" strokeWidth="3"/>
+            </g>
+            <rect x="563" y="282" width="52" height="21" rx="7" fill="#d4d9c7"/>
+            <path d="M622 287h110v47H622z" fill="#626f50"/>
+            <path d="M635 289v42m9-42v42" stroke="#a0ab8b" strokeWidth="3"/>
+            <path d="M565 357h30v12h-34v-6zm47 0h30v12h-34v-6z" fill="#3c4640"/>
+          </g>}
+          <g className="ls-prop" style={{ opacity: domestic ? 0 : 1 }} stroke="#7d8c7f" strokeWidth="7" fill="none" strokeLinecap="round">
+            <path d="M309 309h63m-51 0-9 59m48-59 8 59M306 302v-48q0-10 11-10h22"/>
+          </g>
+          <g style={{ '--ls-sleeve': '#85948b' } as Vars}>
+            <Actor identity="guest" x={guestLabel ? 494 : 706} palette={(palette + 1) % 4} visible={!!guestLabel} pose={storyGuest && notebook === 'kept' ? 'study' : 'connect'} older={age >= 60 && partner} facing={-1}/>
+          </g>
+          <Actor identity="protagonist" x={domestic ? 295 : 346} palette={palette} older={age >= 60} medical={medical && outfit !== 'scrubs'} military={military} outfit={outfit} season={season.index} pose={pose}/>
+          <g style={{ '--ls-sleeve': '#b49967' } as Vars}>
+            <Actor identity="child" x={child ? 598 : 725} scale={children === 'young' ? .5 : children === 'school' ? .65 : .92} palette={(palette + 2) % 4} visible={child} pose="connect"/>
+          </g>
+
+          <g className="ls-desk-position" style={{ transform: domestic ? 'translate(27px, 45px)' : 'translate(0px, 0px)' }}>
+            <path d="m365 303-12 86m169-86 12 86" fill="none" stroke="#758275" strokeWidth="9" strokeLinecap="round"/>
+            <rect x="330" y="291" width="223" height="13" rx="6" fill="#b7ab92"/>
+            <path d="M336 294h211" stroke="#dfd8c6" strokeWidth="2"/>
+            <g className="ls-prop" style={{ opacity: !domestic && !computer ? 1 : 0 }}>
+              <path d="M365 280q20-7 39 0 19-7 39 0v9h-78Z" fill="#fffdf3"/><path d="M404 280v9m-25-5h16m20 0h16" stroke="#bdb69f" strokeWidth="1.5"/>
+            </g>
+            <g className="ls-prop" style={{ opacity: computer ? 1 : 0 }}>
+              <rect x="409" y="227" width="77" height="50" rx="4" fill="#718883"/><rect x="414" y="232" width="67" height="39" rx="2" fill="#dbe6df"/><path d="M449 277v10m-22 2h42" stroke="#718883" strokeWidth="5"/>
+              <path d="M424 245h35m-35 7h47m-47 7h26" stroke="#7d9e95" strokeWidth="2"/>
+            </g>
+            <g className="ls-notebook" data-visible={notebook === 'offered' || notebook === 'kept'} style={{ opacity: notebook === 'offered' || notebook === 'kept' ? 1 : 0, transform: notebook === 'offered' ? 'translate(8px, -3px) rotate(-4deg)' : 'translate(0px, 0px) rotate(0deg)' }}>
+              <rect x="451" y="279" width="36" height="10" rx="2" fill="var(--ls-accent)"/><path d="M458 280v8m5-5h17" stroke="#f8f5e9" strokeWidth="1.5"/>
+            </g>
+            <g><path d="M503 270h16v15q-8 6-16 0Z" fill="#fdfbf2"/><path d="M519 273q13 0 0 10" fill="none" stroke="#fdfbf2" strokeWidth="3"/>
+              <path className="ls-steam" d="M510 263q-6-7 0-14" stroke="#faf9ee" strokeWidth="2" fill="none"/>
+            </g>
+          </g>
+          <g className="ls-prop" style={{ opacity: room === 'library' || room === 'preparation' ? 1 : 0 }}>
+            <path d="M353 288h-38m19-2v-60l-21-17" stroke="#7c8572" strokeWidth="4" fill="none" strokeLinecap="round"/>
+            <path d="m302 204 23 11-29 18-12-11Z" fill="var(--ls-accent)"/><path d="m291 229 27-8 48 69h-102Z" fill="#f0d890" opacity=".17"/>
+          </g>
+          {room === 'home' && !child && <g transform="translate(728 335)"><path d="M-17 0h34l-5 34h-25Z" fill="#a8b3a4"/><path d="M0 0v-55m0 33q-34-2-26-23 27-2 26 23m0-17q1-30 22-29 13 24-22 29" fill="#7c9683"/></g>}
+          <path d="M81 391h92m483 23h53" stroke="#9da995" opacity=".22" strokeWidth="2" strokeLinecap="round"/>
         </g>
       </svg>
-      <div className="ls-scene-caption"><span>{FOCUS[focus]}</span></div>
+      <div className="ls-scene-caption"><span className="ls-activity-dot" aria-hidden="true"/>{activity}</div>
     </div>
     <footer className="ls-footer">
-      <details className="ls-people">
-        <summary><span className="ls-people-icon" aria-hidden="true">◎</span> 장면 속 인물 <span className="ls-disclosure" aria-hidden="true">⌄</span></summary>
-        <ul><li><strong>주인공</strong><span>{age}세 · {scene.label}</span></li>{partner && <li><strong>{partnerName?.trim() || partnerRole}</strong><span>{partnerRole}</span></li>}{childLabel && <li><strong>자녀</strong><span>{childLabel}</span></li>}</ul>
-      </details>
-      {eventTitle?.trim() && <p className="ls-event"><span className="ls-event-label">최근 사건</span><span>{eventTitle}</span></p>}
+      <details className="ls-people"><summary>장면 속 인물 <span aria-hidden="true">＋</span></summary><ul>
+        <li><strong>주인공</strong><span>{age}세</span></li>
+        {guestLabel && <li><strong>{guestLabel}</strong><span>{partner ? relationship === 'married' ? '배우자' : '연인' : '함께 있는 사람'}</span></li>}
+        {child && <li><strong>자녀</strong><span>{childLabel}</span></li>}
+      </ul></details>
+      {eventTitle?.trim() && <p className="ls-event">{eventTitle}</p>}
     </footer>
   </section>;
 }

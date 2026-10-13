@@ -6,12 +6,18 @@ import { elapsedMonths, lifeAge } from './random-life';
 export const PEER_IDS = ['peer-seat', 'peer-distance', 'peer-offer', 'peer-retirement'] as const;
 export interface PeerMemory { version: 1; person: Person; route: 'hospital' | 'community' | 'research'; since: number }
 const NAMES = ['지민', '서윤', '도현', '수빈', '민준', '하린'];
+const LEGACY_NAMES = ['지민', '윤서', '도현', '수빈', '민재', '하린'];
 const ROUTES = ['hospital', 'community', 'research'] as const;
 const choice = (id: string, label: string, outcome: string, followup: string, effects: Partial<Stats>, experience?: StoryChoice['experience']): StoryChoice => ({ id, label, description: outcome, outcome, followup, effects, experience });
 export const PEER_STORIES: Story[] = PEER_IDS.map((id, stage) => ({ id, stage, title: '', body: '', choices: [['share', 'solo', 'rest'], ['team', 'meet', 'later'], ['join', 'visit', 'meet', 'decline'], ['reunion', 'walk', 'letter']][stage].map(id => choice(id, '', '', '', {})) }));
 export function initialPeer(s: GameState): PeerMemory {
   const seed = s.life!.initialSeed >>> 0;
   return { version: 1, person: { id: `peer:${seed}`, name: NAMES[seed % NAMES.length], temperament: '계획을 세우고도 가끔 바꾸는 동기', occupation: '같은 조 동기' }, route: ROUTES[Math.floor(seed / NAMES.length) % 3], since: elapsedMonths(s) };
+}
+export function validPeerIdentity(s: GameState, p: PeerMemory): boolean {
+  const expected = initialPeer(s), seed = s.life!.initialSeed >>> 0;
+  return p.person.id === expected.person.id && p.route === expected.route
+    && [expected.person.name, LEGACY_NAMES[seed % LEGACY_NAMES.length]].includes(p.person.name);
 }
 export function peerOccupation(s: GameState): string {
   const p = s.stories?.peer; if (!p) return '';
@@ -64,5 +70,5 @@ export function advancePeer(s: GameState): void {
   s.journal.push({ id: key, stage: ['university', 'training', 'career', 'retirement'][s.stageIndex] as 'university', title: `${p.person.name}의 근황`, detail: `${lifeAge(s)} · ${occupation}. ${peerRelationship(s)}로 연락을 이어갑니다.`, effects: {} });
 }
 export function validPeer(p: PeerMemory | undefined, month: number): boolean {
-  return p === undefined || !!p && p.version === 1 && ROUTES.includes(p.route) && Number.isSafeInteger(p.since) && p.since >= 0 && p.since <= month && !!p.person && /^peer:\d+$/.test(p.person.id) && NAMES.includes(p.person.name) && typeof p.person.occupation === 'string' && typeof p.person.temperament === 'string';
+  return p === undefined || !!p && p.version === 1 && ROUTES.includes(p.route) && Number.isSafeInteger(p.since) && p.since >= 0 && p.since <= month && !!p.person && /^peer:\d+$/.test(p.person.id) && [...NAMES, ...LEGACY_NAMES].includes(p.person.name) && typeof p.person.occupation === 'string' && typeof p.person.temperament === 'string';
 }

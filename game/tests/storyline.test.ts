@@ -65,6 +65,7 @@ describe('a continuing life story inside existing slots', () => {
   });
   it('uses a real earlier standalone decision when resuming partway through life', () => {
     const s = fixture(); s.stageIndex = 1; s.stories!.decisions['practice-note'] = { choice: 'limit', month: 36, followed: true };
+    delete s.progress!.pacingVersion;
     const body = linkedStory(s, STORYLINE_IDS[1], LIFE_STORIES)!.body;
     expect(body).toContain('일지에서 빠진 한 문장'); expect(body).toContain('기억나지 않는다고 말하'); expect(body).not.toContain('예전에 돌려준');
     s.life!.elapsedMs = 100_000; expect(requiredStory(s)).toBe('story:notebook-return');

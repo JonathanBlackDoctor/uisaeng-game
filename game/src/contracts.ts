@@ -1,4 +1,5 @@
 import type { CareerState } from './career';
+import type { SpecialtyJourney } from './specialty-journey';
 import type { EconomyState } from './economy';
 import type { CampusState } from './campus';
 import type { CareerDepth } from './career-depth';
@@ -33,9 +34,10 @@ export interface RandomLife {
   childBornMonth?: number;
 }
 export type FamilyScene = 'meeting' | 'gwating' | 'blind-date' | 'campus' | 'confession' | 'cc-life' | 'distance' | 'marriage' | 'parenthood' | 'care' | 'growth' | 'couple-life' | 'single-life' | 'family-recap';
-export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
+export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; choiceVersion?: 1; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
 export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats> }
 export interface GameState {
+  identity?: import('./identity').IdentityState;
   runId: string; revision: number; seed: number; stageIndex: number; stats: Stats;
   pendingEvent: GameEvent | null; journal: JournalEntry[]; processedActionIds: string[];
   status: 'active' | 'completed'; rulesVersion: 'fixture-v1' | 'family-preview-v1' | 'random-preview-v1' | 'career-preview-v1'; contentVersion: 'fixture-v1' | 'family-preview-v1' | 'random-preview-v1' | 'career-preview-v1';
@@ -44,18 +46,22 @@ export interface GameState {
   career?: CareerState;
   economy?: EconomyState;
   encounters?: import('./life-goals').EncounterRecord;
+  legacy?: import('./legacy-goals').LegacyRecord;
   progress?: CareerProgress;
   campus?: CampusState;
   depth?: CareerDepth;
+  journey?: SpecialtyJourney;
   dynamics?: LifeDynamics;
   abilities?: AbilityState;
   lifestyle?: LifestyleState;
   portfolio?: PortfolioState;
   stories?: LifeStories;
+  incidents?: import('./major-events').MajorIncidents;
 }
 export interface CareerProgress {
   version: 1;
   clockVersion?: 2;
+  pacingVersion?: 1;
   focus: 'study' | 'research' | 'clinical' | 'people' | 'rest' | 'work';
   club: 'pending' | 'joined' | 'declined';
   marriage: 'pending' | 'later' | 'settled';

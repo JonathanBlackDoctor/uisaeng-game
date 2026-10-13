@@ -1,32 +1,26 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameState } from './contracts';
-import { ABILITIES, ABILITY_GROUPS, abilityPerformance, abilityState } from './abilities';
+import { ABILITIES, abilityPerformance, abilityState, SPECIALTY_SYNERGY, specialtySynergy } from './abilities';
 import { SPECIALTIES } from './career';
 import './ability-panel.css';
-import AbilitySummary, { relevantAbilities } from './AbilitySummary';
+import { relevantAbilities } from './AbilitySummary';
 
 const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
 export function AbilityContent({ game }: { game: GameState }) {
-  const [group, setGroup] = useState<keyof typeof ABILITY_GROUPS | 'specialties' | 'current'>('current');
   const abilities = abilityState(game), current = { ...game, abilities };
   const m = Math.floor((game.life?.elapsedMs ?? 0) / 1000);
+  const relevant = relevantAbilities(game);
   const specialties = SPECIALTIES.filter(s => (abilities.specialties[s.id] ?? 0) > 0 || game.career?.explored.includes(s.id));
+  const synergy = specialtySynergy(game, 'clinical');
+  const synergySkills = SPECIALTY_SYNERGY[game.career?.specialty ?? ''] ?? [];
   return <>
-    <AbilitySummary game={game}/>
-    <details className="ability-browse"><summary>다른 능력 보기</summary><div className="ability-groups" role="group" aria-label="능력 분야">
-      <button type="button" aria-pressed={group === 'current'} onClick={() => setGroup('current')}>지금 쓰는 능력</button>
-      {Object.entries(ABILITY_GROUPS).map(([key, label]) => <button type="button" key={key} aria-pressed={group === key} onClick={() => setGroup(key as keyof typeof ABILITY_GROUPS)}>{label}</button>)}
-      <button type="button" aria-pressed={group === 'specialties'} onClick={() => setGroup('specialties')}>전공 숙련</button>
-    </div></details>
-    <h3 className="ability-group-title">{group === 'current' ? '지금 쓰는 능력' : group === 'specialties' ? '전공 숙련' : ABILITY_GROUPS[group]}</h3>
-    {group === 'specialties' ? <div className="ability-specialties">
-      <p>견학·실습·수련에서 경험한 분야입니다. 자격과 면허는 별도로 쌓습니다.</p>
-      {specialties.length ? specialties.map(s => <div className="ability-specialty" key={s.id}><span>{s.name}</span><strong>{(abilities.specialties[s.id] ?? 0).toFixed(1)}<small>/100</small></strong><progress aria-label={`${s.name} 숙련`} max="100" value={abilities.specialties[s.id] ?? 0}/></div>) : <p>아직 전공 경험이 없습니다.</p>}
-    </div> : <div className="ability-list">
-      {ABILITIES.filter(a => group === 'current' ? relevantAbilities(game).includes(a.id) : a.group === group).map(a => {
+    <p className="ability-intro">지금 하는 일에 쓰이는 능력에 밑줄이 표시됩니다.</p>
+    {synergy > 1 && <p className="ability-impact">{SPECIALTIES.find(s => s.id === game.career?.specialty)?.name} 시너지 ×{synergy.toFixed(1)} · {synergySkills.map(id => ABILITIES.find(a => a.id === id)!.label).join('·')}</p>}
+    <div className="ability-list" aria-label="상세 능력 6가지">
+      {ABILITIES.map(a => {
         const p = abilityPerformance(current, a.id), change = abilities.changes[a.id];
-        return <details className="ability-row" key={a.id}>
+        return <details className={`ability-row${relevant.includes(a.id) ? ' ability-relevant' : ''}`} key={a.id}>
           <summary><span className="ability-name">{a.label}<small>{change ? `${m === change.month ? '이번 달' : `${m - change.month}개월 전`} ${signed(change.delta)}` : '시작 능력'}</small></span>
             <strong aria-label={`현재 수행력 ${p.current.toFixed(1)}`}>{p.current.toFixed(1)}</strong></summary>
           <div className="ability-detail"><p>{a.use}</p><progress max="100" value={p.current} aria-label={`${a.label} 현재 수행력`}/>
@@ -35,8 +29,11 @@ export function AbilityContent({ game }: { game: GameState }) {
           </div>
         </details>;
       })}
-    </div>}
-    <p className="ability-footnote">현재 컨디션을 반영한 실력입니다. 항목을 누르면 변화 이유를 볼 수 있습니다.</p>
+    </div>
+    {specialties.length > 0 && <details className="ability-browse"><summary>전공 숙련</summary><div className="ability-specialties">
+      {specialties.map(s => <div className="ability-specialty" key={s.id}><span>{s.name}</span><strong>{(abilities.specialties[s.id] ?? 0).toFixed(1)}<small>/100</small></strong><progress aria-label={`${s.name} 숙련`} max="100" value={abilities.specialties[s.id] ?? 0}/></div>)}
+    </div></details>}
+    <p className="ability-footnote">현재 컨디션을 반영한 실력입니다. 항목을 누르면 쓰임과 변화 이유를 볼 수 있습니다.</p>
   </>;
 }
 export default function AbilityPanel({ game, onClose }: { game: GameState; onClose: () => void }) {

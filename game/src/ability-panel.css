@@ -31,5 +31,6 @@
 .ability-impact p { margin: 4px 0; }
 .ability-growth { color: #59675f; font-variant-numeric: tabular-nums; }
 .ability-dialog .ability-row summary { grid-template-columns: minmax(0, 1fr) 72px; }
+.ability-relevant .ability-name { text-decoration: underline; text-decoration-color: #9aaa9f; text-underline-offset: 4px; }
 .life-layout:not(.welcome-layout) .stats-panel .section-heading:has(.ability-open) { display: flex; justify-content: space-between; align-items: center; }
 @media (max-width: 480px) { .ability-dialog { padding: 18px; } .ability-columns, .ability-row summary { grid-template-columns: minmax(0, 1fr) 65px 72px; gap: 6px; } .ability-groups button { padding: 7px 10px; } }

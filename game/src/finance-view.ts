@@ -4,6 +4,7 @@ import { DEPTH_RUNTIME } from './career-depth';
 import { variableEarnings } from './life-dynamics';
 import { dietFactor, lifestyleBudget } from './lifestyle';
 import { familyFunding } from './background';
+import { isServing, SERVICE_RULES } from './identity';
 
 export const exactWon = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 export function compactWon(n: number): string {
@@ -16,6 +17,11 @@ export function compactWon(n: number): string {
 }
 export function financeView(s: GameState) {
   const e = s.economy!, c = s.career!, school = s.stageIndex === 0;
+  if (isServing(s)) {
+    const { income, expenses } = SERVICE_RULES[s.identity!.service.route!];
+    return { netAssets: e.assets - e.debt - e.due, salary: income * 12, income, expenses, disposable: income - expenses,
+      familyMonthly: 0, familySemester: 0, repayment: 0, afterPlans: income - expenses, annual: income * 12, label: '복무 중 연 수입' };
+  }
   const training = s.stageIndex === 1 && c.application === 'accepted';
   const working = s.stageIndex === 2 || (s.stageIndex === 1 && !training);
   const clinic = working && c.practice === 'clinic' && e.ledger.some(t => t.kind === 'open-clinic');
@@ -38,6 +44,11 @@ export function financeView(s: GameState) {
   if (s.stageIndex === 2 && s.depth?.workload === 'learning') expenses += DEPTH_RUNTIME.learningCost;
   income += variableEarnings(s);
   income += lifestyle.income; expenses += lifestyle.cost;
+  const impactMonth = Math.floor((s.life?.elapsedMs ?? 0) / 1000);
+  const impacts = s.incidents?.impacts.filter(i => i.start <= impactMonth && i.until > impactMonth) ?? [];
+  const impactIncome = income;
+  income = Math.max(0, income - impacts.reduce((sum, i) => sum + Math.round(impactIncome * i.cut), 0));
+  expenses += impacts.reduce((sum, i) => sum + i.monthly, 0);
   const repayment = Math.min(s.portfolio?.autoRepay ?? 0, e.debt);
   return { netAssets: e.assets - e.debt - e.due, salary, income, expenses, disposable: income - expenses, familyMonthly, familySemester,
     repayment, afterPlans: income - expenses - repayment - (s.portfolio?.autoSave ?? 0) - (s.portfolio?.autoInvest ?? 0),

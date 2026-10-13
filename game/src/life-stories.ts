@@ -1,11 +1,12 @@
 import type { EventChoice, GameEvent, GameState, Stats } from './contracts';
+import { compactPacing, pacingArc, pacingStoryLimit } from './pacing';
 import type { Experience } from './career';
 import { elapsedMonths } from './random-life';
 import { opportunitySubset } from './opportunities';
 import { STAGES } from './fixtures/content';
 import { lifeAge } from './random-life';
 import { linkedStory, STORYLINE_IDS, STORYLINE_STORIES, storylineRecap } from './storyline';
-import { PEER_IDS, PEER_STORIES, peerStory, initialPeer, advancePeer, validPeer, peerRelationship, type PeerMemory } from './relationships';
+import { PEER_IDS, PEER_STORIES, peerStory, initialPeer, advancePeer, validPeer, validPeerIdentity, peerRelationship, type PeerMemory } from './relationships';
 import { SPECIALTY_CHAPTERS, specialtyChapter } from './specialty-chapters';
 
 // Authored fictional situations; scheduling and effects are adjustable game rules.
@@ -134,14 +135,15 @@ export function storyEvent(s: GameState, key: string, legacy = false): Pick<Game
 }
 export function requiredStory(s: GameState): string | null {
   const v = s.stories, m = elapsedMonths(s); if (!v) return null;
-  if (Object.keys(v.decisions).filter(id => LIFE_STORIES.find(x => x.id === id)?.stage === s.stageIndex).length >= STORY_RULES.perStage[s.stageIndex]) return null;
+  const compact = compactPacing(s);
+  if (Object.keys(v.decisions).filter(id => LIFE_STORIES.find(x => x.id === id)?.stage === s.stageIndex).length >= (compact ? pacingStoryLimit(s) : STORY_RULES.perStage[s.stageIndex])) return null;
   const start = [0, s.progress?.trainingStartMonth ?? 72, 144 + Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72), 564 + Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72)][s.stageIndex];
   const last = Math.max(v.since, start, ...Object.entries(v.decisions).filter(([id]) => LIFE_STORIES.find(x => x.id === id)?.stage === s.stageIndex).map(([, d]) => d.month));
   if (m - last < STORY_RULES.spacing[s.stageIndex]) return null;
   const arc = STORYLINE_IDS[s.stageIndex];
-  if (v.narrativeVersion === 1 && !v.decisions[arc]) return keyOf(arc);
+  if (v.narrativeVersion === 1 && (!compact || pacingArc(s) === 'notebook') && !v.decisions[arc]) return keyOf(arc);
   const peer = PEER_IDS[s.stageIndex];
-  if (v.peer && !v.decisions[peer]) return keyOf(peer);
+  if (v.peer && (!compact || pacingArc(s) === 'peer') && !v.decisions[peer]) return keyOf(peer);
   const chapterId = `specialty-${s.career?.specialty}`;
   if (v.peer && s.stageIndex === 2 && !v.decisions[chapterId] && specialtyChapter(s, chapterId)) return keyOf(chapterId);
   const pool = LIFE_STORIES.filter(x => !SPECIALTY_CHAPTERS.includes(x) && !PEER_STORIES.includes(x) && !STORYLINE_STORIES.includes(x) && x.stage === s.stageIndex && !v.decisions[x.id] && (!x.eligible || x.eligible(s)));
@@ -180,8 +182,7 @@ export function validStoryContext(s: GameState): boolean {
   const v = s.stories; if (!v) return true;
   if (!s.life) return false;
   if (v.peer) {
-    const expected = initialPeer(s);
-    if (v.peer.person.id !== expected.person.id || v.peer.person.name !== expected.person.name || v.peer.route !== expected.route || v.peer.since < v.since) return false;
+    if (!validPeerIdentity(s, v.peer) || v.peer.since < v.since) return false;
     if (PEER_IDS.some(id => v.decisions[id] && v.decisions[id].month < v.peer!.since)) return false;
   }
   const offer = v.decisions['peer-offer'];

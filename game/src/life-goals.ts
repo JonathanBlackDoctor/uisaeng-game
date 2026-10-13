@@ -1,5 +1,6 @@
 import type { GameState } from './contracts';
 import { elapsedMonths } from './random-life';
+import { SERVICE_RULES, serviceMonths } from './identity';
 
 export interface EncounterRecord { version: 1; sinceMonth: number; lastMonth: number; total: number }
 // Game tuning, not observed patient volumes or a ranking of specialties.
@@ -17,14 +18,16 @@ export function settleEncounters(s: GameState) {
   const month = elapsedMonths(s), record = s.encounters;
   if (!record || record.lastMonth >= month) return;
   // Only settle this month: never reconstruct missing history using today's job.
-  record.total += monthlyEncounters(s);
+  const cut = Math.min(1, (s.incidents?.impacts ?? []).filter(i => i.start < month && i.until >= month).reduce((sum, i) => sum + i.cut, 0));
+  record.total += Math.round(monthlyEncounters(s) * (1 - cut));
   record.lastMonth = month;
 }
 export function validEncounters(s: GameState): boolean {
   const r = s.encounters;
   return r === undefined || (!!r && r.version === 1 && Number.isSafeInteger(r.sinceMonth) && r.sinceMonth >= 0
     && Number.isSafeInteger(r.lastMonth) && r.lastMonth >= r.sinceMonth && r.lastMonth <= elapsedMonths(s)
-    && Number.isSafeInteger(r.total) && r.total >= 0 && r.total <= (r.lastMonth - r.sinceMonth) * ENCOUNTER_RULES.extended);
+    && Number.isSafeInteger(r.total) && r.total >= 0 && r.total <= (r.lastMonth - r.sinceMonth) * ENCOUNTER_RULES.extended
+      + (s.identity?.service.route ? Math.max(0, serviceMonths(s) - SERVICE_RULES[s.identity.service.route].education) * SERVICE_RULES[s.identity.service.route].encounters : 0));
 }
 export function nextGoal(value: number, first: number): number {
   let target = first;

@@ -88,8 +88,9 @@ describe('career preview connected runtime', () => {
     s = until(s, x => x.pendingEvent?.randomKey === 'marriage-required');
     expect(s.life!.elapsedMs).toBe(126_000);
     s = choose(s, 'single');
-    s = until(s, x => x.pendingEvent?.randomKey === 'stage-end');
-    expect(s.life!.elapsedMs).toBe(150_000); expect(s.stageIndex).toBe(1);
+    s = until(s, x => x.stageIndex === 2);
+    expect(s.life!.elapsedMs).toBe(150_000);
+    expect(s.journal.some(x => x.id === 'auto:stage:1')).toBe(true);
   });
   it('gives single and dating players suitable marriage choices and skips married players', () => {
     let s = reduceGame(createCareerGame('relations', 42), { type: 'control', id: 'start', paused: false, speed: 8 });

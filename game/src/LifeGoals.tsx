@@ -1,6 +1,8 @@
 import type { GameState } from './contracts';
 import { compactWon, exactWon } from './finance-view';
 import { encounterLabel, monthlyEncounters, netAssets, nextGoal } from './life-goals';
+import { familyTimeLabel, mentoringSummary, studentsLabel } from './legacy-goals';
+import MentoringRecord from './MentoringRecord';
 import './life-goals.css';
 
 export default function LifeGoals({ game }: { game: GameState }) {
@@ -13,6 +15,13 @@ export default function LifeGoals({ game }: { game: GameState }) {
     </div>
     <div><span>순자산</span><strong title={assets === null ? undefined : exactWon(assets)}>{assets === null ? '기록 없음' : compactWon(assets)}</strong>
       {active && assets !== null && <small>{assets < 0 ? '다음 목표 순자산 0원' : `다음 목표 ${compactWon(nextGoal(assets, 100_000_000))}`}</small>}
+    </div>
+    <div><span>가족과 보낸 시간</span><strong>{familyTimeLabel(game)}</strong>
+      {active && !game.lifestyle?.enabled.family && <small>생활 설정에서 가족 시간을 마련하세요.</small>}
+    </div>
+    <div><span>길러낸 제자</span><strong>{studentsLabel(game)}</strong>
+      {active && <small>{mentoringSummary(game)}</small>}
+      <MentoringRecord game={game}/>
     </div>
   </div>;
 }

@@ -65,8 +65,8 @@ describe('choices, people and specialty consequences', () => {
     s.life!.elapsedMs += 3000; advanceStories(s);
     expect(s.journal.find(x => x.id === `auto:story:specialty-${specialty}:follow`)!.detail).toContain(SPECIALTY_DEPTH[specialty].training.choices[1].label);
   });
-  it('replaces existing slots and leaves nine scheduled story decisions per life', () => {
-    const s = fixture();
+  it('preserves the nine-slot story schedule in existing saves', () => {
+    const s = fixture(); delete s.progress!.pacingVersion;
     for (let stage = 0; stage < 4; stage++) {
       at(s, stage); s.stories!.decisions[['shared-notebook', 'notebook-return', 'notebook-handover', 'notebook-ending'][stage]] = { choice: 'decline', month: s.life!.elapsedMs / 1000 - STORY_RULES.spacing[stage] - 1, followed: true };
       expect(requiredStory(s)).toBe(`story:${PEER_IDS[stage]}`);
@@ -78,6 +78,8 @@ describe('choices, people and specialty consequences', () => {
     const s = fixture(); s.stats.health = 99; at(s, 0); s.pendingEvent = careerEvent(s, 'story:peer-seat');
     const next = choose(s, 'rest'), result = choiceResult(s, next, 'choose:0')!;
     expect(result.changes).toContain('건강 +1'); expect(result.changes).not.toContain('건강 +3');
+    expect(result.statChanges.health).toBe(1);
+    expect(result.statChanges).toEqual(Object.fromEntries(Object.entries(next.stats).map(([key, value]) => [key, value - s.stats[key as keyof typeof s.stats]]).filter(([, value]) => value !== 0)));
     expect(result.detail).toContain('오늘 남아');
     expect(choiceResult(s, s, 'ignored')).toBeNull();
     expect(renderToStaticMarkup(<ChoiceFeedback result={result} onClose={() => {}}/>)).toContain('선택 결과 닫기');

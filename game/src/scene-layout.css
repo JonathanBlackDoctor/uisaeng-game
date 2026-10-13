@@ -1,0 +1,21 @@
+/* Loaded after the existing shell: keep the stage large enough to read actions. */
+.scene-card .ls-canvas { width: 100%; max-width: none; max-height: none; margin-left: 0; }
+.scene-card .ls-root { background: #fafbf7; }
+.scene-card .ls-header { padding: 16px 22px; }
+.scene-card .ls-header h2 { font-size: 17px; font-weight: 650; }
+.scene-card .ls-scene-caption { justify-content: flex-start; font-size: 12px; }
+.scene-card .ls-scene-caption > .ls-activity-dot { background: var(--ls-accent); border-radius: 50%; }
+.scene-card .ls-footer { padding: 5px 22px; }
+.scene-card .ls-people summary { min-height: 44px; }
+.ds-sheet { width: min(560px, calc(100% - 32px)); margin: auto; inset: 0; }
+.ds-sheet::backdrop { background: #263a3026; backdrop-filter: none; }
+.ds-sheet[open] { animation: scene-decision-in .35s cubic-bezier(.22,.68,.18,1) both; }
+@keyframes scene-decision-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 600px) {
+  .scene-card .ls-canvas { width: 125%; margin-left: -12.5%; }
+  .scene-card .ls-header, .scene-card .ls-footer { padding-inline: 16px; }
+  .scene-card .ls-scene-caption { font-size: 11px; }
+  .ds-sheet { width: calc(100% - 24px); max-height: calc(100dvh - 32px); border-radius: 16px; }
+  .ds-sheet .ds-content { max-height: calc(100dvh - 34px); }
+}
+@media (prefers-reduced-motion: reduce) { .ds-sheet[open] { animation: none; } }

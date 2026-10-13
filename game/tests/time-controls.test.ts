@@ -16,8 +16,8 @@ function world(s: GameState) {
 }
 function ordinary(s: GameState, speed: TimeSpeed) {
   s = reduceGame(s, { type: 'control', id: `start:${s.revision}`, paused: false, speed });
-  for (let i = 0; i < 4096 && !s.pendingEvent; i++) s = reduceGame(s, { type: 'tick', id: `frame:${s.revision}`, elapsedMs: 1000 });
-  expect(s.pendingEvent).not.toBeNull();
+  for (let i = 0; i < 4096 && !s.pendingEvent && s.status !== 'completed'; i++) s = reduceGame(s, { type: 'tick', id: `frame:${s.revision}`, elapsedMs: 1000 });
+  expect(!!s.pendingEvent || s.status === 'completed').toBe(true);
   return s;
 }
 
@@ -106,10 +106,13 @@ describe('time controls and admission age', () => {
       expect(validState(s)).toBe(true);
     }
     expect(s.status).toBe('completed');
-    expect(keys).toEqual(expect.arrayContaining(['club-required', 'funding', 'specialty-required', 'clinical-case', 'depth-workload', 'stage-end']));
+    expect(keys).toEqual(expect.arrayContaining(['club-required', 'funding', 'specialty-required', 'clinical-case', 'depth-workload']));
+    expect(s.pendingEvent).toBeNull();
+    expect(s.stageIndex).toBe(3);
     expect(keys).not.toContain('patient-loss');
     expect(keys).not.toContain('dispute');
-    expect(lifeAge(s)).toBe('77세 0개월');
+    expect(s.identity?.service.route).toBe('army');
+    expect(lifeAge(s)).toBe('78세 6개월');
     expect(skip(s)).toBe(s);
     const db = await openGameDatabase(`skipped-${crypto.randomUUID()}`);
     try {

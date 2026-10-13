@@ -48,9 +48,9 @@ describe('long life and combined save compatibility', () => {
     const s = createCareerGame('retained-ability', 42), original = initialAbilities(s);
     s.progress!.focus = 'study';
     for (let m = 1; m <= 684; m++) { s.life!.elapsedMs = m * 1000; advanceAbilities(s); }
-    expect(s.abilities!.values.sociability).toBeLessThan(original.values.sociability);
-    expect(s.abilities!.values.sociability).toBeGreaterThan(original.values.sociability * 0.4);
-    expect(s.abilities!.values.memory).toBeGreaterThan(original.values.memory);
+    expect(s.abilities!.values.communication).toBeLessThan(original.values.communication);
+    expect(s.abilities!.values.communication).toBeGreaterThan(original.values.communication * 0.4);
+    expect(s.abilities!.values.judgment).toBeGreaterThan(original.values.judgment);
   });
   it.each(legacySaves)('restores an actual finance-v1 save at revision $revision without reassigning background or balances', async (fixture: unknown) => {
     const s = structuredClone(fixture) as GameState;
@@ -95,7 +95,8 @@ describe('long life and combined save compatibility', () => {
       const ids = s.economy!.ledger.filter(t=>t.id.includes('family-')).map(t=>t.id);
       expect(new Set(ids).size).toBe(ids.length);
       const stored = (await archives(db))[0].state; expect(stored).toEqual(s);
-      expect(resultShareData(stored).text).toContain('77세 0개월');
+      expect(stored.identity?.service.route).toBe('army');
+      expect(resultShareData(stored).text).toContain('78세 6개월');
       expect(reduceGame(stored, { type: 'next-choice', id: 'after-end' })).toBe(stored);
     } finally { db.close(); }
   }, 60_000);

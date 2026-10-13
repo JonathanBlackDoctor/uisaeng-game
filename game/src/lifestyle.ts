@@ -1,6 +1,7 @@
 import type { GameState, Stats } from './contracts';
 import { adjustStats, elapsedMonths, lifeAge } from './random-life';
 import { practiceAbilities, FOCUS_ABILITIES } from './abilities';
+import { accrueLegacy, canMentor, LEGACY_RULES } from './legacy-goals';
 
 export const LIFESTYLE_RULES = { version: 'lifestyle-provisional-1', provisional: true,
   availableHours: [20, 12, 18, 35], focusHours: 6 };
@@ -11,6 +12,8 @@ export const LIFESTYLE_OPTIONS = {
   study: { label: '추가 공부', hours: 5, cost: 60_000, income: 0, effects: { knowledge: 3, health: -1 } },
   research: { label: '연구 모임', hours: 6, cost: 40_000, income: 0, effects: { knowledge: 2, relationships: 1, health: -1 } },
   sidework: { label: '시간제 일', hours: 6, cost: 0, income: 240_000, effects: { health: -2, happiness: -1 } },
+  family: { label: '가족과 시간 보내기', hours: LEGACY_RULES.familyHours, cost: 0, income: 0, effects: { relationships: 3, happiness: 2 } },
+  mentoring: { label: '후배 지도', hours: LEGACY_RULES.mentoringHours, cost: 0, income: 0, effects: { knowledge: 1, relationships: 2 } },
 } as const;
 export type LifestyleKey = keyof typeof LIFESTYLE_OPTIONS;
 export type Diet = 'frugal' | 'balanced' | 'comfortable';
@@ -28,19 +31,32 @@ export function initialLifestyle(month = 0): LifestyleState {
     accrued: Object.fromEntries(lifestyleKeys.map(k => [k, 0])) as LifestyleState['accrued'], dietAccrued: { frugal: 0, balanced: 0, comfortable: 0 },
     effectCarry: { health: 0, happiness: 0, knowledge: 0, relationships: 0 } };
 }
+export function upgradeLifestyle(s: GameState) {
+  const l = s.lifestyle ??= initialLifestyle(elapsedMonths(s));
+  for (const k of ['family', 'mentoring'] as const) {
+    l.enabled[k] ??= false;
+    l.accrued[k] ??= 0;
+  }
+}
+export function lifestyleAvailable(s: GameState, key: LifestyleKey): boolean {
+  return !(key === 'sidework' && [1, 3].includes(s.stageIndex)) && (key !== 'mentoring' || canMentor(s));
+}
 export function lifestyleSchedule(s: GameState) {
   let remaining = LIFESTYLE_RULES.availableHours[s.stageIndex] - LIFESTYLE_RULES.focusHours - (s.depth?.workload === 'extended' ? 4 : 0);
   const active: LifestyleKey[] = [], suspended: LifestyleKey[] = [];
   for (const k of lifestyleKeys) if (s.lifestyle?.enabled[k]) {
     const o = LIFESTYLE_OPTIONS[k];
-    if (remaining >= o.hours && !(k === 'sidework' && (s.stageIndex === 1 || s.stageIndex === 3))) { active.push(k); remaining -= o.hours; }
+    if (remaining >= o.hours && lifestyleAvailable(s, k)) { active.push(k); remaining -= o.hours; }
     else suspended.push(k);
   }
   return { active, suspended, remaining };
 }
 export function accrueLifestyle(s: GameState, simulatedMs: number) {
-  const l = s.lifestyle; if (!l || simulatedMs <= 0) return;
-  for (const k of lifestyleSchedule(s).active) l.accrued[k] += simulatedMs;
+  if (simulatedMs <= 0) return;
+  upgradeLifestyle(s);
+  const l = s.lifestyle!, active = lifestyleSchedule(s).active;
+  accrueLegacy(s, simulatedMs, active);
+  for (const k of active) l.accrued[k] += simulatedMs;
   l.dietAccrued[l.diet] += simulatedMs;
 }
 export function dietFactor(diet: Diet) { return diet === 'frugal' ? 0.85 : diet === 'comfortable' ? 1.2 : 1; }
@@ -71,8 +87,8 @@ export function settleLifestyle(s: GameState) {
     if (delta) e.ledger.push({ id: `month:${m}:lifestyle:${k}`, month: m, label: o.label, cashDelta: delta, debtDelta: 0, kind: 'monthly' });
     for (const [key, amount] of Object.entries(o.effects)) l.effectCarry[key as keyof Stats] += amount * ms;
     if (s.abilities) practiceAbilities(s,
-      k === 'exercise' ? ['stamina', 'strength', 'reflexes', 'recovery']
-        : k === 'sleep' ? ['recovery', 'regulation'] : FOCUS_ABILITIES[k === 'friends' ? 'people' : k === 'sidework' ? 'work' : k],
+      k === 'exercise' ? ['selfManagement']
+        : k === 'sleep' ? ['selfManagement'] : k === 'family' || k === 'mentoring' ? ['communication'] : FOCUS_ABILITIES[k === 'friends' ? 'people' : k === 'sidework' ? 'work' : k],
       0.45 * ms / 1000, o.label);
     if (s.dynamics && k === 'sleep') s.dynamics.fatigue = Math.max(0, s.dynamics.fatigue - Math.round(4 * ms / 1000));
     if (s.career && ['study', 'research', 'friends'].includes(k)) {
@@ -100,7 +116,9 @@ export function validLifestyle(value: unknown, month: number): boolean {
   const l = value as LifestyleState;
   return l.version === 1 && Number.isSafeInteger(l.lastMonth) && l.lastMonth >= 0 && l.lastMonth <= month
     && ['frugal', 'balanced', 'comfortable'].includes(l.diet)
-    && !!l.enabled && !!l.accrued && lifestyleKeys.every(k => typeof l.enabled[k] === 'boolean' && Number.isSafeInteger(l.accrued[k]) && l.accrued[k] >= 0 && l.accrued[k] <= 1000)
+    && !!l.enabled && !!l.accrued && lifestyleKeys.every(k =>
+      ((k === 'family' || k === 'mentoring') && l.enabled[k] === undefined && l.accrued[k] === undefined)
+      || (typeof l.enabled[k] === 'boolean' && Number.isSafeInteger(l.accrued[k]) && l.accrued[k] >= 0 && l.accrued[k] <= 1000))
     && !!l.dietAccrued && ['frugal', 'balanced', 'comfortable'].every(k => Number.isSafeInteger(l.dietAccrued[k as Diet]) && l.dietAccrued[k as Diet] >= 0)
     && Object.values(l.dietAccrued).reduce((a, b) => a + b, 0) <= 1000
     && !!l.effectCarry && ['health', 'happiness', 'knowledge', 'relationships'].every(k => Number.isSafeInteger(l.effectCarry[k as keyof Stats]) && Math.abs(l.effectCarry[k as keyof Stats]) < 3000);

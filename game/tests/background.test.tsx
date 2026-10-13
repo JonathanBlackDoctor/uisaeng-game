@@ -80,7 +80,7 @@ describe('diverse starting backgrounds', () => {
     expect(initialAbilities(rich)).toEqual(initialAbilities(poor));
     expect(backgroundStatEffects(rich.life!.background)).toEqual(backgroundStatEffects(poor.life!.background));
     poor.life!.background.experience = EXPERIENCES[1]; rich.life!.background.experience = EXPERIENCES[0];
-    expect(initialAbilities(poor).values.stamina).toBeGreaterThan(initialAbilities(rich).values.stamina);
+    expect(initialAbilities(poor).values.selfManagement).toBeGreaterThan(initialAbilities(rich).values.selfManagement);
   });
   it('credits monthly and semester support exactly once, before expenses, and stops after university', () => {
     const context = { ...school, familyMonthly: 600_000, familySemester: 1_000_000, wageIndex: 2 };

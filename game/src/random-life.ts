@@ -2,6 +2,8 @@ import { STAT_LABELS, TIME_SPEEDS, type Activity, type GameAction, type GameEven
 import { STAGES } from './fixtures/content';
 import { initialFamily } from './family';
 import { expandBackground, backgroundStatEffects, backgroundDescription, BACKGROUND_RULES } from './background';
+import { designEvent } from './event-design';
+import { calendarMonths } from './identity';
 
 // Fictional preview distributions and balance. These are NOT population statistics,
 // admission models, or approved production career requirements.
@@ -47,7 +49,7 @@ export const backgroundSummary = (b: LifeBackground) => backgroundDescription(b)
 export const elapsedMonths = (s: GameState) => Math.floor((s.life?.elapsedMs ?? 0) / RANDOM_RULES.monthMs);
 // Saves created before startAge was stored began at 19.
 export const lifeStartAge = (s: GameState) => s.life?.startAge ?? 19;
-export const lifeAge = (s: GameState) => `${lifeStartAge(s) + Math.floor(elapsedMonths(s) / 12)}세 ${elapsedMonths(s) % 12}개월`;
+export const lifeAge = (s: GameState) => `${lifeStartAge(s) + Math.floor(calendarMonths(s) / 12)}세 ${calendarMonths(s) % 12}개월`;
 export function createRandomGame(runId: string, seed: number): GameState {
   const start = generateStart(seed);
   return {
@@ -94,7 +96,7 @@ export function person(seed: number, runId: string, month: number): { seed: numb
   return { seed: c.seed, person: { id: `${runId}:person:${month}`, name: names[Math.floor(a.value * names.length)], temperament: ['차분히 듣는 편', '호기심이 많은 편', '활동적인 편', '신중하게 가까워지는 편'][Math.floor(b.value * 4)], occupation: ['다른 학교 학생', '같은 학교 학생', '다른 분야에서 일하는 사람'][Math.floor(c.value * 3)] } };
 }
 const c = (id: string, label: string, effects: Partial<Stats> = {}, description = '선택 이후의 상황은 삶의 기록에 남습니다.') => ({ id, label, description, effects });
-export function randomEvent(s: GameState, key: string, invited?: Person): GameEvent | null {
+export function randomEvent(s: GameState, key: string, invited?: Person, legacyChoices = false): GameEvent | null {
   const name = s.family?.partner?.name ?? '';
   let title: string; let body: string; let choices: GameEvent['choices'];
   if (key in ROUTES) {
@@ -132,7 +134,7 @@ export function randomEvent(s: GameState, key: string, invited?: Person): GameEv
     const story = stories[key]; if (!story) return null;
     [title, body, choices] = story;
   }
-  return { id: `${s.runId}:${key}:${elapsedMonths(s)}`, stage: STAGES[s.stageIndex].id, title, body, choices, provenance: 'random-preview', randomKey: key, ...(invited ? { person: invited } : {}) };
+  return designEvent(s, { id: `${s.runId}:${key}:${elapsedMonths(s)}`, stage: STAGES[s.stageIndex].id, title, body, choices, provenance: 'random-preview', randomKey: key, ...(invited ? { person: invited } : {}) }, legacyChoices);
 }
 
 export function eligibleEvents(s: GameState) {
@@ -176,8 +178,11 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
         s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young';
       }
       if (month >= RANDOM_RULES.stageEnds[s.stageIndex]) {
-        s.pendingEvent = randomEvent(s, 'milestone');
-        break;
+        const milestone = randomEvent(s, 'milestone')!;
+        s = record(s, `auto:stage:${s.stageIndex}`, milestone.title, milestone.body);
+        if (s.stageIndex === 3) { s.status = 'completed'; s.life!.paused = true; break; }
+        s.stageIndex++;
+        continue;
       }
       const chance = nextRandom(s.seed); s.seed = chance.seed;
       if (chance.value >= 0.16) continue; // Quiet months are a real outcome.
@@ -186,6 +191,16 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
       const draw = nextRandom(s.seed); s.seed = draw.seed;
       let threshold = draw.value * candidates.reduce((n, d) => n + d.weight(s), 0);
       const selected = candidates.find(d => (threshold -= d.weight(s)) < 0) ?? candidates[candidates.length - 1];
+      if (selected.key === 'study-cost') {
+        s.life!.seen[selected.key] = month;
+        const support = nextRandom(s.seed); s.seed = support.seed;
+        const accepted = support.value < 0.45 + s.stats.knowledge / 400;
+        if (accepted) s.life!.flags.push('scholarship');
+        s = record(s, `auto:study-support:${month}`, '학습 지원 결과', accepted
+          ? '이용 가능한 지원을 신청해 학습 비용의 부담이 줄었습니다.'
+          : '이용 가능한 지원을 신청했지만 이번에는 지원받지 못했습니다.');
+        continue;
+      }
       let invited: Person | undefined;
       if (selected.key in ROUTES) {
         const p = person(s.seed, s.runId, month); s.seed = p.seed; invited = p.person;
@@ -197,7 +212,7 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
       s.pendingEvent = randomEvent(s, selected.key, invited);
       break;
     }
-    if (!s.pendingEvent) s.life!.elapsedMs = target;
+    if (!s.pendingEvent && s.status === 'active') s.life!.elapsedMs = target;
     return commit(s, action);
   }
   const event = state.pendingEvent;
@@ -239,7 +254,7 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
   }
   else if (key === 'marriage' && id === 'marry') s.family!.status = 'married';
   else if (key === 'marriage' && id === 'stay') flags('unmarried');
-  else if (key === 'parenthood' && id === 'child') { s.family!.children = 'young'; s.family!.care = 'shared'; s.life!.childBornMonth = elapsedMonths(s); }
+  else if (key === 'parenthood' && id === 'child') { s.family!.children = 'young'; s.family!.care = 'shared'; s.life!.childBornMonth = calendarMonths(s); }
   else if (key === 'parenthood' && id === 'childfree') flags('childfree');
   else if (key === 'care') s.family!.care = id === 'support' ? 'support' : 'shared';
   s = record(s, action.id, event.title, detail.replaceAll('。', ' '), choice.effects);
@@ -279,7 +294,7 @@ export function validRandomState(s: GameState, stageEnds: readonly number[] = RA
   if (life.childBornMonth === undefined) {
     if (f.children !== 'none' || f.care !== 'none') return false;
   } else {
-    const age = elapsedMonths(s) - life.childBornMonth;
+    const age = calendarMonths(s) - life.childBornMonth;
     if (!Number.isInteger(life.childBornMonth) || life.childBornMonth < 72 || age < 0 || f.care === 'none'
       || f.children !== (age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young')) return false;
   }
@@ -300,6 +315,7 @@ export function validRandomState(s: GameState, stageEnds: readonly number[] = RA
         || (e.randomKey === 'offer-blind-date' && s.stageIndex > 0 && e.person!.occupation !== '다른 분야에서 일하는 사람')) return false;
     } else if (e.person) return false;
   }
-  const canonical = randomEvent(s, e.randomKey, e.person);
+  if (e.choiceVersion !== undefined && e.choiceVersion !== 1) return false;
+  const canonical = randomEvent(s, e.randomKey, e.person, e.choiceVersion === undefined);
   return canonical !== null && JSON.stringify(e) === JSON.stringify(canonical);
 }

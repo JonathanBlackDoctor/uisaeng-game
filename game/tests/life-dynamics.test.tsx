@@ -91,7 +91,7 @@ describe('readable assets and current pay', () => {
     const f = financeView(s); expect(f.netAssets).toBe(-2_400_000); expect(f.annual).toBe(72_000_000);
     expect(f.expenses).toBe(900_000); expect(f.disposable).toBe(5_100_000);
     const html = renderToStaticMarkup(<FinanceSummary game={s}/>);
-    expect(html).toContain('현재 연봉'); expect(html).toContain('월 지출'); expect(html).toContain('−240만 원'); expect(html).toContain('8,000,000원');
+    expect(html).toContain('현재 연봉'); expect(html).toContain('월수입'); expect(html).toContain('월지출'); expect(html).toContain('매달 남는 돈'); expect(html).toContain('−240만 원'); expect(html).toContain('8,000,000원');
     s.career!.practice = 'clinic'; s.economy!.ledger.push({ id: 'opened', month: 0, label: '개원', kind: 'open-clinic', cashDelta: 0, debtDelta: 0 });
     expect(financeView(s).label).toBe('연 매출 예상'); expect(financeView(s).expenses).toBe(7_900_000);
   });
