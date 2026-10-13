@@ -133,7 +133,6 @@ export default function LifeScene({ stage, age, month, running, focus, seed, rel
   return <section className="ls-root" data-running={running} data-season={season.key} aria-labelledby={`${id}-heading`}>
     <header className="ls-header">
       <div><p className="ls-eyebrow">{scene.label} <span aria-hidden="true">/</span> {season.name}</p><h2 id={`${id}-heading`}>{scene.title}</h2></div>
-      <span className="ls-time"><span className="ls-status-dot" aria-hidden="true" />{running ? '진행 중' : '일시정지'}</span>
     </header>
     <div className="ls-art">
       <svg className="ls-canvas" viewBox="0 0 960 480" role="img" aria-labelledby={`${id}-title ${id}-description`}>
@@ -166,7 +165,7 @@ export default function LifeScene({ stage, age, month, running, focus, seed, rel
           {season.key === 'winter' && <g fill="#faf8ef" opacity=".8"><ellipse cx="237" cy="428" rx="27" ry="5" /><ellipse cx="756" cy="390" rx="18" ry="4" /><ellipse cx="128" cy="345" rx="45" ry="6" /></g>}
         </g>
       </svg>
-      <div className="ls-scene-caption"><span>{age}세 <span className="ls-month">{month}개월</span></span><span>{FOCUS[focus]}</span></div>
+      <div className="ls-scene-caption"><span>{FOCUS[focus]}</span></div>
     </div>
     <footer className="ls-footer">
       <details className="ls-people">

@@ -45,7 +45,7 @@ export function LifeMap({ age, startAge = 20, endAge = 77, entries }: LifeMapPro
   }
   const selectedEntries = byYear.get(selected) ?? [];
   return <section className="lp-panel lp-map" aria-labelledby={headingId}>
-    <header className="lp-heading"><div><p className="lp-kicker">한 해, 한 칸</p>
+    <header className="lp-heading"><div>
       <h2 id={headingId}>생애 지도</h2></div><span className="lp-badge">{current === null ? '나이 미정' : `현재 ${current}세`}</span></header>
     <p className="lp-help">나이를 누르면 기록을 볼 수 있습니다.</p>
     <ul className="lp-legend" aria-label="지도 표시 안내">
@@ -97,11 +97,11 @@ export function PeoplePanel({ status, partnerName, partnerTemperament, meeting, 
   const childrenLabel = { young: '어린 자녀', school: '학교에 다니는 자녀', adult: '성인 자녀' };
   return <section className="lp-panel lp-people" aria-labelledby={headingId}>
     <header className="lp-heading"><div><h2 id={headingId}>주변 사람</h2></div>
-      <span className="lp-badge">{status === 'single' ? '싱글' : status === 'dating' ? '연애 중' : '기혼'}</span></header>
+      {linked && <span className="lp-badge">{status === 'dating' ? '연애 중' : '기혼'}</span>}</header>
     <ul className="lp-person-list">
       <li className="lp-person"><PersonIcon /><div>
         <h3>{linked || acquaintance ? partnerName?.trim() || partnerRole : '지금은 싱글'}</h3>
-        <p className="lp-person-role">{linked ? partnerRole : acquaintance ? '서로 알아가는 중' : '연인·배우자 없음'}</p>
+        {(linked || acquaintance) && <p className="lp-person-role">{linked ? partnerRole : '서로 알아가는 중'}</p>}
         {(linked || acquaintance) && partnerTemperament?.trim() && <p>{partnerTemperament}</p>}
         {(linked || acquaintance) && meeting?.trim() && <p className="lp-meeting">{meeting}에서 시작된 인연</p>}
       </div></li>
@@ -135,10 +135,9 @@ export function RecentLifeFeed({ entries, limit = 5, onOpenJournal }: RecentLife
     </header>
     
     {!recent.length ? <p className="lp-empty">{entries.length ? '최근 기록이 없습니다.' : '아직 기록이 없습니다.'}</p>
-      : <ol className="lp-feed-list">{recent.map((entry, index) => <li key={entry.id} className={newIds.has(entry.id) ? 'lp-feed-item lp-new-record' : 'lp-feed-item'}>
+      : <ol className="lp-feed-list">{recent.map(entry => <li key={entry.id} className={newIds.has(entry.id) ? 'lp-feed-item lp-new-record' : 'lp-feed-item'}>
         <span className="lp-feed-dot" aria-hidden="true" /><article>
-          <div className="lp-feed-title"><h3>{entry.title}</h3>{index === 0 && <span className="lp-latest">최근</span>}</div>
-          <details className="lp-feed-detail"><summary><span className="lp-excerpt">{entry.detail}</span><span className="lp-read-label">본문 읽기 / 접기</span></summary>
+          <details className="lp-feed-detail"><summary><span className="lp-feed-title">{entry.title}</span></summary>
             <p>{entry.detail}</p></details>
         </article>
       </li>)}</ol>}

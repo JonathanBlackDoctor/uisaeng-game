@@ -169,7 +169,7 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities }: De
       >
         <div className="ds-content">
           <header className="ds-header">
-            <span className="ds-eyebrow"><span className="ds-mark" aria-hidden="true">✦</span> 선택</span>
+            <span className="ds-eyebrow">선택</span>
             <button type="button" className="ds-minimize" onClick={minimize} aria-label="선택 카드 접기">
               <span aria-hidden="true">−</span> 접기
             </button>
@@ -195,7 +195,6 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities }: De
                     </span>
                     {choice.description && <span className="ds-choice-description" id={`${id}-description-${index}`}>{choice.description}</span>}
                   </span>
-                  <span className="ds-arrow" aria-hidden="true">↗</span>
                 </button>
               </li>
             ))}
