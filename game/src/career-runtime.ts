@@ -1,6 +1,7 @@
 import { TIME_SPEEDS, type CareerProgress, type GameAction, type GameEvent, type GameState, type Stats } from './contracts';
 import { applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, INSTITUTIONS, SPECIALTIES, validCareer } from './career';
 import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy, fundEducationDue } from './economy';
+import { familyFunding } from './background';
 import { initialCampus, campusChoice, settleCampusChoice, requiredCampus, advanceCampus, validCampus } from './campus';
 import { initialDepth, upgradeDepth, depthEvent, requiredDepth, settleDepth, advanceDepth, incidentDepth, validDepth, DEPTH_RUNTIME, institutionOpportunity } from './career-depth';
 import { adjustStats, createRandomGame, elapsedMonths, eligibleEvents, lifeAge, nextRandom, person, randomEvent, RANDOM_RULES, reduceRandomGame, validRandomState } from './random-life';
@@ -50,7 +51,7 @@ function upgradeCampus(s: GameState) {
 export function createCareerGame(runId: string, seed: number): GameState {
   const s = createRandomGame(runId, seed);
   s.rulesVersion = s.contentVersion = 'career-preview-v1';
-  s.career = initialCareer(); s.economy = initialEconomy(s.life!.background.finances);
+  s.career = initialCareer(); s.economy = initialEconomy(s.life!.background.finances, familyFunding(s.life!.background).initialCash);
   s.campus = initialCampus();
   s.depth = initialDepth();
   s.dynamics = initialDynamics(seed);
@@ -164,9 +165,10 @@ function required(s: GameState): string | null {
 }
 function advanceMonth(s: GameState) {
   const m = elapsedMonths(s), p = s.progress!;
+  const funding = familyFunding(s.life!.background);
   advanceAbilities(s);
   preparePortfolio(s);
-  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s) });
+  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s), familyMonthly: funding.monthly, familySemester: funding.semester });
   if (s.life!.childBornMonth !== undefined) { const age = m - s.life!.childBornMonth; s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young'; }
   advanceCampus(s);
   advanceDepth(s);

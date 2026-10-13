@@ -1,5 +1,6 @@
 import type { CareerProgress, GameEvent, GameState, Stats } from './contracts';
 import { SPECIALTIES } from './career';
+import { backgroundAbilityBonuses } from './background';
 
 export const ABILITY_GROUPS = { body: '신체', learning: '학습·사고', self: '자기관리', social: '대인관계', clinical: '의료 실무', professional: '연구·운영' } as const;
 type Group = keyof typeof ABILITY_GROUPS;
@@ -48,7 +49,7 @@ export interface AbilityState {
 }
 // All parameters are fictional, adjustable playtest settings, not clinical measurements.
 export const ABILITY_RULES = { version: 'abilities-provisional-1', provisional: true,
-  monthlyGain: 0.75, eventGain: 1.2, decayAfter: 12, decay: 0.35,
+  monthlyGain: 0.75, eventGain: 1.2, decayAfter: 12, decay: 0.35, retainedStart: 0.5,
   eventSpacing: 6, eventChance: 0.3, eventCooldown: 18, applicationRange: 8 };
 const month = (s: GameState) => Math.floor((s.life?.elapsedMs ?? 0) / 1000);
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
@@ -72,11 +73,15 @@ const CLUB_ABILITIES: Record<string, AbilityId[]> = {
 };
 export function initialAbilities(s: GameState): AbilityState {
   const m = month(s);
+  const bonuses = backgroundAbilityBonuses(s.life?.background);
+  const wide = s.life?.background.profile?.version === 3;
   const a: AbilityState = { version: 1, seed: ((s.life?.initialSeed ?? s.seed) ^ 0x3c6ef372) >>> 0,
     since: m, lastMonth: m, values: {} as AbilityValues, used: {} as Record<AbilityId, number>, changes: {}, specialties: {}, seen: {} };
   for (const def of ABILITIES) {
     const professional = ['clinicalReasoning', 'procedures', 'triage', 'researchDesign', 'business'].includes(def.id);
-    a.values[def.id] = round((professional ? 8 : 25) + draw(a) * (professional ? 22 : 35));
+    const base = wide ? (professional ? 6 : 20) : (professional ? 8 : 25);
+    const spread = wide ? (professional ? 26 : 45) : (professional ? 22 : 35);
+    a.values[def.id] = round(clamp(base + draw(a) * spread + (bonuses[def.id] ?? 0)));
     a.used[def.id] = m;
   }
   // Old saves begin here; do not invent past skill gains or completed training.
@@ -142,7 +147,14 @@ export function advanceAbilities(s: GameState) {
     if (s.career?.specialty) learnSpecialty(s, s.career.specialty, 0.6);
   }
   if (focus === 'clinical' && s.career?.interest && s.career.explored.includes(s.career.interest)) learnSpecialty(s, s.career.interest, 0.3);
-  if (m % 3 === 0) for (const { id } of ABILITIES) if (m - a.used[id] >= ABILITY_RULES.decayAfter) change(s, id, -ABILITY_RULES.decay, '오랫동안 쓰지 않은 능력');
+  if (m % 3 === 0) {
+    const starting = initialAbilities(s).values;
+    for (const { id } of ABILITIES) if (m - a.used[id] >= ABILITY_RULES.decayAfter) {
+      // Disuse erodes acquired fluency, rather than subtracting a fixed amount forever.
+      const excess = a.values[id] - starting[id] * ABILITY_RULES.retainedStart;
+      if (excess > 0) change(s, id, -Math.min(ABILITY_RULES.decay, excess * 0.03), '오랫동안 쓰지 않은 능력');
+    }
+  }
 }
 
 export function abilityEventWeight(s: GameState, key: string): number {

@@ -1,0 +1,6 @@
+.result-share{margin-top:16px;min-width:0;max-width:100%}
+.result-share-actions{display:flex;flex-wrap:wrap;gap:10px}
+.result-share p{font-size:12px;color:#546c49;margin:10px 0 0;overflow-wrap:anywhere}
+.result-share p:empty{margin:0}
+.result-share textarea{display:block;width:100%;max-width:100%;box-sizing:border-box;margin-top:12px;padding:12px;border:1px solid #d5dcc9;border-radius:8px;background:#fbfcf5;color:#354d35;font:inherit;font-size:13px;line-height:1.7;resize:vertical}
+@media(max-width:460px){.result-share-actions>button{width:100%}}

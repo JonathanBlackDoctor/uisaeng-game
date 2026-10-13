@@ -25,4 +25,5 @@
 .ability-specialty small { font-size: 10px; color: #6b7771; margin-left: 4px; }
 .ability-footnote { border-top: 1px solid #e1e6e1; padding-top: 14px; margin-bottom: 0; }
 .ability-open { white-space: nowrap; }
+.life-layout:not(.welcome-layout) .stats-panel .section-heading:has(.ability-open) { display: flex; justify-content: space-between; align-items: center; }
 @media (max-width: 480px) { .ability-dialog { padding: 18px; } .ability-columns, .ability-row summary { grid-template-columns: minmax(0, 1fr) 65px 72px; gap: 6px; } .ability-groups button { padding: 7px 10px; } }

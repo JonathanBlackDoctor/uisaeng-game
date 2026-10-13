@@ -2,6 +2,7 @@ import type { GameState, Stats, CareerProgress } from './contracts';
 import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { ECONOMY_RULES } from './economy';
 import { focusAbilityModifier, abilityFatigueRelief } from './abilities';
+import { familyFatigueModifier } from './background';
 
 type Focus = CareerProgress['focus'];
 const focuses: Focus[] = ['study', 'research', 'clinical', 'people', 'rest', 'work'];
@@ -16,8 +17,9 @@ export interface LifeDynamics {
   attempts: string[];
 }
 // Fictional balance parameters. These are not personal probabilities or wage data.
-export const DYNAMICS_RULES = { version: 'life-dynamics-provisional-1', provisional: true,
-  momentumLimit: 12, fatigueLimit: 24, quarter: 3 };
+export const DYNAMICS_RULES = { version: 'life-dynamics-provisional-2', provisional: true,
+  momentumLimit: 12, fatigueLimit: 24, quarter: 3,
+  neglectThreshold: 55, recoveryThreshold: 45, lowRecoveryThreshold: 30 };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 export function initialDynamics(seed: number, month = 0): LifeDynamics {
   return { version: 1, seed: (seed ^ 0x6a09e667) >>> 0, since: month, lastMonth: month, fatigue: 0,
@@ -88,11 +90,13 @@ export function advanceDynamics(s: GameState) {
     const decision = s.depth?.decisions[key];
     if (decision?.followed && decision.month + 3 > (d.since ?? 0)) resolveChoiceEffort(s, `${key}-result`, decision.choice, `followup:${key}:${decision.month}`);
   }
-  const demanding = ['study', 'research', 'clinical', 'work'].includes(focus);
-  d.fatigue = clamp(d.fatigue + (focus === 'rest' ? -5 : focus === 'people' ? -2 : 1)
+  const demanding = s.stageIndex !== 3 && ['study', 'research', 'clinical', 'work'].includes(focus);
+  d.fatigue = clamp(d.fatigue + (focus === 'rest' ? -5 : focus === 'people' ? -2 : demanding ? 1 : -1)
+    + (s.stageIndex === 0 && m % 3 === 0 ? familyFatigueModifier(s.life?.background) : 0)
     + (s.depth?.workload === 'extended' ? 1 : 0)
     - (focus === 'rest' || m % 3 === 0 ? abilityFatigueRelief(s) : 0), 0, 24);
-  if (m % 6 === 0) for (const key of focuses) if (key !== focus) d.momentum[key] -= Math.sign(d.momentum[key]);
+  // Past success or failure matters, but cannot lock a focus into one outcome for decades.
+  if (m % 3 === 0) for (const key of focuses) d.momentum[key] -= Math.sign(d.momentum[key]);
   const grade = rollEffort(s, focus);
   if (focus in s.career!.experience) {
     const k = focus as keyof NonNullable<GameState['career']>['experience'];
@@ -104,13 +108,21 @@ export function advanceDynamics(s: GameState) {
   // Maintaining every stat takes time. High values have a larger upkeep burden.
   for (const key of Object.keys(s.stats) as (keyof Stats)[]) {
     const neglected = key !== relevant[focus] && !(key === 'happiness' && ['rest', 'people'].includes(focus));
-    effects[key] = (effects[key] ?? 0) - (neglected ? 2 : 0) - (s.stats[key] >= 85 ? 2 : s.stats[key] >= 70 ? 1 : 0);
+    effects[key] = (effects[key] ?? 0) - (neglected && s.stats[key] >= DYNAMICS_RULES.neglectThreshold ? 1 : 0)
+      - (s.stats[key] >= 85 ? 2 : s.stats[key] >= 70 ? 1 : 0);
   }
   if (demanding) effects.health = (effects.health ?? 0) - 1 - Math.floor(d.fatigue / 8);
   if (focus === 'rest') effects.health = (effects.health ?? 0) + 5;
   if (focus === 'people') effects.happiness = (effects.happiness ?? 0) + 2;
   const debtBurden = s.economy!.due > 0 || s.economy!.debt > Math.max(s.economy!.income * 24, 10_000_000);
   if (debtBurden) effects.happiness = (effects.happiness ?? 0) - 2;
+  // Routine wear tapers at low values; ordinary recovery prevents irreversible depletion.
+  // This affects quarterly routines only. Choices and exceptional events retain their costs.
+  for (const key of Object.keys(s.stats) as (keyof Stats)[]) {
+    const change = effects[key] ?? 0, value = s.stats[key];
+    const recovery = value < DYNAMICS_RULES.lowRecoveryThreshold ? 2 : value < DYNAMICS_RULES.recoveryThreshold ? 1 : 0;
+    effects[key] = (change < 0 ? -Math.max(1, Math.round(-change * (0.2 + 0.8 * value / 100))) : change) + recovery;
+  }
   record(s, `auto:dynamics:${m}`, `${labels[focus]}하며 보낸 석 달`,
     `${outcomes[grade + 2]}${s.abilities ? ' 관련 능력과 현재 컨디션이 결과에 반영됐습니다.' : ''}${d.fatigue >= 12 ? ' 피로가 쌓여 집중하기 어려웠습니다.' : ''}${debtBurden ? ' 갚을 돈이 생활의 부담으로 남았습니다.' : ''}`, effects);
 }

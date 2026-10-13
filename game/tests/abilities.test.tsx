@@ -119,6 +119,20 @@ describe('detailed abilities', () => {
     for (const bad of [null, [], { ...s.abilities!, values: {} }, { ...s.abilities!, seed: -1 }, { ...s.abilities!, specialties: { fake: 80 } }, { ...s.abilities!, values: { ...s.abilities!.values, memory: NaN } }, { ...s.abilities!, changes: { memory: { month: 1, delta: 1, reason: '미래' } } }]) expect(validAbilities(bad, 0)).toBe(false);
     expect(validAbilities(undefined, 0)).toBe(true);
   });
+  it('keeps skill growth, opportunity draws and specialty state identical at different time speeds', () => {
+    function play(speed: 1 | 8) {
+      let s = createCareerGame('speed', 42); s.life!.paused = false; s.life!.speed = speed;
+      for (let step = 0; step < 4000; step++) {
+        if (s.pendingEvent?.randomKey === 'campus-summer') return s;
+        s = s.pendingEvent ? choose(s, s.pendingEvent.choices[0].id, `choice:${s.revision}`)
+          : reduceGame(s, { type: 'tick', id: `tick:${s.revision}`, elapsedMs: 1000 });
+        expect(validState(s)).toBe(true);
+      }
+      throw new Error('대학 2학년 사건에 도달하지 못했습니다.');
+    }
+    const a = play(1), b = play(8);
+    expect(a.abilities).toEqual(b.abilities); expect(a.stats).toEqual(b.stats); expect(a.seed).toBe(b.seed);
+  });
   it('renders actual acquired and effective values with plain Korean labels', () => {
     const s = createCareerGame('view', 2); setSkills(s, 50); s.stats.health = 0; s.dynamics!.fatigue = 24;
     practiceAbilities(s, ['stamina'], 1, '운동');

@@ -23,7 +23,7 @@ export interface FamilyState {
   partner?: Person;
 }
 export interface Person { id: string; name: string; temperament: string; occupation: string }
-export interface LifeBackground { region: string; environment: string; finances: 'tight' | 'steady' | 'comfortable'; support: 'limited' | 'steady' | 'close'; experience: string }
+export interface LifeBackground { region: string; environment: string; finances: 'tight' | 'steady' | 'comfortable'; support: 'limited' | 'steady' | 'close'; experience: string; profile?: import('./background').BackgroundProfile }
 export interface RandomLife {
   initialSeed: number; background: LifeBackground; elapsedMs: number;
   focus: { main: Activity; supporting: Activity }; paused: boolean; speed: TimeSpeed;

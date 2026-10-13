@@ -9,6 +9,8 @@ export type EconomyContext = {
   priceIndex?: number;
   wageIndex?: number;
   livingFactor?: number;
+  familyMonthly?: number;
+  familySemester?: number;
 };
 
 export type EconomyActionKind = 'loan' | 'grant' | 'work' | 'pay-due' | 'repay' | 'open-clinic';
@@ -95,10 +97,11 @@ function assertRules(): void {
   }
 }
 
-export function initialEconomy(finances: 'tight' | 'steady' | 'comfortable'): EconomyState {
+export function initialEconomy(finances: 'tight' | 'steady' | 'comfortable', startingCash?: number): EconomyState {
   assertRules();
   if (!Object.hasOwn(ECONOMY_RULES.initialCash, finances)) throw new TypeError('초기 재정 조건이 올바르지 않습니다.');
-  const cash = ECONOMY_RULES.initialCash[finances];
+  const cash = startingCash ?? ECONOMY_RULES.initialCash[finances];
+  if (!money(cash)) throw new TypeError('시작 자금이 올바르지 않습니다.');
   return { cash, assets: cash, debt: 0, income: 0, expenses: 0, lastMonth: -1, due: 0, ledger: [] };
 }
 
@@ -131,7 +134,9 @@ function clinicOwned(state: EconomyState): boolean {
 function assertContext(context: EconomyContext): void {
   if (!record(context) || !['university', 'training', 'career', 'retirement'].includes(context.stage)
     || !['undecided', 'employed', 'clinic', 'research', 'untrained'].includes(context.practice)
-    || typeof context.working !== 'boolean' || typeof context.scholarship !== 'boolean') {
+    || typeof context.working !== 'boolean' || typeof context.scholarship !== 'boolean'
+    || (context.familyMonthly !== undefined && !money(context.familyMonthly))
+    || (context.familySemester !== undefined && !money(context.familySemester))) {
     throw new TypeError('경제 경로가 올바르지 않습니다.');
   }
 }
@@ -151,7 +156,7 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
   const price = context.priceIndex ?? 1, wage = context.wageIndex ?? 1, living = context.livingFactor ?? 1;
   if (![price, wage, living].every(n => Number.isFinite(n) && n > 0 && n < 1000)) throw new RangeError('물가·급여 설정을 확인해 주세요.');
   const receive = (key: string, label: string, amount: number) => {
-    amount = Math.round(amount * (key === 'scholarship' ? 1 : wage));
+    amount = Math.round(amount * (key === 'scholarship' || key.startsWith('family-') ? 1 : wage));
     if (amount === 0) return;
       post(next, { id: `month:${month}:${key}`, month, label, cashDelta: amount, debtDelta: 0, kind: 'monthly' });
     next.income += amount;
@@ -169,6 +174,8 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
     next.expenses += paid;
   };
   if (context.stage === 'university') {
+    if (month > 0) receive('family-monthly', '가족 생활비 지원', context.familyMonthly ?? 0);
+    if (month > 0 && month % r.tuitionInterval === 0) receive('family-semester', '가족 학비 지원', context.familySemester ?? 0);
     if (context.working) receive('work', '아르바이트', r.universityWorkMonthly);
     if (context.scholarship) receive('scholarship', '장학금', r.scholarshipMonthly);
   } else if (context.stage === 'training') {

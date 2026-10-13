@@ -3,6 +3,7 @@ import { ECONOMY_RULES as R } from './economy';
 import { DEPTH_RUNTIME } from './career-depth';
 import { variableEarnings } from './life-dynamics';
 import { dietFactor, lifestyleBudget } from './lifestyle';
+import { familyFunding } from './background';
 
 export const exactWon = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 export function compactWon(n: number): string {
@@ -26,6 +27,9 @@ export function financeView(s: GameState) {
   const scholarship = school && s.life!.flags.includes('scholarship') ? R.scholarshipMonthly : 0;
   income = Math.round((income - scholarship) * wage) + scholarship;
   const salary = income * 12, lifestyle = lifestyleBudget(s);
+  const funding = familyFunding(s.life?.background);
+  const familyMonthly = school ? funding.monthly : 0, familySemester = school ? funding.semester : 0;
+  income += familyMonthly + Math.round(familySemester / R.tuitionInterval);
   let expenses = Math.round(R.livingCost * price * dietFactor(s.lifestyle?.diet ?? 'balanced')) + (school ? Math.round(R.tuition * price / R.tuitionInterval) : 0) + (clinic ? Math.round(R.clinicOperatingCost * price) : 0);
   if (s.stageIndex === 2 && s.depth?.workload === 'extended' && c.practice !== 'research') {
     income += clinic ? DEPTH_RUNTIME.extendedRevenue : DEPTH_RUNTIME.extendedSalary;
@@ -35,7 +39,7 @@ export function financeView(s: GameState) {
   income += variableEarnings(s);
   income += lifestyle.income; expenses += lifestyle.cost;
   const repayment = Math.min(s.portfolio?.autoRepay ?? 0, e.debt);
-  return { netAssets: e.assets - e.debt - e.due, salary, income, expenses, disposable: income - expenses,
+  return { netAssets: e.assets - e.debt - e.due, salary, income, expenses, disposable: income - expenses, familyMonthly, familySemester,
     repayment, afterPlans: income - expenses - repayment - (s.portfolio?.autoSave ?? 0) - (s.portfolio?.autoInvest ?? 0),
     annual: school || clinic || c.practice === 'research' || s.stageIndex === 3 ? income * 12 : salary,
     label: clinic ? '연 매출 예상' : school || c.practice === 'research' || s.stageIndex === 3 ? '연 수입 예상' : '현재 연봉' };

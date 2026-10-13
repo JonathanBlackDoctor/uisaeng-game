@@ -1,6 +1,7 @@
 import { STAT_LABELS, TIME_SPEEDS, type Activity, type GameAction, type GameEvent, type GameState, type LifeBackground, type MeetingRoute, type Person, type Stats } from './contracts';
 import { STAGES } from './fixtures/content';
 import { initialFamily } from './family';
+import { expandBackground, backgroundStatEffects, backgroundDescription, BACKGROUND_RULES } from './background';
 
 // Fictional preview distributions and balance. These are NOT population statistics,
 // admission models, or approved production career requirements.
@@ -14,7 +15,7 @@ export const nextRandom = (seed: number) => {
 export function adjustStats(stats: Stats, effects: Partial<Stats>): Stats {
   return Object.fromEntries(Object.keys(STAT_LABELS).map(k => [k, Math.max(0, Math.min(100, stats[k as keyof Stats] + (effects[k as keyof Stats] ?? 0)))])) as Stats;
 }
-export function generateStart(seed: number) {
+export function generateStart(seed: number, version: 1 | 2 | 3 = 3) {
   let cursor = seed >>> 0;
   const draw = () => { const r = nextRandom(cursor); cursor = r.seed; return r.value; };
   const pick = <T,>(items: readonly T[]): T => items[Math.floor(draw() * items.length)];
@@ -35,9 +36,14 @@ export function generateStart(seed: number) {
     knowledge: background.finances === 'comfortable' ? 3 : background.finances === 'tight' ? -3 : 0,
     relationships: background.support === 'close' ? 7 : background.support === 'limited' ? -5 : 0,
   });
-  return { seed: cursor, background, stats };
+  if (version === 1) return { seed: cursor, background, stats };
+  const expanded = expandBackground(background, draw, version);
+  const spread = version === 3 ? BACKGROUND_RULES.statSpread : 15;
+  const variedValue = (base: number) => base + Math.floor(draw() * (spread * 2 + 1)) - spread;
+  const varied = { health: variedValue(60), happiness: variedValue(50), knowledge: variedValue(52), relationships: variedValue(45) };
+  return { seed: cursor, background: expanded, stats: adjustStats(varied, backgroundStatEffects(expanded)) };
 }
-export const backgroundSummary = (b: LifeBackground) => `${b.region} · ${b.environment} · ${ { tight: '빠듯한 가정 형편', steady: '보통의 가정 형편', comfortable: '여유 있는 가정 형편' }[b.finances]} · ${ { limited: '가족의 지원이 제한적', steady: '필요할 때 기대는 가족', close: '가족과 가까운 유대' }[b.support]} · ${b.experience}`;
+export const backgroundSummary = (b: LifeBackground) => backgroundDescription(b) ?? `${b.region} · ${b.environment} · ${ { tight: '빠듯한 가정 형편', steady: '보통의 가정 형편', comfortable: '여유 있는 가정 형편' }[b.finances]} · ${ { limited: '가족의 지원이 제한적', steady: '필요할 때 기대는 가족', close: '가족과 가까운 유대' }[b.support]} · ${b.experience}`;
 export const elapsedMonths = (s: GameState) => Math.floor((s.life?.elapsedMs ?? 0) / RANDOM_RULES.monthMs);
 // Saves created before startAge was stored began at 19.
 export const lifeStartAge = (s: GameState) => s.life?.startAge ?? 19;
@@ -258,7 +264,8 @@ export function validRandomState(s: GameState, stageEnds: readonly number[] = RA
     || !life.focus || !['study', 'connect', 'rest'].includes(life.focus.main) || !['study', 'connect', 'rest'].includes(life.focus.supporting) || life.focus.main === life.focus.supporting
     || !Number.isInteger(life.contacts) || life.contacts < 0 || life.contacts > 20
     || !Array.isArray(life.flags) || new Set(life.flags).size !== life.flags.length || !life.flags.every(flag => ['club', 'asked-introduction', 'research', 'unmarried', 'childfree', 'scholarship'].includes(flag))
-    || JSON.stringify(life.background) !== JSON.stringify(generateStart(life.initialSeed).background)
+    || !life.background || (life.background.profile !== undefined && ![2, 3].includes(life.background.profile?.version))
+    || JSON.stringify(life.background) !== JSON.stringify(generateStart(life.initialSeed, life.background.profile?.version ?? 1).background)
     || !life.seen || typeof life.seen !== 'object' || Array.isArray(life.seen)
     || !Object.entries(life.seen).every(([key, month]) => RANDOM_EVENTS.some(e => e.key === key) && Number.isInteger(month) && month > 0 && month <= elapsedMonths(s))
     || !['single', 'dating', 'married'].includes(f.status) || ![null, 'gwating', 'blind-date', 'campus'].includes(f.meeting)
