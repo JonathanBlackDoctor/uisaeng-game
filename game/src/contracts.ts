@@ -43,6 +43,7 @@ export interface GameState {
   life?: RandomLife;
   career?: CareerState;
   economy?: EconomyState;
+  encounters?: import('./life-goals').EncounterRecord;
   progress?: CareerProgress;
   campus?: CampusState;
   depth?: CareerDepth;

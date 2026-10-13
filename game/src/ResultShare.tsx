@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { GameState } from './contracts';
 import { copyResult, resultShareData, resultShareText, shareResult, type ShareOutcome } from './result-share';
 import './result-share.css';
+import LifeGoals from './LifeGoals';
 
 export default function ResultShare({ game }: { game: GameState }) {
   const [pending, setPending] = useState(false);
@@ -17,6 +18,7 @@ export default function ResultShare({ game }: { game: GameState }) {
     finally { lock.current = false; setPending(false); }
   }
   return <div className="result-share">
+    <LifeGoals game={game}/>
     <div className="result-share-actions">
       <button className="primary" disabled={pending} onClick={() => void run()}>{pending ? '공유 준비 중…' : '결과 공유하기'}</button>
       {outcome === 'failed' && <button className="subtle-button" onClick={() => void run(true)} disabled={pending}>결과 복사하기</button>}

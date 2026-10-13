@@ -1,0 +1,15 @@
+import { STAT_LABELS, type GameState, type Stats } from './contracts';
+export interface ChoiceResult { id: string; title: string; detail: string; changes: string[]; reaction: 'learning' | 'connection' | 'rest' | null }
+export function choiceResult(before: GameState, after: GameState, actionId: string): ChoiceResult | null {
+  if (before === after || !before.pendingEvent) return null;
+  const entries = after.journal.slice(before.journal.length);
+  const entry = entries.find(x => x.id === `${actionId}:result`) ?? entries.find(x => x.id === actionId);
+  if (!entry) return null;
+  const diff = Object.keys(STAT_LABELS).map(k => { const key = k as keyof Stats; return { key, value: after.stats[key] - before.stats[key] }; });
+  const changes = diff.filter(x => x.value !== 0).map(({ key, value }) => `${STAT_LABELS[key]} ${value > 0 ? '+' : ''}${value}`);
+  const cash = (after.economy?.cash ?? 0) - (before.economy?.cash ?? 0);
+  if (cash) changes.push(`현금 ${cash > 0 ? '+' : '−'}${Math.abs(cash).toLocaleString('ko-KR')}원`);
+  const best = [...diff].sort((a, b) => b.value - a.value)[0];
+  return { id: actionId, title: entry.title, detail: entry.detail.replace(/^\d+세(?:\s*\d+개월)?\s*·\s*/, ''), changes,
+    reaction: best.value <= 0 ? null : best.key === 'knowledge' ? 'learning' : best.key === 'relationships' ? 'connection' : 'rest' };
+}

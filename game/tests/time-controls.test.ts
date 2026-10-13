@@ -22,6 +22,30 @@ function ordinary(s: GameState, speed: TimeSpeed) {
 }
 
 describe('time controls and admission age', () => {
+  it('changes speed during playback without pausing or changing the current world, and restores it', async () => {
+    let s = createGame('live-speed', 42, 'career-preview-v1');
+    s = reduceGame(s, { type: 'control', id: 'play', paused: false });
+    s = reduceGame(s, { type: 'tick', id: 'before-speed', elapsedMs: 250 });
+    const before = structuredClone(s);
+    s = reduceGame(s, { type: 'control', id: 'live-4x', speed: 4 });
+    expect(s.life!.paused).toBe(false);
+    expect(s.life!.speed).toBe(4);
+    expect(world(s)).toEqual(world(before));
+    const after = reduceGame(s, { type: 'tick', id: 'after-speed', elapsedMs: 250 });
+    expect(after.progress!.activeMs[0] - s.progress!.activeMs[0]).toBe(250);
+    const oneSecondAt1x = reduceGame(before, { type: 'tick', id: 'comparison-1x', elapsedMs: 1000 });
+    expect(world(after)).toEqual(world(oneSecondAt1x));
+    const db = await openGameDatabase(`live-speed-${crypto.randomUUID()}`);
+    try {
+      await persistGame(db, before, null);
+      await persistGame(db, after, { runId: before.runId, revision: before.revision });
+      const restored = (await loadGame(db))!.state;
+      expect(restored).toEqual(after);
+      expect(restored.life!.paused).toBe(false);
+      expect(restored.life!.speed).toBe(4);
+    } finally { db.close(); }
+  });
+
   it.each(['career-preview-v1', 'random-preview-v1'] as const)('starts %s at 20 and accepts a 16x saved game', async (version: GameState['rulesVersion']) => {
     const initial = createGame('age', 42, version);
     expect(lifeAge(initial)).toBe('20세 0개월');

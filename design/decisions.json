@@ -2,6 +2,30 @@
   "schemaVersion": 1,
   "decisions": [
     {
+      "id": "lifetime-encounters-net-assets-v1",
+      "date": "2026-10-13",
+      "status": "confirmed",
+      "source": "user",
+      "instruction": "누적 진료 건수랑 순자산을 중심으로 만들자",
+      "scope": "누적 진료 건수와 순자산을 생애 중심 목표로 표시하고 완료 결과·보관함·결과 공유에 연결",
+      "approved": [
+        "누적 진료 건수와 순자산을 중심 목표로 사용"
+      ],
+      "provisional": [
+        "월별 진료량과 다음 목표 간격은 조정 가능한 게임 설정이며 정식 현실 수치 승인이 아님"
+      ],
+      "implementation": "docs/life-goals.md"
+    },
+    {
+      "id": "ability-feedback-simplification-v1",
+      "date": "2026-10-13",
+      "status": "requested",
+      "source": "user",
+      "instruction": "능력치가 너무 많아서 안 열어보게 되고 영향이 잘 안 느껴져",
+      "scope": "능력 표시 간소화와 실제 영향의 가시성 개선. 세 항목 요약과 조건 표시는 구현 판단이며 새로운 핵심 규칙 승인 아님.",
+      "implementation": "docs/ability-feedback.md"
+    },
+    {
       "id": "in-game-update-toast-v1",
       "date": "2026-10-13",
       "status": "confirmed",
@@ -775,6 +799,22 @@
       "source": "user",
       "instruction": "개발 중이라고 안 나오고 이번 버전부터는 진짜 버전인 걸로 배포하고 관련된 내용 다 수정해.",
       "scope": "정식 공개 1.0.0 표기와 사용자 화면·공유·현재 문서의 개발/미리보기 표현 정리. 저장 호환과 과거 기록 보존."
+    },
+    {
+      "id": "choice-person-specialty-quality-and-deploy-v1",
+      "date": "2026-10-13",
+      "status": "confirmed",
+      "source": "user",
+      "sourceThreadId": "01a1359a-7bd9-77c1-80d7-78f453380680",
+      "instruction": "좋아. 그거 다 구현해서 배포 안 된거까지 배포까지 완료해.",
+      "scope": "선택 후속·전공별 경험·인물 관계·결과 피드백 구현, 실제 플레이 점검, 기존 미배포 개선을 현재 공개 주소에 통합 배포",
+      "specification": "docs/quality-depth-preview.md",
+      "preserved": [
+        "기존 저장과 대기 선택 보존",
+        "연속 시간과 생애 선택 9슬롯 유지",
+        "연구 원본·기존 task-hold 보존",
+        "실제 사람을 모집한 사용성 평가를 직접 플레이 검사와 구분"
+      ]
     }
   ]
 }

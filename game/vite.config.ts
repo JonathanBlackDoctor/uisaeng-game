@@ -27,7 +27,7 @@ export default defineConfig(({ command }) => {
   const displayVersion: string = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
   return {
     base: env.VITE_BASE_PATH || '/game/',
-    define: { __APP_DISPLAY_VERSION__: JSON.stringify(displayVersion), __APP_VERSION__: JSON.stringify(version), __APP_UPDATES_ENABLED__: command === 'build' },
+    define: { __APP_VERSION__: JSON.stringify(version), __APP_DISPLAY_VERSION__: JSON.stringify(displayVersion), __APP_UPDATES_ENABLED__: command === 'build' },
     plugins: [{ name: 'game-update-manifest', generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version }) });
     } }],

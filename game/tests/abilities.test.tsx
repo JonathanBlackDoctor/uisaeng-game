@@ -7,6 +7,7 @@ import { applySpecialty, SPECIALTIES } from '../src/career';
 import { reduceGame } from '../src/engine';
 import { rollEffort } from '../src/life-dynamics';
 import { AbilityContent } from '../src/AbilityPanel';
+import AbilitySummary, { relevantAbilities } from '../src/AbilitySummary';
 import { openGameDatabase, persistGame, loadGame, validState } from '../src/storage';
 import type { GameState } from '../src/contracts';
 
@@ -135,10 +136,38 @@ describe('detailed abilities', () => {
   });
   it('renders actual acquired and effective values with plain Korean labels', () => {
     const s = createCareerGame('view', 2); setSkills(s, 50); s.stats.health = 0; s.dynamics!.fatigue = 24;
+    s.progress!.focus = 'rest';
     practiceAbilities(s, ['stamina'], 1, '운동');
     const html = renderToStaticMarkup(<AbilityContent game={s}/>);
     expect(html).toContain('쌓은 실력'); expect(html).toContain('현재 수행력'); expect(html).toContain('운동');
     expect(html).toContain(abilityPerformance(s, 'stamina').current.toFixed(1));
     expect(html).not.toContain('provisional');
+    expect(html.match(/class="ability-row"/g)).toHaveLength(3);
+    expect(html).toContain('다른 능력 보기');
+  });
+  it('shows actual event gates without changing saved choices or RNG', () => {
+    const s = createCareerGame('impact', 42); setSkills(s, 0);
+    s.pendingEvent = careerEvent(s, 'ability-schedule');
+    const snapshot = structuredClone(s);
+    expect(relevantAbilities(s)).toEqual(['planning', 'concentration', 'persistence']);
+    const html = renderToStaticMarkup(<AbilitySummary game={s} decision/>);
+    expect(html).toContain('55부터');
+    expect(s).toEqual(snapshot);
+    setSkills(s, 90); s.pendingEvent = careerEvent(s, 'ability-schedule');
+    const high = renderToStaticMarkup(<AbilitySummary game={s} decision/>);
+    expect(high).toContain('선택 가능'); expect(high).not.toContain('55부터');
+    s.pendingEvent = careerEvent(s, 'campus-team');
+    expect(renderToStaticMarkup(<AbilitySummary game={s} decision/>)).toBe('');
+  });
+  it('only labels current-month growth as this month and hides effects for legacy saves', () => {
+    const s = createCareerGame('growth-summary', 42); s.progress!.focus = 'study';
+    practiceAbilities(s, ['memory'], 2, '공부');
+    const snapshot = structuredClone(s);
+    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toContain('기억력 +');
+    expect(s).toEqual(snapshot);
+    s.life!.elapsedMs += 1000;
+    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).not.toContain('이번 달');
+    delete s.abilities;
+    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toBe('');
   });
 });

@@ -13,6 +13,8 @@ export interface LifeSceneProps {
   children?: 'none' | 'young' | 'school' | 'adult';
   eventTitle?: string;
   workContext?: 'research' | 'preparation';
+  reaction?: 'learning' | 'connection' | 'rest' | null;
+  companionName?: string;
 }
 
 const STAGES = {
@@ -114,7 +116,7 @@ function Building({ stage }: { stage: LifeSceneProps['stage'] }) {
   </g>;
 }
 
-export default function LifeScene({ stage, age, month, running, focus, seed, relationship, partnerName, children = 'none', eventTitle, workContext }: LifeSceneProps) {
+export default function LifeScene({ stage, age, month, running, focus, seed, relationship, partnerName, children = 'none', eventTitle, workContext, reaction, companionName }: LifeSceneProps) {
   const id = useId();
   const scene = workContext && stage !== 'retirement' ? workContext === 'research'
     ? { title: '연구실', label: '연구 생활', place: '연구실' }
@@ -125,7 +127,7 @@ export default function LifeScene({ stage, age, month, running, focus, seed, rel
   const partner = relationship !== 'single';
   const partnerLabel = partnerName?.trim() ? `${partnerName.trim()} · ${partnerRole}` : partnerRole;
   const childLabel = { none: '', young: '어린 자녀', school: '학령기 자녀', adult: '성인 자녀' }[children];
-  const peopleDescription = `주인공 · ${age}세${partner ? `, ${partnerLabel}` : ''}${childLabel ? `, ${childLabel}` : ''}`;
+  const peopleDescription = `주인공 · ${age}세${partner ? `, ${partnerLabel}` : ''}${childLabel ? `, ${childLabel}` : ''}${companionName ? `, 동기 ${companionName}` : ''}`;
   const description = `${season.name}의 ${scene.place}. ${peopleDescription}. ${FOCUS[focus]}. ${running ? '시간이 흐르고 있습니다.' : '시간이 멈춰 있습니다.'}`;
   const childScale = children === 'young' ? .49 : children === 'school' ? .66 : .92;
   const medical = !workContext && (stage === 'training' || stage === 'career') && focus !== 'rest';
@@ -157,7 +159,8 @@ export default function LifeScene({ stage, age, month, running, focus, seed, rel
           </g>
           <g transform="translate(342 350)"><path d="M0 0h47m-47 10h47M5 11v19m37-19v19" stroke="#9d795b" strokeWidth="6" strokeLinecap="round" /></g>
           <g transform="translate(675 365)"><rect x="-12" y="-28" width="25" height="28" rx="3" fill="#7f9687" /><path d="M-14-29h29" stroke="#536f66" strokeWidth="4" /></g>
-          <Person x={partner || childLabel ? 472 : 495} y={400} skin={SKIN[palette]} hair={HAIR[palette]} shirt={CLOTHES[palette]} older={age >= 60} medical={medical} book={focus === 'study'} />
+          <Person x={partner || childLabel ? 472 : 495} y={400} skin={SKIN[palette]} hair={HAIR[palette]} shirt={CLOTHES[palette]} older={age >= 60} medical={medical} book={reaction ? reaction === 'learning' : focus === 'study'} />
+          {companionName && <Person x={380} y={401} scale={.95} skin={SKIN[(palette + 3) % 4]} hair={HAIR[(palette + 1) % 4]} shirt={CLOTHES[(palette + 3) % 4]} older={age >= 60}/>}
           {partner && <Person x={550} y={397} scale={.94} skin={SKIN[(palette + 1) % 4]} hair={HAIR[(palette + 2) % 4]} shirt={CLOTHES[(palette + 1) % 4]} />}
           {childLabel && <Person x={partner ? 617 : 565} y={412} scale={childScale} skin={SKIN[(palette + 2) % 4]} hair={HAIR[(palette + 1) % 4]} shirt={CLOTHES[(palette + 2) % 4]} book={children === 'school'} />}
           {season.key !== 'winter' && <g className="ls-leaves" fill={season.accent}><path d="M178 282q12-8 16 3-12 7-16-3m593-78q12-8 16 3-12 7-16-3" /></g>}

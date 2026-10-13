@@ -25,5 +25,11 @@
 .ability-specialty small { font-size: 10px; color: #6b7771; margin-left: 4px; }
 .ability-footnote { border-top: 1px solid #e1e6e1; padding-top: 14px; margin-bottom: 0; }
 .ability-open { white-space: nowrap; }
+.ability-browse { margin: 16px 0; font-size: 13px; color: #586960; }
+.ability-browse > summary { cursor: pointer; padding: 10px 0; }
+.ability-impact { margin: 12px 0; font-size: 13px; line-height: 1.7; color: #456452; overflow-wrap: anywhere; }
+.ability-impact p { margin: 4px 0; }
+.ability-growth { color: #59675f; font-variant-numeric: tabular-nums; }
+.ability-dialog .ability-row summary { grid-template-columns: minmax(0, 1fr) 72px; }
 .life-layout:not(.welcome-layout) .stats-panel .section-heading:has(.ability-open) { display: flex; justify-content: space-between; align-items: center; }
 @media (max-width: 480px) { .ability-dialog { padding: 18px; } .ability-columns, .ability-row summary { grid-template-columns: minmax(0, 1fr) 65px 72px; gap: 6px; } .ability-groups button { padding: 7px 10px; } }

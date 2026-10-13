@@ -1,11 +1,14 @@
 import { STAT_LABELS, type GameState, type Stat } from './contracts';
 import { SPECIALTIES } from './career';
 import { lifeStartAge, RANDOM_RULES } from './random-life';
+import { encounterLabel, netAssets } from './life-goals';
+import { exactWon } from './finance-view';
 
 // Only the public game address is shared, never local preview URLs or save data.
 export const GAME_SHARE_URL = 'https://JonathanBlackDoctor.github.io/uisaeng-game/';
 export function resultShareData(game: GameState): ShareData {
   const lines = ['의생게임 · 나의 결과'];
+  if (game.career) lines.push(`누적 진료 ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : exactWon(netAssets(game)!)}`);
   if (game.life) {
     const months = Math.floor(game.life.elapsedMs / RANDOM_RULES.monthMs);
     lines.push(`${lifeStartAge(game) + Math.floor(months / 12)}세 ${months % 12}개월에 마친 이야기`);

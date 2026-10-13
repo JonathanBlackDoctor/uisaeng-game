@@ -1,4 +1,5 @@
 import { TIME_SPEEDS, type CareerProgress, type GameAction, type GameEvent, type GameState, type Stats } from './contracts';
+import { initialEncounters, settleEncounters, validEncounters } from './life-goals';
 import { applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, INSTITUTIONS, SPECIALTIES, validCareer } from './career';
 import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy, fundEducationDue } from './economy';
 import { familyFunding } from './background';
@@ -11,7 +12,7 @@ import { initialAbilities, upgradeAbilities, advanceAbilities, abilityEvent, nex
 import { initialLifestyle, accrueLifestyle, settleLifestyle, monthlyDietFactor, lifestyleKeys, lifestyleSchedule, validLifestyle } from './lifestyle';
 import { initialPortfolio, preparePortfolio, coverDueFromSavings, finishPortfolio, transferPortfolio, validPortfolio, PLAN_AMOUNTS } from './portfolio';
 import { explorationOptions, specialtyOptions, institutionOptions } from './opportunities';
-import { initialStories, advanceStories, storyEvent, requiredStory, settleStory, validStories, finishStories } from './life-stories';
+import { initialStories, advanceStories, storyEvent, requiredStory, settleStory, validStories, finishStories, upgradeStoryPeople, validStoryContext } from './life-stories';
 
 // Provisional active time, excluding reading decisions, manual pause and hidden tabs.
 // Base active time: 72*6s + 612*0.5s = 12.3 minutes, excluding decisions/pauses.
@@ -49,6 +50,7 @@ function upgradeCampus(s: GameState) {
   }
   s.stories ??= initialStories(elapsedMonths(s));
   if (!s.pendingEvent) s.stories.narrativeVersion = 1;
+  upgradeStoryPeople(s);
   if (s.campus) return;
   s.campus = initialCampus();
   s.stories = initialStories();
@@ -63,6 +65,7 @@ export function createCareerGame(runId: string, seed: number): GameState {
   s.career = initialCareer(); s.economy = initialEconomy(s.life!.background.finances, familyFunding(s.life!.background).initialCash);
   s.campus = initialCampus();
   s.depth = initialDepth();
+  s.encounters = initialEncounters();
   s.dynamics = initialDynamics(seed);
   s.abilities = initialAbilities(s);
   s.lifestyle = initialLifestyle(); s.portfolio = initialPortfolio(seed);
@@ -179,6 +182,7 @@ function required(s: GameState): string | null {
 }
 function advanceMonth(s: GameState) {
   const m = elapsedMonths(s), p = s.progress!;
+  settleEncounters(s);
   const funding = familyFunding(s.life!.background);
   advanceAbilities(s);
   preparePortfolio(s);
@@ -205,6 +209,7 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
   s.pendingEvent = null;
   upgradeCampus(s);
   upgradeDepth(s);
+  s.encounters ??= initialEncounters(elapsedMonths(s));
   upgradeAbilities(s);
   if (key.startsWith('story:')) {
     if (!settleStory(s, key, id)) return null;
@@ -276,7 +281,7 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
     if (s.stageIndex === 3) { s.status = 'completed'; s.life!.paused = true; finishStories(s); }
     else s.stageIndex++;
   } else resolved(s, key);
-  log(s, action.id, e.title, choice.label, choice.effects);
+  log(s, action.id, e.title, key.startsWith('story:') ? choice.description : choice.label, choice.effects);
   resolveChoiceEffort(s, key, id, action.id);
   practiceAbilityChoice(s, key, id);
   return s;
@@ -416,8 +421,9 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
 }
 export function validCareerGame(s: GameState): boolean {
   const p = s.progress;
+  if (!validEncounters(s)) return false;
   if (!validAbilities(s.abilities, elapsedMonths(s))) return false;
-  if (!validStories(s.stories, elapsedMonths(s))) return false;
+  if (!validStories(s.stories, elapsedMonths(s)) || !validStoryContext(s)) return false;
   if (!s.life || !validCampus(s.campus, elapsedMonths(s)) || !validDepth(s.depth, elapsedMonths(s)) || !validDynamics(s.dynamics, elapsedMonths(s)) || !validLifestyle(s.lifestyle, elapsedMonths(s)) || !validPortfolio(s.portfolio, s)) return false;
   if (s.rulesVersion !== 'career-preview-v1' || s.contentVersion !== 'career-preview-v1' || !p || p.version !== 1 || !validCareer(s.career) || !validEconomy(s.economy)
     || !(p.focus in CAREER_FOCUS) || !['pending', 'joined', 'declined'].includes(p.club) || !['pending', 'later', 'settled'].includes(p.marriage)

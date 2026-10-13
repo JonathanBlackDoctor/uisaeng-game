@@ -10,6 +10,7 @@ type PeoplePanelProps = {
   meeting?: string | null;
   children: 'none' | 'young' | 'school' | 'adult';
   contacts: number;
+  peer?: { name: string; occupation: string; relationship: string };
 };
 type RecentLifeFeedProps = { entries: LifeEntry[]; limit?: number; onOpenJournal?: () => void };
 
@@ -88,7 +89,7 @@ function PersonIcon({ kind = 'person' }: { kind?: 'person' | 'child' | 'contacts
   </svg></span>;
 }
 
-export function PeoplePanel({ status, partnerName, partnerTemperament, meeting, children, contacts }: PeoplePanelProps) {
+export function PeoplePanel({ status, partnerName, partnerTemperament, meeting, children, contacts, peer }: PeoplePanelProps) {
   const headingId = useId();
   const linked = status !== 'single';
   const acquaintance = !linked && !!partnerName?.trim();
@@ -111,6 +112,7 @@ export function PeoplePanel({ status, partnerName, partnerTemperament, meeting, 
       <li className="lp-person lp-contact-row"><PersonIcon kind="contacts" /><div><h3>연락하는 사람들</h3>
         <p className="lp-person-role">{contactCount === null ? '연락망 기록 없음' : <>연락망 <strong>{contactCount}명</strong></>}</p></div></li>
     </ul>
+    {peer && <div className="peer-summary"><strong>{peer.name}</strong><p>{peer.occupation}</p><p>{peer.relationship}</p></div>}
   </section>;
 }
 

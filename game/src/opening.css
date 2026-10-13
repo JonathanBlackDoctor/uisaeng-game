@@ -1,0 +1,37 @@
+.opening { display: grid; grid-template-columns: 1fr 1.12fr; align-items: center; gap: 56px; min-height: min(650px, 75svh); padding: 32px 0 48px; }
+.opening-copy { animation: opening-arrive .45s ease-out both; }
+.opening-kicker { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+.opening h1 { font-size: clamp(34px, 4.2vw, 56px); font-weight: 550; line-height: 1.28; letter-spacing: -.055em; }
+.opening h1:focus { outline: none; }
+.opening-story { margin-top: 24px; font-size: 15px; line-height: 1.9; color: var(--muted); word-break: keep-all; overflow-wrap: anywhere; }
+.opening-actions { display: flex; align-items: center; gap: 24px; margin-top: 32px; }
+.opening-actions .primary { display: flex; justify-content: space-between; gap: 40px; min-width: 200px; min-height: 52px; font-size: 16px; padding: 12px 20px; }
+.opening-hint { margin-top: 14px; color: var(--muted); font-size: 12px; word-break: keep-all; }
+.opening-scene { overflow: hidden; border-radius: 50% 50% 8px 8px; background: #e7eeeb; }
+.opening-scene .ls-root { border: 0; background: transparent; }
+.opening-scene .ls-header, .opening-scene .ls-footer, .opening-scene .ls-scene-caption { display: none; }
+.opening-scene .ls-canvas { width: 150%; max-width: none; height: auto; margin-left: -25%; display: block; }
+.opening-facts { margin: 20px 0 0; font-size: 13px; }
+.opening-facts>div { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; }
+.opening-facts dt, .opening-stats dt { color: var(--muted); }
+.opening-facts dd { margin: 0; text-align: right; }
+.opening-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+.opening-stats dt { font-size: 12px; }
+.opening-stats dd { margin: 3px 0 0; font-size: 25px; font-variant-numeric: tabular-nums; }
+.opening-admission h1 { font-size: clamp(32px, 3.3vw, 44px); }
+.opening-admission .opening-actions { margin-top: 24px; }
+.opening-shell .site-header { justify-content: space-between; }
+.opening-shell .save-status { margin-left: auto; }
+@keyframes opening-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 760px) {
+  .opening { grid-template-columns: 1fr; gap: 28px; min-height: 0; padding: 12px 0 24px; }
+  .opening-kicker { margin-bottom: 12px; }
+  .opening h1 { font-size: 38px; }
+  .opening-story { margin-top: 18px; font-size: 14px; }
+  .opening-actions { margin-top: 24px; }
+  .opening-scene { border-radius: 8px; max-height: 210px; }
+  .opening-scene .ls-canvas { width: 100%; margin-left: 0; }
+  .opening-admission .opening-scene { display: none; }
+  .opening-admission h1 { font-size: 34px; }
+}
+@media (prefers-reduced-motion: reduce) { .opening-copy { animation: none; } }

@@ -5,10 +5,12 @@ import { opportunitySubset } from './opportunities';
 import { STAGES } from './fixtures/content';
 import { lifeAge } from './random-life';
 import { linkedStory, STORYLINE_IDS, STORYLINE_STORIES, storylineRecap } from './storyline';
+import { PEER_IDS, PEER_STORIES, peerStory, initialPeer, advancePeer, validPeer, peerRelationship, type PeerMemory } from './relationships';
+import { SPECIALTY_CHAPTERS, specialtyChapter } from './specialty-chapters';
 
 // Authored fictional situations; scheduling and effects are adjustable game rules.
-export const STORY_RULES = { version: 'life-stories-provisional-3', provisional: true, spacing: [18, 18, 84, 30], perStage: [2, 2, 3, 2], followupMonths: 3, experience: 4 } as const;
-export interface LifeStories { version: 1; narrativeVersion?: 1; since: number; decisions: Record<string, { choice: string; month: number; followed: boolean }> }
+export const STORY_RULES = { version: 'life-stories-provisional-4', provisional: true, spacing: [18, 18, 84, 30], perStage: [2, 2, 3, 2], followupMonths: 3, experience: 4 } as const;
+export interface LifeStories { version: 1; narrativeVersion?: 1; peer?: PeerMemory; since: number; decisions: Record<string, { choice: string; month: number; followed: boolean }> }
 export type StoryChoice = EventChoice & { outcome: string; followup: string; experience?: keyof Experience };
 export type Story = { id: string; stage: number; title: string; body: string; choices: StoryChoice[]; eligible?: (s: GameState) => boolean };
 const c = (id: string, label: string, effects: Partial<Stats>, outcome: string, followup: string, experience?: keyof Experience): StoryChoice => ({ id, label, description: outcome, effects, outcome, followup, experience });
@@ -111,8 +113,10 @@ export const LIFE_STORIES: Story[] = [
     c('keep', '이번 주만 하고 다음부터 줄이기', { health: -2, happiness: 3 }, '잡은 약속은 지키되 새 부탁은 미룹니다.', '바쁜 주를 보낸 뒤 달력에 쉴 날부터 표시했습니다.')] },
   ...STORYLINE_STORIES,
 ];
+LIFE_STORIES.push(...PEER_STORIES, ...SPECIALTY_CHAPTERS);
 export const initialStories = (month = 0): LifeStories => ({ version: 1, narrativeVersion: 1, since: month, decisions: {} });
-const definition = (s: GameState, id: string, legacy = false) => linkedStory(s, id, LIFE_STORIES, legacy) ?? LIFE_STORIES.find(x => x.id === id);
+const definition = (s: GameState, id: string, legacy = false) => id.startsWith('peer-') ? peerStory(s, id) : id.startsWith('specialty-') ? specialtyChapter(s, id) : linkedStory(s, id, LIFE_STORIES, legacy) ?? LIFE_STORIES.find(x => x.id === id);
+export function upgradeStoryPeople(s: GameState): void { if (s.stories && !s.pendingEvent) s.stories.peer ??= initialPeer(s); }
 const keyOf = (id: string) => `story:${id}`;
 export function storyEvent(s: GameState, key: string, legacy = false): Pick<GameEvent, 'title' | 'body' | 'choices'> | null {
   const [, id, follow] = key.split(':');
@@ -136,15 +140,21 @@ export function requiredStory(s: GameState): string | null {
   if (m - last < STORY_RULES.spacing[s.stageIndex]) return null;
   const arc = STORYLINE_IDS[s.stageIndex];
   if (v.narrativeVersion === 1 && !v.decisions[arc]) return keyOf(arc);
-  const pool = LIFE_STORIES.filter(x => !STORYLINE_STORIES.includes(x) && x.stage === s.stageIndex && !v.decisions[x.id] && (!x.eligible || x.eligible(s)));
+  const peer = PEER_IDS[s.stageIndex];
+  if (v.peer && !v.decisions[peer]) return keyOf(peer);
+  const chapterId = `specialty-${s.career?.specialty}`;
+  if (v.peer && s.stageIndex === 2 && !v.decisions[chapterId] && specialtyChapter(s, chapterId)) return keyOf(chapterId);
+  const pool = LIFE_STORIES.filter(x => !SPECIALTY_CHAPTERS.includes(x) && !PEER_STORIES.includes(x) && !STORYLINE_STORIES.includes(x) && x.stage === s.stageIndex && !v.decisions[x.id] && (!x.eligible || x.eligible(s)));
   const selected = opportunitySubset(s, pool, `story:${s.stageIndex}`, 1)[0];
   return selected ? keyOf(selected.id) : null;
 }
 export function advanceStories(s: GameState): void {
   const v = s.stories; if (!v) return;
+  advancePeer(s);
   for (const [id, d] of Object.entries(v.decisions)) {
     if (d.followed || elapsedMonths(s) < d.month + STORY_RULES.followupMonths) continue;
-    const story = definition(s, id)!, choice = story.choices.find(x => x.id === d.choice)!;
+    const story = definition(s, id); if (!story) continue;
+    const choice = story.choices.find(x => x.id === d.choice); if (!choice) continue;
     d.followed = true;
     s.journal.push({ id: `auto:story:${id}:follow`, stage: STAGES[s.stageIndex].id, title: `${story.title} · 그 뒤`, detail: `${lifeAge(s)} · ${choice.followup}`, effects: {} });
   }
@@ -156,16 +166,32 @@ export function settleStory(s: GameState, key: string, id: string): boolean {
   else {
     const selected = definition(s, storyId)!.choices.find(x => x.id === id)!;
     v.decisions[storyId] = { choice: id, month: elapsedMonths(s), followed: false };
+    if (PEER_IDS.includes(storyId as typeof PEER_IDS[number]) && Object.keys(v.decisions).filter(k => PEER_IDS.includes(k as typeof PEER_IDS[number])).length === 1) s.life!.contacts = Math.min(20, s.life!.contacts + 1);
     if (selected.experience) s.career!.experience[selected.experience] = Math.min(100, s.career!.experience[selected.experience] + STORY_RULES.experience);
   }
   return true;
 }
 export function validStories(v: LifeStories | undefined, month: number): boolean {
   if (v === undefined) return true;
-  return !!v && v.version === 1 && (v.narrativeVersion === undefined || v.narrativeVersion === 1) && Number.isSafeInteger(v.since) && v.since >= 0 && v.since <= month && !!v.decisions && typeof v.decisions === 'object' && !Array.isArray(v.decisions)
-    && Object.entries(v.decisions).every(([id, d]) => !!d && LIFE_STORIES.some(x => x.id === id && x.choices.some(c => c.id === d.choice)) && Number.isSafeInteger(d.month) && d.month >= v.since && d.month <= month && typeof d.followed === 'boolean' && (!d.followed || d.month + STORY_RULES.followupMonths <= month));
+  return !!v && v.version === 1 && validPeer(v.peer, month) && (v.narrativeVersion === undefined || v.narrativeVersion === 1) && Number.isSafeInteger(v.since) && v.since >= 0 && v.since <= month && !!v.decisions && typeof v.decisions === 'object' && !Array.isArray(v.decisions)
+    && Object.entries(v.decisions).every(([id, d]) => !!d && (!id.startsWith('peer-') || !!v.peer) && LIFE_STORIES.some(x => x.id === id && x.choices.some(c => c.id === d.choice)) && Number.isSafeInteger(d.month) && d.month >= v.since && d.month <= month && typeof d.followed === 'boolean' && (!d.followed || d.month + STORY_RULES.followupMonths <= month));
+}
+export function validStoryContext(s: GameState): boolean {
+  const v = s.stories; if (!v) return true;
+  if (!s.life) return false;
+  if (v.peer) {
+    const expected = initialPeer(s);
+    if (v.peer.person.id !== expected.person.id || v.peer.person.name !== expected.person.name || v.peer.route !== expected.route || v.peer.since < v.since) return false;
+    if (PEER_IDS.some(id => v.decisions[id] && v.decisions[id].month < v.peer!.since)) return false;
+  }
+  const offer = v.decisions['peer-offer'];
+  if (offer?.choice === 'join' && v.decisions['peer-distance']?.choice !== 'team') return false;
+  if (offer?.choice === 'visit' && v.decisions['peer-distance']?.choice === 'team') return false;
+  for (const [id, d] of Object.entries(v.decisions)) if (id.startsWith('specialty-') && d.choice === 'practiced' && !specialtyChapter(s, id)?.choices.some(x => x.id === 'practiced')) return false;
+  return true;
 }
 export function finishStories(s: GameState): void {
   const detail = storylineRecap(s, LIFE_STORIES);
   if (detail && !s.journal.some(x => x.id === 'auto:storyline:recap')) s.journal.push({ id: 'auto:storyline:recap', stage: 'retirement', title: '남긴 일과 내려놓은 일', detail: `${lifeAge(s)} · ${detail}`, effects: {} });
+  if (s.stories?.peer && PEER_IDS.some(id => s.stories?.decisions[id]) && !s.journal.some(x => x.id === 'auto:peer:recap')) s.journal.push({ id: 'auto:peer:recap', stage: 'retirement', title: `${s.stories.peer.person.name}과 이어진 시간`, detail: `${lifeAge(s)} · 같은 조에서 만난 ${s.stories.peer.person.name}. ${peerRelationship(s)}로 지냈습니다. ${s.stories.decisions['peer-offer']?.choice === 'join' ? '함께 맡은 모임은 다른 사람에게 넘겼습니다.' : '서로 맡은 일은 달라도 연락을 이어갔습니다.'}`, effects: {} });
 }
