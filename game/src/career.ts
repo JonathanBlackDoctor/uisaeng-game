@@ -10,6 +10,7 @@ export interface ApplicationRecord {
   specialty: string; institution: string; knowledge: number; roll: number;
   preparation: Preparation; score: number; threshold: number; accepted: boolean;
   ruleVersion: string;
+  abilityBonus?: number;
 }
 export interface CareerState {
   experience: Experience;
@@ -135,6 +136,7 @@ export function validCareer(value: unknown): value is CareerState {
       if (!object(a) || !isSpecialty(a.specialty) || !isInstitution(a.institution) || !finite(a.knowledge) || a.knowledge < 0 || a.knowledge > 100 || !finite(a.roll) || a.roll < 0 || a.roll >= 1) return false;
       if (!object(a.preparation) || ![...experienceKeys, 'exploration', 'interest', 'total'].every(k => finite((a.preparation as Record<string, unknown>)[k]) && ((a.preparation as Record<string, number>)[k] >= 0))) return false;
       if (!finite(a.score) || !finite(a.threshold) || typeof a.accepted !== 'boolean' || typeof a.ruleVersion !== 'string' || value.attempts < 1) return false;
+      if (a.abilityBonus !== undefined && (!finite(a.abilityBonus) || Math.abs(a.abilityBonus) > 8)) return false;
       const p = a.preparation as Record<string, number>;
       const sum = experienceKeys.reduce((total, key) => total + p[key], 0) + p.exploration + p.interest;
       if (!Number.isFinite(sum) || Math.abs(p.total - sum) > 1e-9 || a.accepted !== (a.score >= a.threshold)) return false;
@@ -186,22 +188,23 @@ export function careerPreparation(state: CareerState, id: string): Preparation {
     total: parts.reduce((sum, part) => sum + part, 0) + exploration + interest };
 }
 
-export function applySpecialty(state: CareerState, id: string, institutionId: string, knowledge: number, roll: number): { state: CareerState; accepted: boolean; detail: string } {
+export function applySpecialty(state: CareerState, id: string, institutionId: string, knowledge: number, roll: number, abilityBonus = 0): { state: CareerState; accepted: boolean; detail: string } {
   requireState(state); requireSpecialty(id);
   if (!isInstitution(institutionId)) throw new RangeError('지원 기관을 확인해 주세요.');
   if (!finite(knowledge) || knowledge < 0 || knowledge > 100) throw new RangeError('지식은 0부터 100까지여야 합니다.');
   if (!finite(roll) || roll < 0 || roll >= 1) throw new RangeError('추첨값은 0 이상 1 미만이어야 합니다.');
+  if (!finite(abilityBonus) || Math.abs(abilityBonus) > 8) throw new RangeError('역량 보정 범위를 확인해 주세요.');
   if (state.application === 'accepted') return { state, accepted: true, detail: '이미 합격한 수련 경로가 있습니다.' };
   if (state.attempts === Number.MAX_SAFE_INTEGER) throw new RangeError('지원 기록이 한도를 넘었습니다.');
   const preparation = careerPreparation(state, id);
-  const score = knowledge * CAREER_RULES.knowledgeWeight + preparation.total + (roll - 0.5) * CAREER_RULES.rollSpread;
+  const score = knowledge * CAREER_RULES.knowledgeWeight + preparation.total + (roll - 0.5) * CAREER_RULES.rollSpread + abilityBonus;
   const threshold = CAREER_RULES.acceptanceThreshold;
   const accepted = score >= threshold;
-  const lastApplication: ApplicationRecord = { specialty: id, institution: institutionId, knowledge, roll, preparation, score, threshold, accepted, ruleVersion: CAREER_RULES.version };
+  const lastApplication: ApplicationRecord = { specialty: id, institution: institutionId, knowledge, roll, preparation, score, threshold, accepted, ruleVersion: CAREER_RULES.version, ...(abilityBonus ? { abilityBonus } : {}) };
   const next: CareerState = { ...state, specialty: id, institution: institutionId, application: accepted ? 'accepted' : 'rejected', attempts: state.attempts + 1,
     practice: 'undecided', lastApplication };
   const preparationNote = state.explored.includes(id) ? '탐색과 대학 경험이 준비에 반영됐습니다.' : '견학 없이 지원했습니다. 대학 경험은 준비에 반영됐습니다.';
-  return { state: next, accepted, detail: `${accepted ? '합격했습니다.' : '이번에는 합격하지 못했습니다. 재지원하거나 수련 없이 진료·연구를 선택할 수 있습니다.'} ${preparationNote}` };
+  return { state: next, accepted, detail: `${accepted ? '합격했습니다.' : '이번에는 합격하지 못했습니다. 재지원하거나 수련 없이 진료·연구를 선택할 수 있습니다.'} ${preparationNote}${abilityBonus ? ` 관련 역량과 전공 숙련이 준비에 ${abilityBonus > 0 ? '+' : ''}${abilityBonus} 반영됐습니다.` : ''}` };
 }
 
 export function choosePractice(state: CareerState, path: Practice): CareerState {

@@ -6,6 +6,7 @@ import { campusClub } from './campus';
 import { DEPTH_RUNTIME } from './career-depth';
 import './career-panel.css';
 import FinanceSummary from './FinanceSummary';
+import LifestylePanel from './LifestylePanel';
 import { compactWon } from './finance-view';
 
 const won = compactWon;
@@ -25,6 +26,7 @@ export default function CareerPanel({ game, busy, act }: { game: GameState; busy
     {game.status !== 'completed' && <label className="career-field"><span>주로 하는 일</span><select aria-label="주로 하는 일" value={game.progress.focus} disabled={disabled} onChange={ev => act({ type: 'career-focus', id: crypto.randomUUID(), focus: ev.target.value as typeof game.progress.focus })}>{Object.entries(CAREER_FOCUS).map(([id, f]) => <option key={id} value={id}>{f.label}</option>)}</select><small>{CAREER_FOCUS[game.progress.focus].detail}</small></label>}
     {school && <div className="specialty-explorer"><label className="career-field"><span>관심 있는 과</span><select aria-label="관심 있는 과" value={selection} disabled={disabled} onChange={ev => setSelection(ev.target.value)}>{SPECIALTIES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><p>{chosen.summary}</p><button className="subtle-button" disabled={disabled || c.interest === selection} onClick={() => act({ type: 'explore', id: crypto.randomUUID(), specialtyId: selection })}>{c.explored.includes(selection) ? '관심 전공으로 정하기' : '알아보기'}</button><small>탐색한 과 {c.explored.length}개 · 학업·연구·임상·모임 경험이 지원 준비에 반영됩니다.</small></div>}
     <FinanceSummary game={game}/>
+    <LifestylePanel game={game} busy={busy} act={act}/>
     <details className="money-details"><summary>수입·지출 보기</summary>{school && <div className="education-plan"><p>{game.campus?.automaticFunding ? "졸업까지 학비·생활비 부족액만 대출로 충당합니다. 대출한 금액만큼 부채가 늘어납니다." : "돈이 부족하면 직접 마련합니다."}</p><button className="subtle-button" disabled={disabled} onClick={() => act({ type: "school-funding", id: crypto.randomUUID(), automatic: !game.campus?.automaticFunding })}>{game.campus?.automaticFunding ? "자동 대출 중단하기" : "졸업까지 부족액 자동 대출하기"}</button></div>}<dl><div><dt>이번 달 수입</dt><dd>{won(e.income)}</dd></div><div><dt>이번 달 지출</dt><dd>{won(e.expenses)}</dd></div><div><dt>총자산</dt><dd>{won(e.assets)}</dd></div><div><dt>순자산</dt><dd>{won(e.assets - e.debt - e.due)}</dd></div>{e.due > 0 && <div><dt>미납액</dt><dd>{won(e.due)}</dd></div>}</dl>{e.debt > 0 && e.cash > 0 && <button className="subtle-button" disabled={disabled} onClick={() => act({ type: 'finance', id: crypto.randomUUID(), kind: 'repay' })}>{won(Math.min(e.cash, e.debt))} 상환하기</button>}<ol>{e.ledger.slice(-5).reverse().map(t => <li key={t.id}><span>{t.label}</span><span>{t.cashDelta >= 0 ? '+' : ''}{won(t.cashDelta)}</span></li>)}</ol></details>
   </section>;
 }

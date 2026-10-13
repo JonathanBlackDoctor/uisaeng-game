@@ -2,6 +2,7 @@ import type { GameState } from './contracts';
 import { ECONOMY_RULES as R } from './economy';
 import { DEPTH_RUNTIME } from './career-depth';
 import { variableEarnings } from './life-dynamics';
+import { dietFactor, lifestyleBudget } from './lifestyle';
 
 export const exactWon = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 export function compactWon(n: number): string {
@@ -21,15 +22,21 @@ export function financeView(s: GameState) {
     : training ? R.trainingSalary : s.stageIndex === 3 ? R.retirementIncome
     : c.practice === 'employed' ? R.employedSalary : c.practice === 'research' ? R.researchIncome
     : c.practice === 'untrained' ? R.untrainedIncome : clinic ? R.clinicRevenue : 0;
-  const salary = income * 12;
-  let expenses = R.livingCost + (school ? Math.round(R.tuition / R.tuitionInterval) : 0) + (clinic ? R.clinicOperatingCost : 0);
+  const price = (s.portfolio?.priceIndex ?? 1_000_000) / 1_000_000, wage = (s.portfolio?.wageIndex ?? 1_000_000) / 1_000_000;
+  const scholarship = school && s.life!.flags.includes('scholarship') ? R.scholarshipMonthly : 0;
+  income = Math.round((income - scholarship) * wage) + scholarship;
+  const salary = income * 12, lifestyle = lifestyleBudget(s);
+  let expenses = Math.round(R.livingCost * price * dietFactor(s.lifestyle?.diet ?? 'balanced')) + (school ? Math.round(R.tuition * price / R.tuitionInterval) : 0) + (clinic ? Math.round(R.clinicOperatingCost * price) : 0);
   if (s.stageIndex === 2 && s.depth?.workload === 'extended' && c.practice !== 'research') {
     income += clinic ? DEPTH_RUNTIME.extendedRevenue : DEPTH_RUNTIME.extendedSalary;
     if (clinic) expenses += DEPTH_RUNTIME.extendedCost;
   }
   if (s.stageIndex === 2 && s.depth?.workload === 'learning') expenses += DEPTH_RUNTIME.learningCost;
   income += variableEarnings(s);
+  income += lifestyle.income; expenses += lifestyle.cost;
+  const repayment = Math.min(s.portfolio?.autoRepay ?? 0, e.debt);
   return { netAssets: e.assets - e.debt - e.due, salary, income, expenses, disposable: income - expenses,
+    repayment, afterPlans: income - expenses - repayment - (s.portfolio?.autoSave ?? 0) - (s.portfolio?.autoInvest ?? 0),
     annual: school || clinic || c.practice === 'research' || s.stageIndex === 3 ? income * 12 : salary,
     label: clinic ? '연 매출 예상' : school || c.practice === 'research' || s.stageIndex === 3 ? '연 수입 예상' : '현재 연봉' };
 }

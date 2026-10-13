@@ -63,7 +63,7 @@ function reach(s: GameState, done: (s: GameState) => boolean, ms = 1000) {
 }
 
 describe('hospital application and education routes', () => {
-  it.each(['snuh', 'asan'])('%s confirms documents before applying and can revise without consuming an attempt', institution => {
+  it.each(['snuh', 'asan'])('%s confirms documents before applying and can revise without consuming an attempt', (institution: string) => {
     const before = atMonth(66);
     before.stageIndex = 0;
     before.career!.application = 'none';
@@ -91,7 +91,7 @@ describe('hospital application and education routes', () => {
     expect(choose(submitted, 'submit')).toBe(submitted);
   });
 
-  it.each(Object.entries(INSTITUTION_OPPORTUNITIES))('%s applies each education path and its delayed experience exactly once', (institution, info) => {
+  it.each(Object.entries(INSTITUTION_OPPORTUNITIES))('%s applies each education path and its delayed experience exactly once', (institution: string, info: (typeof INSTITUTION_OPPORTUNITIES)[string]) => {
     for (const path of info.paths) {
       const before = atMonth(73, info.specialties?.[0] ?? 'internal');
       before.career!.institution = institution;

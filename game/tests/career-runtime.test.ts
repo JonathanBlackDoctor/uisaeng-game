@@ -126,7 +126,9 @@ describe('career preview connected runtime', () => {
     expect(finances(slow.s)).toEqual(finances(fast.s));
     const auto = (s: GameState) => s.journal.filter(e => e.id.startsWith('auto:'));
     expect(auto(slow.s)).toEqual(auto(fast.s));
-  });
+    expect(slow.s.portfolio).toEqual(fast.s.portfolio);
+    expect(slow.s.lifestyle).toEqual(fast.s.lifestyle);
+  }, 15000);
   it('records varied automatic life events without forcing specialty visits for every activity', () => {
     for (const focus of ['work', 'rest', 'clinical'] as const) {
       let s = createCareerGame(`notes-${focus}`, 42);

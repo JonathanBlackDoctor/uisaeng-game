@@ -13,6 +13,7 @@ export interface DecisionSheetProps {
   busy: boolean;
   onChoose: (choiceId: string) => void;
   evidence?: ReactNode;
+  onAbilities?: () => void;
 }
 
 // A new event gets a fresh sheet, including its focus and accidental-input guard.
@@ -20,7 +21,7 @@ export default function DecisionSheet(props: DecisionSheetProps) {
   return <EventDecisionSheet key={props.event.id} {...props} />;
 }
 
-function EventDecisionSheet({ event, busy, onChoose, evidence }: DecisionSheetProps) {
+function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities }: DecisionSheetProps) {
   const id = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -175,6 +176,7 @@ function EventDecisionSheet({ event, busy, onChoose, evidence }: DecisionSheetPr
           </header>
           <h2 ref={titleRef} tabIndex={-1} className="ds-title" id={`${id}-title`}>{event.title}</h2>
           <p className="ds-body" id={`${id}-body`}>{event.body}</p>
+          {onAbilities && <button type="button" className="subtle-button ability-open" onClick={onAbilities} disabled={busy}>능력 보기</button>}
           <ol className="ds-choices" aria-label="선택지">
             {event.choices.map((choice, index) => (
               <li className="ds-choice-item" key={choice.id}>

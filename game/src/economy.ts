@@ -6,6 +6,9 @@ export type EconomyContext = {
   scholarship: boolean;
   /** Explicit, revocable player instruction, valid only while at university. */
   automaticEducationLoan?: boolean;
+  priceIndex?: number;
+  wageIndex?: number;
+  livingFactor?: number;
 };
 
 export type EconomyActionKind = 'loan' | 'grant' | 'work' | 'pay-due' | 'repay' | 'open-clinic';
@@ -145,12 +148,16 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
   next.income = 0;
   next.expenses = 0;
   const r = ECONOMY_RULES;
+  const price = context.priceIndex ?? 1, wage = context.wageIndex ?? 1, living = context.livingFactor ?? 1;
+  if (![price, wage, living].every(n => Number.isFinite(n) && n > 0 && n < 1000)) throw new RangeError('물가·급여 설정을 확인해 주세요.');
   const receive = (key: string, label: string, amount: number) => {
+    amount = Math.round(amount * (key === 'scholarship' ? 1 : wage));
     if (amount === 0) return;
-    post(next, { id: `month:${month}:${key}`, month, label, cashDelta: amount, debtDelta: 0, kind: 'monthly' });
+      post(next, { id: `month:${month}:${key}`, month, label, cashDelta: amount, debtDelta: 0, kind: 'monthly' });
     next.income += amount;
   };
   const spend = (key: string, label: string, amount: number) => {
+    amount = Math.round(amount * price * (key === 'living' ? living : 1));
     if (amount === 0) return;
     if (context.stage === 'university' && context.automaticEducationLoan === true && next.cash < amount) {
       const gap = amount - next.cash;

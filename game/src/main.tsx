@@ -11,6 +11,7 @@ import LifeScene from './LifeScene';
 import { LifeMap, PeoplePanel, RecentLifeFeed } from './LifePanels';
 import DecisionSheet from './DecisionSheet';
 import CareerPanel from './CareerPanel';
+import AbilityPanel from './AbilityPanel';
 import { CAREER_TIME, careerStageEnds } from './career-runtime';
 import { ACTIVITIES, STAGES } from './fixtures/content';
 import { archives, exportRawSave, loadGame, openGameDatabase, persistGame } from './storage';
@@ -29,6 +30,7 @@ function App() {
   const [supporting, setSupporting] = useState<Activity>('rest');
   const [view, setView] = useState<'play' | 'journal' | 'archive'>('play');
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showAbilities, setShowAbilities] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<ArchivedRun | null>(null);
   const lock = useRef(false);
   const latestGame = useRef(game);
@@ -89,7 +91,7 @@ function App() {
     if (game?.life) { setMain(game.life.focus.main); setSupporting(game.life.focus.supporting); }
   }, [game?.runId, game?.life?.focus.main, game?.life?.focus.supporting]);
   useEffect(() => {
-    if (!db || view !== 'play' || busy || error || confirmReset || game?.status !== 'active' || !game.life || game.life.paused || game.pendingEvent) return;
+    if (!db || view !== 'play' || busy || error || confirmReset || showAbilities || game?.status !== 'active' || !game.life || game.life.paused || game.pendingEvent) return;
     let previous = performance.now();
     const resetClock = () => { previous = performance.now(); };
     document.addEventListener('visibilitychange', resetClock);
@@ -101,7 +103,7 @@ function App() {
       void latestAct.current({ type: 'tick', id: crypto.randomUUID(), elapsedMs });
     }, 500);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', resetClock); };
-  }, [db, view, busy, error, confirmReset, game?.runId, game?.status, game?.life?.paused, game?.pendingEvent?.id]);
+  }, [db, view, busy, error, confirmReset, showAbilities, game?.runId, game?.status, game?.life?.paused, game?.pendingEvent?.id]);
   const baseStage = STAGES[game?.stageIndex ?? 0];
   const stage = game?.stageIndex === 1 && game.career && game.career.application !== 'accepted' ? { ...baseStage, id: 'career' as const, label: '진로와 일', chapter: game.career.practice === 'research' ? '연구 생활' : game.career.practice === 'untrained' ? '일반진료와 생활' : '다음 지원 준비' } : baseStage;
   const workContext = game?.stageIndex !== 0 && game?.career?.practice === 'research' ? 'research' as const : game?.stageIndex === 1 && game.career?.application !== 'accepted' && game.career?.practice === 'undecided' ? 'preparation' as const : undefined;
@@ -111,8 +113,8 @@ function App() {
   const startAge = game ? lifeStartAge(game) : RANDOM_RULES.startAge;
   const age = startAge + Math.floor(months / 12);
   const month = months % 12;
-  const running = !!life && !life.paused && !game?.pendingEvent && !completed && view === 'play' && !confirmReset && !error;
-  const timeStatus = completed ? '이야기 마침' : game?.pendingEvent ? '선택을 기다리는 중' : life?.paused ? '일시정지' : '진행 중';
+  const running = !!life && !life.paused && !game?.pendingEvent && !completed && view === 'play' && !confirmReset && !showAbilities && !error;
+  const timeStatus = completed ? '이야기 마침' : game?.pendingEvent ? '선택을 기다리는 중' : showAbilities ? '능력 확인 중' : life?.paused ? '일시정지' : '진행 중';
   const partnerName = game?.family?.partner?.name ?? (game?.family?.meeting ? MEETINGS[game.family.meeting].name : undefined);
   const shownJournal = selectedArchive?.state.journal ?? game?.journal ?? [];
   return <div className="app-shell">
@@ -154,20 +156,21 @@ function App() {
               {completed && <section className="panel completion"><span>✓ 회고가 보관함에 저장되었습니다</span><h3>{game?.journal.length}개의 기록, 하나의 이야기</h3><p>완료된 회고는 다음 이야기를 시작해도 보관됩니다.</p></section>}
             </div>
             {game && <aside className="life-companions" aria-label="나와 곁의 사람들">
-              <section className="panel stats-panel"><div className="section-heading"><h3>능력치</h3></div><div className="stats" aria-label="현재 능력치">{Object.entries(STAT_LABELS).map(([key, label], index) => <div className={`stat stat-${key}`} key={key}><div className="stat-top"><span className="stat-icon">{['♡', '☀', '▤', '♧'][index]}</span><span>{label}</span><strong>{game.stats[key as keyof typeof STAT_LABELS]}<small>/100</small></strong></div><div className="meter"><span style={{ width: `${game.stats[key as keyof typeof STAT_LABELS]}%` }}/></div></div>)}</div></section>
+              <section className="panel stats-panel"><div className="section-heading"><h3>능력치</h3>{game.career && <button className="subtle-button ability-open" onClick={() => setShowAbilities(true)} disabled={busy}>능력 보기</button>}</div><div className="stats" aria-label="현재 능력치">{Object.entries(STAT_LABELS).map(([key, label], index) => <div className={`stat stat-${key}`} key={key}><div className="stat-top"><span className="stat-icon">{['♡', '☀', '▤', '♧'][index]}</span><span>{label}</span><strong>{game.stats[key as keyof typeof STAT_LABELS]}<small>/100</small></strong></div><div className="meter"><span style={{ width: `${game.stats[key as keyof typeof STAT_LABELS]}%` }}/></div></div>)}</div></section>
               {game.career && <CareerPanel game={game} busy={busy || !!error} act={act}/>}{game.family && <PeoplePanel status={game.family.status} partnerName={partnerName} partnerTemperament={game.family.partner?.temperament} meeting={game.family.meeting ? MEETINGS[game.family.meeting].label : null} children={game.family.children} contacts={life?.contacts ?? Number.NaN}/>}
               <RecentLifeFeed entries={game.journal} limit={4} onOpenJournal={() => { setView('journal'); setSelectedArchive(null); }}/>
             </aside>}
             {!game && <aside className="welcome-note"><span className="eyebrow">생활 시뮬레이션</span><h2>공부하고, 친구를 만나고,<br/>진로를 정합니다.</h2><p>처음의 환경도, 찾아오는 인연도 매번 달라집니다.</p><ol><li><b>01</b><span>저마다 다른 출발<small>배경과 능력치가 다른 나를 만나요.</small></span></li><li><b>02</b><span>흐르는 시간<small>계절과 일상이 천천히 바뀝니다.</small></span></li><li><b>03</b><span>내가 남긴 선택<small>멈춰 선 순간, 다음 장을 정해요.</small></span></li></ol></aside>}
           </div>
           {game && !['random-preview-v1', 'career-preview-v1'].includes(game.rulesVersion) && <p className="legacy-note">이전 버전의 기록은 기존 방식으로 이어갑니다. 무작위 배경과 연속 시간은 새 이야기에서 시작됩니다.</p>}
-          {game?.pendingEvent && !error && <DecisionSheet key={game.pendingEvent.id} event={game.pendingEvent} busy={busy || confirmReset} onChoose={choiceId => act({ type: 'choose', id: crypto.randomUUID(), eventId: game.pendingEvent!.id, choiceId })} evidence={game.pendingEvent.sourceNote || evidenceForEvent(game.pendingEvent).length ? <EventEvidencePanel event={game.pendingEvent}/> : undefined}/>}
+          {game?.pendingEvent && !error && <DecisionSheet key={game.pendingEvent.id} event={game.pendingEvent} busy={busy || confirmReset} onChoose={choiceId => act({ type: 'choose', id: crypto.randomUUID(), eventId: game.pendingEvent!.id, choiceId })} onAbilities={game.career ? () => setShowAbilities(true) : undefined} evidence={game.pendingEvent.sourceNote || evidenceForEvent(game.pendingEvent).length ? <EventEvidencePanel event={game.pendingEvent}/> : undefined}/>}
         </>}
         {(view === 'journal' || (view === 'archive' && selectedArchive)) && <section className="panel journal"><div className="section-heading"><div><h3>{selectedArchive ? '보관된 회고' : '나의 생애 기록'}</h3><p>기록을 읽는 동안 게임 시간은 흐르지 않습니다.</p></div></div>{(selectedArchive ? selectedArchive.state.family : game?.family) && <p className="family-card">{familySummary((selectedArchive ? selectedArchive.state.family : game?.family)!)}</p>}{shownJournal.length === 0 ? <p className="empty">아직 남긴 기록이 없습니다. 첫 번째 선택을 해 보세요.</p> : shownJournal.map((entry, i) => <article key={entry.id}><span className="journal-index">{String(i + 1).padStart(2, '0')}</span><div><small>{STAGES.find(s => s.id === entry.stage)?.label}</small><h4>{entry.title}</h4><p>{entry.detail}</p><div className="effect-list">{Object.entries(entry.effects).map(([key, value]) => <span key={key}>{STAT_LABELS[key as keyof typeof STAT_LABELS]} {value > 0 ? '+' : ''}{value}</span>)}</div></div></article>)}</section>}
         {view === 'archive' && !selectedArchive && <section className="panel journal"><h3>회고 보관함</h3>{history.length === 0 ? <p className="empty">이야기를 끝내면 이곳에 회고가 남습니다.</p> : history.map((record, i) => <button className="archive-card" key={record.runId} onClick={() => setSelectedArchive(record)}><span><strong>나의 {i + 1}번째 이야기</strong><small>{new Date(record.archivedAt).toLocaleDateString('ko-KR')} · {record.state.journal.length}개 기록</small></span><span>기록 펼치기 →</span></button>)}</section>}
       </>}
       <footer className="disclosure"><div><span>의생게임 · 생애 미리보기</span><button className="text-button" onClick={download} disabled={!db}>저장 기록 백업 ↓</button></div><p><a href="https://1in8b.life/ko/" target="_blank" rel="noreferrer">80억 분의 1</a>의 시간 흐름과 선택 경험을 오마주합니다. 배경 분포·사건 가중치·수치·시간 간격은 창작 조정값입니다. 정식 26개 전공과 전체 사건은 개발 중입니다.</p></footer>
     </main>
+    {showAbilities && game && <AbilityPanel game={game} onClose={() => setShowAbilities(false)}/>}
     {confirmReset && <div className="modal-backdrop" onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false); if (e.key === 'Tab') { const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'); if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); buttons[buttons.length - 1]?.focus(); } else if (!e.shiftKey && document.activeElement === buttons[buttons.length - 1]) { e.preventDefault(); buttons[0]?.focus(); } } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span className="eyebrow">새 게임</span><h2 id="reset-title">새 게임을 시작할까요?</h2><p>현재 진행 중인 미리보기는 새 기록으로 바뀝니다. 완료된 회고는 보관함에 남습니다. 필요한 기록은 먼저 백업해 주세요.</p><div><button ref={resetCancel} className="subtle-button" onClick={() => setConfirmReset(false)} disabled={busy}>계속하기</button><button className="primary" onClick={start} disabled={busy}>새로 시작</button></div></section></div>}
   </div>;
 }

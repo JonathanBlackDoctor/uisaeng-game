@@ -14,6 +14,7 @@ function adjust(stats: Stats, effects: Partial<Stats>): Stats {
   return Object.fromEntries(Object.keys(STAT_LABELS).map(key => [key, Math.max(0, Math.min(100, stats[key as keyof Stats] + (effects[key as keyof Stats] ?? 0)))])) as Stats;
 }
 export function reduceGame(state: GameState, action: GameAction): GameState {
+  if (state.rulesVersion !== 'career-preview-v1' && ['lifestyle','diet','money-plan','investment-risk','savings-buffer','money-transfer'].includes(action.type)) return state;
   if (action.type === 'next-choice') return advanceToNextChoice(state, action);
   if (state.rulesVersion === 'career-preview-v1') return reduceCareerGame(state, action);
   if (action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance' || action.type === 'school-funding' || action.type === 'workload') return state;
@@ -32,7 +33,7 @@ export function reduceGame(state: GameState, action: GameAction): GameState {
     const event = structuredClone(FIXTURE_EVENTS[state.stageIndex]);
     return { ...state, revision: state.revision + 1, seed, stats: adjust(state.stats, effects), pendingEvent: { ...event, id: `${state.runId}:${event.id}:${seed}` }, journal: [...state.journal, { id: action.id, stage: stage.id, title: main.label, detail: `보조 활동: ${supporting.label}`, effects }], processedActionIds: [...state.processedActionIds, action.id] };
   }
-  if (!state.pendingEvent || state.pendingEvent.id !== action.eventId) return state;
+  if (action.type !== 'choose' || !state.pendingEvent || state.pendingEvent.id !== action.eventId) return state;
   const choice = state.pendingEvent.choices.find(item => item.id === action.choiceId);
   if (!choice) return state;
   let family = state.family;

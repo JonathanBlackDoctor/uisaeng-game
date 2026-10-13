@@ -2,6 +2,7 @@ import type { GameState, GameEvent, Stats, EventChoice, CareerProgress } from '.
 import { type Experience, SPECIALTIES } from './career';
 import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { STAGES } from './fixtures/content';
+import { practiceAbilities, FOCUS_ABILITIES, abilityEventWeight, weightedAbilityPick } from './abilities';
 
 // Fictional campus stories and adjustable game effects, never real admissions data.
 export const CAMPUS_RULES = { version: 'campus-stories-provisional-2', provisional: true, monthlyChance: 0.72, maxQuietMonths: 2, cooldown: 10, repeatLimit: 2, experienceGain: 3 };
@@ -78,7 +79,7 @@ export function settleCampusChoice(s: GameState, key: string, id: string): void 
     if (key === 'campus-final' || (key === 'campus-summer' && ['work', 'rest'].includes(id))) s.progress!.focus = id as CareerProgress['focus'];
   }
 }
-type Ambient = { id: string; title: string; body: string; effects: Partial<Stats>; experience?: keyof Experience; focus?: string; specialty?: string; club?: boolean };
+type Ambient = { id: string; title: string; body: string; effects: Partial<Stats>; experience?: keyof Experience; focus?: CareerProgress['focus']; specialty?: string; club?: boolean };
 const COMMON: Ambient[] = [
   { id: 'notes', title: '옆자리의 필기', body: '놓친 부분을 옆자리 동기가 보여줬습니다. 다음 수업은 같이 듣기로 했습니다.', effects: { knowledge: 1, relationships: 1 }, experience: 'study' },
   { id: 'rain', title: '갑자기 쏟아진 비', body: '우산 하나를 나눠 쓰고 학생회관까지 뛰었습니다. 젖은 신발을 보며 한참 웃었습니다.', effects: { happiness: 2, relationships: 1 } },
@@ -164,12 +165,13 @@ export function advanceCampus(s: GameState): void {
   const weighted = cycle.flatMap(e => Array.from({ length: e.club ? 4 : e.focus === s.progress!.focus ? 3 : e.focus ? 0 : 1 }, () => e));
   if (!weighted.length) return;
   const pick = nextRandom(s.seed); s.seed = pick.seed;
-  const e = weighted[Math.floor(pick.value * weighted.length)];
+  const e = weightedAbilityPick(weighted, pick.value, item => abilityEventWeight(s, item.experience === 'people' ? 'friend' : item.experience ?? item.focus ?? item.id));
   c.seen[e.id] = { month: m, count: (c.seen[e.id]?.count ?? 0) + 1 }; c.lastAmbient = m;
   if (e.experience) gain(s, e.experience);
   if (e.specialty) learn(s, e.specialty);
   if (e.club) { c.mentorMeetings++; if (c.mentorMeetings >= 2 && c.project === 'none' && m < 56) c.invitation = true; }
   note(s, `auto:campus:ambient:${m}`, e.title, e.body, e.effects);
+  if (s.abilities) practiceAbilities(s, FOCUS_ABILITIES[e.experience ?? e.focus ?? 'people'], 0.35, e.title);
 }
 export function validCampus(value: CampusState | undefined, month: number): boolean {
   if (value === undefined) return true; // Older saves are upgraded on their next action.

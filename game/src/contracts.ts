@@ -3,6 +3,9 @@ import type { EconomyState } from './economy';
 import type { CampusState } from './campus';
 import type { CareerDepth } from './career-depth';
 import type { LifeDynamics } from './life-dynamics';
+import type { AbilityState } from './abilities';
+import type { LifestyleState, LifestyleKey, Diet } from './lifestyle';
+import type { PortfolioState, InvestmentRisk } from './portfolio';
 export const STAT_LABELS = { health: '건강', happiness: '행복', knowledge: '지식', relationships: '관계' } as const;
 export type Stat = keyof typeof STAT_LABELS;
 export type Stats = Record<Stat, number>;
@@ -43,6 +46,9 @@ export interface GameState {
   campus?: CampusState;
   depth?: CareerDepth;
   dynamics?: LifeDynamics;
+  abilities?: AbilityState;
+  lifestyle?: LifestyleState;
+  portfolio?: PortfolioState;
 }
 export interface CareerProgress {
   version: 1;
@@ -60,6 +66,12 @@ export interface CareerProgress {
   selectedSpecialty?: string;
 }
 export type GameAction =
+  | { type: 'lifestyle'; id: string; key: LifestyleKey; enabled: boolean }
+  | { type: 'diet'; id: string; diet: Diet }
+  | { type: 'money-plan'; id: string; field: 'autoSave' | 'autoInvest' | 'autoRepay'; amount: number }
+  | { type: 'investment-risk'; id: string; risk: InvestmentRisk }
+  | { type: 'savings-buffer'; id: string; enabled: boolean }
+  | { type: 'money-transfer'; id: string; kind: 'save' | 'withdraw' | 'invest' | 'sell'; amount: number }
   | { type: 'next-choice'; id: string }
   | { type: 'finance'; id: string; kind: 'repay' }
   | { type: 'school-funding'; id: string; automatic: boolean }

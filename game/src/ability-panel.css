@@ -1,0 +1,28 @@
+.ability-dialog { width: min(660px, calc(100vw - 28px)); max-height: calc(100dvh - 32px); box-sizing: border-box; border: 1px solid #deded6; border-radius: 16px; padding: 24px; background: #fffef9; color: #253a35; overflow: auto; box-shadow: 0 18px 70px #172e3438; }
+.ability-dialog::backdrop { background: #152a315c; }
+.ability-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ability-dialog h2 { margin: 0; font-size: 22px; }
+.ability-dialog button { font: inherit; cursor: pointer; border: 1px solid #cdd6d0; border-radius: 8px; padding: 8px 12px; background: transparent; color: inherit; min-height: 40px; }
+.ability-dialog button:focus-visible, .ability-row summary:focus-visible { outline: 3px solid #487d67; outline-offset: 3px; }
+.ability-intro, .ability-footnote, .ability-specialties > p { font-size: 13px; line-height: 1.65; color: #5b6963; }
+.ability-groups { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
+.ability-groups button { font-size: 13px; }
+.ability-groups button[aria-pressed="true"] { background: #284e41; color: white; border-color: #284e41; }
+.ability-group-title { margin: 20px 0 10px; font-size: 16px; }
+.ability-columns, .ability-row summary { display: grid; grid-template-columns: minmax(0, 1fr) 84px 94px; gap: 10px; align-items: center; }
+.ability-columns { padding: 8px 4px; font-size: 11px; color: #66746e; }
+.ability-columns > :not(:first-child), .ability-row summary > :not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.ability-row { border-top: 1px solid #e1e6e1; }
+.ability-row summary { padding: 14px 4px; cursor: pointer; font-size: 15px; list-style: none; }
+.ability-row summary::-webkit-details-marker { display: none; }
+.ability-row summary strong { color: #286149; }
+.ability-name small { display: block; font-size: 11px; font-weight: normal; color: #6b7771; margin-top: 4px; }
+.ability-detail { padding: 0 4px 12px; color: #586960; font-size: 13px; line-height: 1.6; }
+.ability-detail p { margin: 8px 0; }
+.ability-dialog progress { width: 100%; height: 7px; accent-color: #477d64; }
+.ability-specialty { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 0; }
+.ability-specialty progress { grid-column: 1 / -1; }
+.ability-specialty small { font-size: 10px; color: #6b7771; margin-left: 4px; }
+.ability-footnote { border-top: 1px solid #e1e6e1; padding-top: 14px; margin-bottom: 0; }
+.ability-open { white-space: nowrap; }
+@media (max-width: 480px) { .ability-dialog { padding: 18px; } .ability-columns, .ability-row summary { grid-template-columns: minmax(0, 1fr) 65px 72px; gap: 6px; } .ability-groups button { padding: 7px 10px; } }

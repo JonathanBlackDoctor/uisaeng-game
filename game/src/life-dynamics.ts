@@ -1,6 +1,7 @@
 import type { GameState, Stats, CareerProgress } from './contracts';
 import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { ECONOMY_RULES } from './economy';
+import { focusAbilityModifier, abilityFatigueRelief } from './abilities';
 
 type Focus = CareerProgress['focus'];
 const focuses: Focus[] = ['study', 'research', 'clinical', 'people', 'rest', 'work'];
@@ -34,7 +35,7 @@ export function rollEffort(s: GameState, focus: Focus): number {
   const d = s.dynamics!;
   const draw = nextRandom(d.seed); d.seed = draw.seed;
   const readiness = (s.stats[relevant[focus]] - 50) / 150;
-  const trend = clamp(readiness + d.momentum[focus] * 0.035 - d.fatigue * 0.012, -0.6, 0.6);
+  const trend = clamp(readiness + d.momentum[focus] * 0.035 - d.fatigue * 0.012 + focusAbilityModifier(s, focus), -0.6, 0.6);
   const weights = [8, 22, 40, 22, 8].map((w, i) => w * Math.exp((i - 2) * trend));
   let cursor = draw.value * weights.reduce((a, b) => a + b, 0), grade = 2;
   for (let i = 0; i < weights.length; i++) { cursor -= weights[i]; if (cursor < 0) { grade = i - 2; break; } }
@@ -89,7 +90,8 @@ export function advanceDynamics(s: GameState) {
   }
   const demanding = ['study', 'research', 'clinical', 'work'].includes(focus);
   d.fatigue = clamp(d.fatigue + (focus === 'rest' ? -5 : focus === 'people' ? -2 : 1)
-    + (s.depth?.workload === 'extended' ? 1 : 0), 0, 24);
+    + (s.depth?.workload === 'extended' ? 1 : 0)
+    - (focus === 'rest' || m % 3 === 0 ? abilityFatigueRelief(s) : 0), 0, 24);
   if (m % 6 === 0) for (const key of focuses) if (key !== focus) d.momentum[key] -= Math.sign(d.momentum[key]);
   const grade = rollEffort(s, focus);
   if (focus in s.career!.experience) {
@@ -110,7 +112,7 @@ export function advanceDynamics(s: GameState) {
   const debtBurden = s.economy!.due > 0 || s.economy!.debt > Math.max(s.economy!.income * 24, 10_000_000);
   if (debtBurden) effects.happiness = (effects.happiness ?? 0) - 2;
   record(s, `auto:dynamics:${m}`, `${labels[focus]}하며 보낸 석 달`,
-    `${outcomes[grade + 2]}${d.fatigue >= 12 ? ' 피로가 쌓여 집중하기 어려웠습니다.' : ''}${debtBurden ? ' 갚을 돈이 생활의 부담으로 남았습니다.' : ''}`, effects);
+    `${outcomes[grade + 2]}${s.abilities ? ' 관련 능력과 현재 컨디션이 결과에 반영됐습니다.' : ''}${d.fatigue >= 12 ? ' 피로가 쌓여 집중하기 어려웠습니다.' : ''}${debtBurden ? ' 갚을 돈이 생활의 부담으로 남았습니다.' : ''}`, effects);
 }
 
 /** Variable earnings only; the agreed salary itself is not randomly docked. */

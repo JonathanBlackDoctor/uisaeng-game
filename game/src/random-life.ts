@@ -140,6 +140,7 @@ function record(s: GameState, id: string, title: string, detail: string, effects
   return { ...s, stats: adjustStats(s.stats, effects), journal: [...s.journal, { id, stage: STAGES[s.stageIndex].id, title, detail: `${lifeAge(s)} · ${detail}`, effects }] };
 }
 export function reduceRandomGame(state: GameState, action: GameAction): GameState {
+  if (['lifestyle','diet','money-plan','investment-risk','savings-buffer','money-transfer'].includes(action.type)) return state;
   if (action.type === 'school-funding' || action.type === 'workload') return state;
   if (action.type === 'next-choice' || action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance') return state;
   if (!state.life || !state.family || state.status === 'completed' || state.processedActionIds.includes(action.id)) return state;
@@ -194,7 +195,7 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
     return commit(s, action);
   }
   const event = state.pendingEvent;
-  if (!event || event.id !== action.eventId) return state;
+  if (action.type !== 'choose' || !event || event.id !== action.eventId) return state;
   const choice = event.choices.find(c => c.id === action.choiceId);
   if (!choice) return state;
   let s = structuredClone(state); s.pendingEvent = null;
