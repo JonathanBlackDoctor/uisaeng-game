@@ -1,6 +1,8 @@
 import type { CareerState } from './career';
 import type { EconomyState } from './economy';
 import type { CampusState } from './campus';
+import type { CareerDepth } from './career-depth';
+import type { LifeDynamics } from './life-dynamics';
 export const STAT_LABELS = { health: '건강', happiness: '행복', knowledge: '지식', relationships: '관계' } as const;
 export type Stat = keyof typeof STAT_LABELS;
 export type Stats = Record<Stat, number>;
@@ -27,7 +29,7 @@ export interface RandomLife {
   childBornMonth?: number;
 }
 export type FamilyScene = 'meeting' | 'gwating' | 'blind-date' | 'campus' | 'confession' | 'cc-life' | 'distance' | 'marriage' | 'parenthood' | 'care' | 'growth' | 'couple-life' | 'single-life' | 'family-recap';
-export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; familyScene?: FamilyScene; randomKey?: string; person?: Person }
+export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
 export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats> }
 export interface GameState {
   runId: string; revision: number; seed: number; stageIndex: number; stats: Stats;
@@ -39,6 +41,8 @@ export interface GameState {
   economy?: EconomyState;
   progress?: CareerProgress;
   campus?: CampusState;
+  depth?: CareerDepth;
+  dynamics?: LifeDynamics;
 }
 export interface CareerProgress {
   version: 1;
@@ -59,6 +63,7 @@ export type GameAction =
   | { type: 'next-choice'; id: string }
   | { type: 'finance'; id: string; kind: 'repay' }
   | { type: 'school-funding'; id: string; automatic: boolean }
+  | { type: 'workload'; id: string; workload: CareerDepth['workload'] }
   | { type: 'career-focus'; id: string; focus: CareerProgress['focus'] }
   | { type: 'explore'; id: string; specialtyId: string }
   | { type: 'activity'; id: string; main: Activity; supporting: Activity }

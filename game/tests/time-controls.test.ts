@@ -82,7 +82,9 @@ describe('time controls and admission age', () => {
       expect(validState(s)).toBe(true);
     }
     expect(s.status).toBe('completed');
-    expect(keys).toEqual(expect.arrayContaining(['club-required', 'funding', 'specialty-required', 'clinical-case', 'patient-loss', 'dispute', 'stage-end']));
+    expect(keys).toEqual(expect.arrayContaining(['club-required', 'funding', 'specialty-required', 'clinical-case', 'depth-workload', 'stage-end']));
+    expect(keys).not.toContain('patient-loss');
+    expect(keys).not.toContain('dispute');
     expect(lifeAge(s)).toBe('77세 0개월');
     expect(skip(s)).toBe(s);
     const db = await openGameDatabase(`skipped-${crypto.randomUUID()}`);

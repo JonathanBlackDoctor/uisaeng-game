@@ -1,7 +1,7 @@
 import { STAT_LABELS, type GameState, type Stat } from './contracts';
 
 export default function CampusNews({ game }: { game: GameState }) {
-  const notes = game.journal.filter(j => j.id.startsWith('auto:campus:')).slice(-1);
+  const notes = game.journal.filter(j => j.id.startsWith('auto:campus:') || j.id.startsWith('auto:dynamics:')).slice(-1);
   if (!notes.length) return null;
   return <section className="campus-news" aria-label="생활 소식" aria-live="polite" aria-atomic="false">
     {notes.map((n, i) => <article key={n.id} className={i === 0 ? 'latest-news' : ''}>

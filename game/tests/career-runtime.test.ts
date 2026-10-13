@@ -55,17 +55,17 @@ describe('career preview connected runtime', () => {
     let s = reduceGame(createCareerGame('retry', 42), { type: 'control', id: 'start', paused: false, speed: 8 });
     s = until(s, x => x.pendingEvent?.randomKey === 'specialty-required');
     s.stats.knowledge = 0; s.career!.experience = { study: 0, research: 0, people: 0, clinical: 0 };
-    s = choose(choose(s, 'internal'), 'snuh');
+    s = choose(choose(choose(s, 'internal'), 'snuh'), 'submit');
     expect(s.career!.application).toBe('rejected');
     s = choose(s, 'retry'); expect(s.progress!.retryMonth).toBe(72);
     s = until(s, x => x.pendingEvent?.randomKey === 'specialty-required');
     expect(s.life!.elapsedMs).toBe(72_000);
-    s = choose(choose(s, 'surgery'), 'snuh'); expect(s.career!.application).toBe('rejected');
+    s = choose(choose(choose(s, 'surgery'), 'snuh'), 'submit'); expect(s.career!.application).toBe('rejected');
     s = choose(s, 'retry');
     s = until(s, x => x.pendingEvent?.randomKey === 'specialty-required');
     expect(s.stageIndex).toBe(1); expect(s.life!.elapsedMs).toBe(78_000);
     s.stats.knowledge = 100;
-    s = choose(choose(s, 'internal'), 'snuh'); expect(s.career!.application).toBe('accepted');
+    s = choose(choose(choose(s, 'internal'), 'snuh'), 'submit'); expect(s.career!.application).toBe('accepted');
     expect(careerStageEnds(s)[1]).toBe(150); expect(validState(s)).toBe(true);
     s = until(s, x => x.pendingEvent?.randomKey === 'marriage-required');
     s = choose(s, 'later');
@@ -104,7 +104,10 @@ describe('career preview connected runtime', () => {
   });
   it('keeps historical pending event wording readable and rejects unrelated changes', () => {
     let s = reduceGame(createCareerGame('legacy-career', 42), { type: 'control', id: 'start', paused: false, speed: 8 });
-    s = until(s,x=>x.pendingEvent?.randomKey==='patient-loss');
+    s = until(s,x=>x.stageIndex===2 && !x.pendingEvent);
+    delete s.depth;
+    s.life!.elapsedMs=216_000;
+    s.pendingEvent=careerEvent(s,'patient-loss');
     s.pendingEvent!.body='진료팀의 노력에도 환자가 사망했습니다. 팀에서 경과를 돌아보고 유가족과의 대화를 준비합니다.';
     expect(validState(s)).toBe(true); expect(validState(choose(s,'support'))).toBe(true);
     s.pendingEvent!.body+=' changed'; expect(validState(s)).toBe(false);

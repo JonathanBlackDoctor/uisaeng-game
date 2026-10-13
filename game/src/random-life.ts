@@ -140,7 +140,7 @@ function record(s: GameState, id: string, title: string, detail: string, effects
   return { ...s, stats: adjustStats(s.stats, effects), journal: [...s.journal, { id, stage: STAGES[s.stageIndex].id, title, detail: `${lifeAge(s)} · ${detail}`, effects }] };
 }
 export function reduceRandomGame(state: GameState, action: GameAction): GameState {
-  if (action.type === 'school-funding') return state;
+  if (action.type === 'school-funding' || action.type === 'workload') return state;
   if (action.type === 'next-choice' || action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance') return state;
   if (!state.life || !state.family || state.status === 'completed' || state.processedActionIds.includes(action.id)) return state;
   if (action.type === 'control') {
