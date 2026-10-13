@@ -1,5 +1,6 @@
 import type { CareerState } from './career';
 import type { EconomyState } from './economy';
+import type { CampusState } from './campus';
 export const STAT_LABELS = { health: '건강', happiness: '행복', knowledge: '지식', relationships: '관계' } as const;
 export type Stat = keyof typeof STAT_LABELS;
 export type Stats = Record<Stat, number>;
@@ -37,6 +38,7 @@ export interface GameState {
   career?: CareerState;
   economy?: EconomyState;
   progress?: CareerProgress;
+  campus?: CampusState;
 }
 export interface CareerProgress {
   version: 1;
@@ -56,6 +58,7 @@ export interface CareerProgress {
 export type GameAction =
   | { type: 'next-choice'; id: string }
   | { type: 'finance'; id: string; kind: 'repay' }
+  | { type: 'school-funding'; id: string; automatic: boolean }
   | { type: 'career-focus'; id: string; focus: CareerProgress['focus'] }
   | { type: 'explore'; id: string; specialtyId: string }
   | { type: 'activity'; id: string; main: Activity; supporting: Activity }

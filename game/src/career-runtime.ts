@@ -1,6 +1,7 @@
 import { TIME_SPEEDS, type CareerProgress, type GameAction, type GameEvent, type GameState, type Stats } from './contracts';
 import { advanceCareerExperience, applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, INSTITUTIONS, SPECIALTIES, validCareer } from './career';
-import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy } from './economy';
+import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy, fundEducationDue } from './economy';
+import { initialCampus, campusChoice, settleCampusChoice, requiredCampus, advanceCampus, validCampus } from './campus';
 import { adjustStats, createRandomGame, elapsedMonths, eligibleEvents, lifeAge, nextRandom, person, randomEvent, RANDOM_RULES, reduceRandomGame, validRandomState } from './random-life';
 import { STAGES } from './fixtures/content';
 
@@ -10,7 +11,7 @@ export const CAREER_TIME = { monthMs: [20_000, 1_000, 1_000, 1_000], maxRandomPe
 export const CAREER_FOCUS: Record<CareerProgress['focus'], { label: string; detail: string; effects: Partial<Stats> }> = {
   study: { label: '공부', detail: '수업과 시험을 준비합니다.', effects: { knowledge: 1, health: -1 } },
   research: { label: '연구', detail: '자료를 정리하고 연구 회의에 참여합니다.', effects: { knowledge: 1, relationships: 1 } },
-  clinical: { label: '임상 견학', detail: '진료과의 일과를 보고 기록합니다.', effects: { knowledge: 1, health: -1 } },
+  clinical: { label: '임상 실습', detail: '지도 아래 진료 현장을 배우고 실습 일지를 씁니다.', effects: { knowledge: 1, health: -1 } },
   people: { label: '동아리·친구', detail: '모임에 참여하고 선배와 이야기합니다.', effects: { relationships: 1, happiness: 1 } },
   rest: { label: '휴식', detail: '잠과 운동 시간을 챙깁니다.', effects: { health: 2, happiness: 1 } },
   work: { label: '아르바이트', detail: '생활비를 벌며 공부 시간을 조정합니다.', effects: { health: -1, knowledge: -1 } },
@@ -33,10 +34,19 @@ function log(s: GameState, id: string, title: string, detail: string, effects: P
 function finish(s: GameState, action: GameAction) {
   s.revision++; s.processedActionIds.push(action.id); return s;
 }
+function upgradeCampus(s: GameState) {
+  if (s.campus) return;
+  s.campus = initialCampus();
+  s.campus.lastMonth = s.campus.lastAmbient = elapsedMonths(s);
+  for (const [key, at] of [['campus-team', 12], ['campus-summer', 24], ['campus-practice', 42], ['campus-final', 60]] as const) {
+    if (elapsedMonths(s) > at) s.campus.milestones.push(key);
+  }
+}
 export function createCareerGame(runId: string, seed: number): GameState {
   const s = createRandomGame(runId, seed);
   s.rulesVersion = s.contentVersion = 'career-preview-v1';
   s.career = initialCareer(); s.economy = initialEconomy(s.life!.background.finances);
+  s.campus = initialCampus();
   s.progress = { version: 1, focus: 'study', club: 'pending', marriage: 'pending', resolved: [], counts: {}, activeMs: [0, 0, 0, 0], remainder: 0, retryMonth: 0, result: '' };
   s.journal[0].title = '의대 입학';
   s.journal[0].detail = `${lifeAge(s)} · ${s.journal[0].detail}`;
@@ -45,9 +55,12 @@ export function createCareerGame(runId: string, seed: number): GameState {
 export function careerEvent(s: GameState, key: string): GameEvent | null {
   const p = s.progress!, c = s.career!, e = s.economy!, subject = spec(s);
   let title: string, body: string, choices: GameEvent['choices'];
-  if (key === 'funding') {
+  const campus = (s.campus || key.startsWith('campus-')) ? campusChoice(s, key) : null;
+  if (campus) {
+    ({ title, body, choices } = campus);
+  } else if (key === 'funding') {
     title = '이번 달 납부할 돈'; body = `미납 ${won(e.due)} · 현금 ${won(e.cash)} · 부채 ${won(e.debt)}. 돈을 마련한 뒤 납부해야 다음 달로 넘어갑니다.`;
-    choices = [ch('loan', '대출받고 납부하기', `현금·부채 +${won(ECONOMY_RULES.loanAmount)}`),
+    choices = [...(s.campus && s.stageIndex === 0 ? [ch('education-plan', '재학 중 부족액은 대출로 충당하기', '이번 미납부터 졸업까지 학비·생활비 부족액만 자동 대출·납부. 부채가 늘며 수입·지출에서 언제든 중단할 수 있습니다.')] : []), ch('loan', '대출받고 납부하기', `현금·부채 +${won(ECONOMY_RULES.loanAmount)}`),
       ...(!e.ledger.some(t => t.kind === 'grant') ? [ch('grant', '생활 지원 신청하기', `한 번 받을 수 있는 지원 ${won(ECONOMY_RULES.grantAmount)}`)] : []),
       ...(!e.ledger.some(t => t.kind === 'work' && t.month === elapsedMonths(s)) ? [ch('work', '단기 일로 마련하기', `${won(ECONOMY_RULES.workAmount)} · 건강 -2 · 이번 달 한 번`)] : []),
       ...(e.cash >= e.due ? [ch('pay-due', '미납액 납부하기', `${won(e.due)} 지출`)] : [])];
@@ -108,7 +121,7 @@ function required(s: GameState): string | null {
   if (s.stageIndex === 0) {
     if (p.club === 'pending' && m >= 1) return 'club-required';
     if (m >= 6 && !has(s, 'scholarship-required')) return 'scholarship-required';
-    for (let i = 0; i < 6; i++) if (m >= Math.min(64, 12 * (i + 1)) && !has(s, `rotation-${i}`)) return `rotation-${i}`;
+    const campus = requiredCampus(s); if (campus) return campus;
     if (m >= 66 && c.application === 'none' && !p.selectedSpecialty) return 'specialty-required';
     if (m >= 66 && c.application === 'none' && p.selectedSpecialty) return 'institution-required';
   }
@@ -128,25 +141,14 @@ function required(s: GameState): string | null {
   }
   return null;
 }
-const campusNotes: Record<CareerProgress['focus'], string[]> = {
-  study: ['수업을 마치고 동기와 필기를 비교했습니다.', '조별 발표에서 맡을 일을 나눴습니다.', '해부 실습 뒤 배운 내용을 정리했습니다.', '도서관에서 시험 범위를 함께 확인했습니다.', '실습 기록에서 다시 배울 내용을 골랐습니다.', '시험을 마치고 다음 학기 일정을 살폈습니다.'],
-  research: ['연구 회의에서 자료의 누락을 확인했습니다.', '읽은 논문의 질문과 방법을 정리했습니다.', '선배와 자료를 정리하는 순서를 맞췄습니다.', '분석 중 다시 확인할 항목을 적었습니다.', '연구 회의에서 진행 상황을 공유했습니다.', '그동안 모은 자료와 기록을 정리했습니다.'],
-  clinical: ['견학을 마치고 궁금했던 점을 적었습니다.', '진료팀의 인계 과정을 지켜봤습니다.', '선배에게 진료과의 하루 일정을 물었습니다.', '견학 기록에서 더 알아볼 내용을 골랐습니다.', '동기와 견학에서 본 장면을 이야기했습니다.', '그동안의 견학 기록을 다시 읽었습니다.'],
-  people: ['동아리 모임에서 동기들의 안부를 들었습니다.', '선배와 수업 밖의 생활을 이야기했습니다.', '모임에서 다음 활동 일정을 정했습니다.', '동기와 각자 관심 있는 과를 이야기했습니다.', '친구들과 시간을 맞춰 함께 식사했습니다.', '모임에서 맡은 일을 마치고 기록을 정리했습니다.'],
-  rest: ['밀린 잠을 자고 일정을 다시 살폈습니다.', '가볍게 걸으며 쉬는 시간을 보냈습니다.', '운동 뒤 몸 상태를 살폈습니다.', '바쁜 일정을 줄이고 저녁 시간을 비웠습니다.', '쉬는 날에는 다음 주에 할 일을 나눠 적었습니다.', '잠과 운동 시간을 지킬 수 있는지 돌아봤습니다.'],
-  work: ['아르바이트 일정과 수업 시간을 맞췄습니다.', '아르바이트를 마치고 이번 달 생활비를 정리했습니다.', '다음 근무 시간을 확인하고 공부할 시간을 비웠습니다.', '일하는 날과 쉬는 날의 일정을 나눴습니다.', '아르바이트 수입과 납부할 돈을 비교했습니다.', '학기 일정을 보고 근무 시간을 조정했습니다.'],
-};
 function advanceMonth(s: GameState) {
   const m = elapsedMonths(s), p = s.progress!;
   s.career = advanceCareerExperience(s.career!, m, p.focus);
-  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career.application !== 'accepted' ? 'career' : stage(s), practice: s.career.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship') });
+  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career.application !== 'accepted' ? 'career' : stage(s), practice: s.career.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), automaticEducationLoan: s.campus?.automaticFunding });
   if (m % 3 === 0) s.stats = adjustStats(s.stats, CAREER_FOCUS[p.focus].effects);
   if (s.life!.childBornMonth !== undefined) { const age = m - s.life!.childBornMonth; s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young'; }
-  if (s.stageIndex === 0 && m % 6 === 3 && m <= 69) {
-    const i = Math.floor(m / 6), notes = campusNotes[p.focus];
-    const exploration = p.focus === 'clinical' ? spec(s)?.exploration : undefined;
-    log(s, `auto:campus:${i}`, CAREER_FOCUS[p.focus].label, `${notes[i % notes.length]}${exploration ? ` ${exploration}` : ''}`);
-  } else if (s.stageIndex > 0 && [84, 108, 132, 168, 192, 240, 360, 480].includes(m)) {
+  advanceCampus(s);
+  if (s.stageIndex > 0 && [84, 108, 132, 168, 192, 240, 360, 480].includes(m)) {
     const scene = careerScene(s.career!);
     const notes = ['동료와 업무 분담과 인계 순서를 정했습니다.', '지난 기록에서 다시 확인할 내용을 골랐습니다.', '후배와 함께 질문을 모아 회의를 준비했습니다.', scene.body, '일정이 겹쳐 동료와 근무 시간을 조정했습니다.', '업무 기록을 돌아보고 쉴 시간을 정했습니다.', '오랫동안 함께한 동료와 업무 방식을 다시 살폈습니다.', '다음 담당자에게 남길 기록과 계획을 정리했습니다.'];
     log(s, `auto:career:${m}`, scene.title, notes[[84, 108, 132, 168, 192, 240, 360, 480].indexOf(m)]);
@@ -156,7 +158,13 @@ function advanceMonth(s: GameState) {
 function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose' }>) {
   const e = s.pendingEvent!, key = e.randomKey!, id = action.choiceId, choice = e.choices.find(c => c.id === id)!;
   s.pendingEvent = null;
-  if (key === 'funding' || key === 'clinic-funding') {
+  upgradeCampus(s);
+  if (key === 'funding' && id === 'education-plan' && s.stageIndex === 0) {
+    s.campus!.automaticFunding = true;
+    s.economy = fundEducationDue(s.economy!, action.id + ':fund', elapsedMonths(s));
+  } else if (key.startsWith('campus-') || (key === 'club-required' && id !== 'join')) {
+    settleCampusChoice(s, key, id);
+  } else if (key === 'funding' || key === 'clinic-funding') {
     if (id === 'employed' || id === 'research') s.career = choosePractice(s.career!, id);
     else {
       const change = economyAction(s.economy!, action.id, id as 'loan' | 'grant' | 'work' | 'pay-due' | 'open-clinic', elapsedMonths(s));
@@ -204,6 +212,7 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
     resolved(s, key);
   }
   else if (key === 'stage-end') {
+    if (s.stageIndex === 0) s.campus!.automaticFunding = false;
     if (s.stageIndex === 3) { s.status = 'completed'; s.life!.paused = true; }
     else s.stageIndex++;
   } else resolved(s, key);
@@ -216,6 +225,12 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   if (action.type === 'control') {
     if (state.pendingEvent || (action.paused !== undefined && typeof action.paused !== 'boolean') || (action.speed !== undefined && !TIME_SPEEDS.includes(action.speed))) return state;
     const s = structuredClone(state); Object.assign(s.life!, { ...(action.paused !== undefined ? { paused: action.paused } : {}), ...(action.speed !== undefined ? { speed: action.speed } : {}) }); return finish(s, action);
+  }
+  if (action.type === 'school-funding') {
+    if (state.stageIndex !== 0 || state.pendingEvent || typeof action.automatic !== 'boolean' || !!state.campus?.automaticFunding === action.automatic) return state;
+    const s = structuredClone(state); upgradeCampus(s); s.campus!.automaticFunding = action.automatic;
+    log(s, action.id, '학비·생활비 계획', action.automatic ? '졸업까지 학비·생활비 부족액만 대출로 충당합니다. 부채가 늘며 언제든 중단할 수 있습니다.' : '자동 대출을 중단했습니다. 부족할 때 직접 마련합니다.');
+    return finish(s, action);
   }
   if (action.type === 'career-focus' || action.type === 'explore') {
     if (state.pendingEvent) return state;
@@ -259,6 +274,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   }
   if (state.life.paused || state.pendingEvent || !Number.isInteger(action.elapsedMs) || action.elapsedMs <= 0 || action.elapsedMs > 1000) return state;
   const s = structuredClone(state);
+  upgradeCampus(s);
   const keyNow = required(s); if (keyNow) { pending(s, keyNow); return finish(s, action); }
   let remaining = action.elapsedMs * s.life!.speed;
   while (remaining > 0 && !s.pendingEvent && s.status === 'active') {
@@ -292,6 +308,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
 }
 export function validCareerGame(s: GameState): boolean {
   const p = s.progress;
+  if (!s.life || !validCampus(s.campus, elapsedMonths(s))) return false;
   if (s.rulesVersion !== 'career-preview-v1' || s.contentVersion !== 'career-preview-v1' || !p || p.version !== 1 || !validCareer(s.career) || !validEconomy(s.economy)
     || !(p.focus in CAREER_FOCUS) || !['pending', 'joined', 'declined'].includes(p.club) || !['pending', 'later', 'settled'].includes(p.marriage)
     || !Array.isArray(p.resolved) || p.resolved.some(x => typeof x !== 'string') || new Set(p.resolved).size !== p.resolved.length
@@ -313,6 +330,11 @@ export function validCareerGame(s: GameState): boolean {
   if (!canonical || !s.pendingEvent.id.startsWith(`${s.runId}:career:${s.pendingEvent.randomKey}:${elapsedMonths(s)}:`)) return false;
   const matches = (event: GameEvent) => JSON.stringify({ ...event, id: s.pendingEvent!.id }) === JSON.stringify(s.pendingEvent);
   if (matches(canonical)) return true;
+  // Exact legacy snapshots remain readable while subsequent events use the new content.
+  if (s.campus && ['funding', 'club-required'].includes(canonical.randomKey!)) {
+    const legacy = careerEvent({ ...s, campus: undefined }, canonical.randomKey!);
+    if (legacy && matches(legacy)) return true;
+  }
   // Preserve already-pending events from the first career preview build.
   if (canonical.randomKey === 'patient-loss') return matches({ ...canonical, body: '진료팀의 노력에도 환자가 사망했습니다. 팀에서 경과를 돌아보고 유가족과의 대화를 준비합니다.' });
   if (canonical.randomKey === 'dispute') return matches({ ...canonical, body: '환자 가족이 진료 과정에 이의를 제기했습니다. 기록을 확인하고 기관의 상담·법률 지원을 요청할 수 있습니다.' });

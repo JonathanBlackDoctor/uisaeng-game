@@ -4,6 +4,8 @@ export type EconomyContext = {
   practice: 'undecided' | 'employed' | 'clinic' | 'research' | 'untrained';
   working: boolean;
   scholarship: boolean;
+  /** Explicit, revocable player instruction, valid only while at university. */
+  automaticEducationLoan?: boolean;
 };
 
 export type EconomyActionKind = 'loan' | 'grant' | 'work' | 'pay-due' | 'repay' | 'open-clinic';
@@ -150,6 +152,10 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
   };
   const spend = (key: string, label: string, amount: number) => {
     if (amount === 0) return;
+    if (context.stage === 'university' && context.automaticEducationLoan === true && next.cash < amount) {
+      const gap = amount - next.cash;
+      post(next, { id: `month:${month}:${key}:education-loan`, month, label: '선택한 학비·생활비 대출', cashDelta: gap, debtDelta: gap, kind: 'loan' });
+    }
     const paid = Math.min(next.cash, amount);
     post(next, { id: `month:${month}:${key}`, month, label, cashDelta: -paid, debtDelta: 0,
       dueDelta: amount - paid, kind: 'monthly' });
@@ -175,6 +181,16 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
   }
   next.lastMonth = month;
   assertState(next);
+  return next;
+}
+
+/** Apply the player's newly selected university funding plan to an existing shortfall. */
+export function fundEducationDue(state: EconomyState, id: string, month: number): EconomyState {
+  assertState(state);
+  if (!state.due || state.ledger.some(t => t.id === id)) return state;
+  const next = clone(state), gap = Math.max(0, state.due - state.cash);
+  post(next, { id, month, label: '선택한 학비·생활비 대출 및 납부', cashDelta: gap - state.due, debtDelta: gap, dueDelta: -state.due, kind: 'loan' });
+  next.expenses += state.due;
   return next;
 }
 

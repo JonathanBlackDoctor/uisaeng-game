@@ -1,3 +1,4 @@
+import CampusNews from './CampusNews';
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { STAT_LABELS, TIME_SPEEDS, type Activity, type ArchivedRun, type GameAction, type GameState, type TimeSpeed } from './contracts';
@@ -136,6 +137,7 @@ function App() {
           </section>}
           <div className={game ? 'life-layout' : 'life-layout welcome-layout'}>
             <div className="life-primary">
+              {game && <CampusNews game={game}/> }
               <section className="scene-card" aria-label="지금의 생활 장면">
                 <div className="scene-heading"><div><span className="eyebrow">{game ? stage.label : '새 게임'}</span><h2>{completed ? '은퇴와 회고' : game ? stage.chapter : '의대 생활을 시작합니다.'}</h2></div><span className="scene-status">{game ? life ? `${age}세의 일상` : '생애 미리보기' : '의대 입학부터 은퇴까지'}</span></div>
                 {(!game || life) && <LifeScene stage={stage.id} age={life ? age : RANDOM_RULES.startAge} month={month} running={running} focus={life?.focus.main ?? main} seed={life?.initialSeed ?? 2026} relationship={game?.family?.status ?? 'single'} partnerName={partnerName} children={game?.family?.children ?? 'none'} eventTitle={game?.pendingEvent?.title} workContext={workContext}/>}

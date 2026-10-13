@@ -124,18 +124,19 @@ describe('career preview connected runtime', () => {
     const auto = (s: GameState) => s.journal.filter(e => e.id.startsWith('auto:'));
     expect(auto(slow.s)).toEqual(auto(fast.s));
   });
-  it('records the chosen activity without attaching an unrelated specialty visit', () => {
+  it('records varied automatic life events without forcing specialty visits for every activity', () => {
     for (const focus of ['work', 'rest', 'clinical'] as const) {
       let s = createCareerGame(`notes-${focus}`, 42);
       s = reduceGame(s, { type: 'explore', id: 'explore', specialtyId: 'internal' });
       s = reduceGame(s, { type: 'career-focus', id: 'focus', focus });
       s = reduceGame(s, { type: 'control', id: 'start', paused: false, speed: 8 });
-      s = until(s, x => x.journal.some(e => e.id === 'auto:campus:0'));
-      const note = s.journal.find(e => e.id === 'auto:campus:0')!;
-      if (focus === 'work') expect(note.detail).toContain('아르바이트 일정');
-      if (focus === 'rest') expect(note.detail).toContain('밀린 잠');
-      const exploration = SPECIALTIES.find(x => x.id === s.career!.interest)!.exploration;
-      expect(note.detail.includes(exploration)).toBe(focus === 'clinical');
+      s = until(s, x => x.life!.elapsedMs >= 20_000);
+      const notes = s.journal.filter(e => e.id.startsWith('auto:campus:ambient:'));
+      expect(notes.length).toBeGreaterThan(8);
+      expect(new Set(notes.map(e => e.title)).size).toBeGreaterThan(5);
+      if (focus !== 'clinical') expect(s.career!.explored).not.toContain('pediatrics');
+      expect(s.career!.explored).not.toContain('preventive');
+      expect(notes.some(e => Object.values(e.effects).some(n => n !== 0))).toBe(true);
     }
   });
   it('preserves the three earlier save versions and starts a separate version paused', () => {

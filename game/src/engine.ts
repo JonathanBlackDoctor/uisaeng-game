@@ -16,7 +16,7 @@ function adjust(stats: Stats, effects: Partial<Stats>): Stats {
 export function reduceGame(state: GameState, action: GameAction): GameState {
   if (action.type === 'next-choice') return advanceToNextChoice(state, action);
   if (state.rulesVersion === 'career-preview-v1') return reduceCareerGame(state, action);
-  if (action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance') return state;
+  if (action.type === 'career-focus' || action.type === 'explore' || action.type === 'finance' || action.type === 'school-funding') return state;
   if (state.rulesVersion === 'random-preview-v1') return reduceRandomGame(state, action);
   if (action.type === 'tick' || action.type === 'control') return state;
   if (state.status === 'completed' || state.processedActionIds.includes(action.id)) return state;
