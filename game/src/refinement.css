@@ -114,6 +114,9 @@ h1, h2, h3, h4 { letter-spacing: -.035em; }
 .ds-choice-description { color: var(--muted); font-size: 13px; line-height: 1.7; }
 .ds-waiting { border-radius: 8px; background: #fff; border-color: var(--line); }
 .ability-columns, .ability-name small, .ability-specialty small { font-size: 12px; color: var(--muted); }
+/* Confirmation content stays reachable on short landscape screens and with larger text. */
+.modal { width: 100%; min-width: 0; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+.modal > div { flex-wrap: wrap; }
 @media(max-width:1000px) {
   .life-layout { grid-template-columns: minmax(0,1fr) 290px; gap: 22px; }
   .time-ribbon { flex-wrap: wrap; }
@@ -122,7 +125,7 @@ h1, h2, h3, h4 { letter-spacing: -.035em; }
 }
 @media(max-width:760px) {
   .site-header { padding: 18px; gap: 16px; }
-  .site-header nav { gap: 4px; }
+  .site-header nav { gap: 4px; min-width: 0; max-width: 100%; flex-wrap: wrap; }
   .nav { font-size: 13px; min-height: 44px; }
   .content { padding: 22px 18px; }
   .life-layout, .welcome-layout { grid-template-columns: 1fr; gap: 22px; }
@@ -157,4 +160,8 @@ h1, h2, h3, h4 { letter-spacing: -.035em; }
   .page-heading .subtle-button { min-height: 44px; font-size: 12px; padding: 8px 12px; }
   .ds-content { padding: 22px 18px; }
   .ds-title { font-size: 22px; }
+}
+@media(max-width:380px) {
+  .site-header nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .site-header .nav { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 }

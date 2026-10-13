@@ -1,0 +1,49 @@
+.career-collection { max-width: 960px; margin: 0 auto; }
+.collection-room-count { display: flex; align-items: baseline; gap: 16px; }
+.collection-room-count span { font-size: 16px; }
+.collection-room-count strong { font-size: 28px; font-variant-numeric: tabular-nums; color: #365b49; }
+.collection-challenges { font-size: 12px; color: #606861; }
+.collection-challenges summary { cursor: pointer; }
+.clinic-room-grid { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 16px; margin: 0; padding: 0; }
+.clinic-room-grid li { min-width: 0; }
+.clinic-room-grid button { display: block; width: 100%; padding: 0 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #29372e; font: inherit; cursor: pointer; text-align: left; }
+.clinic-room-grid button:hover { background: #f1f2eb; }
+.clinic-room-grid button:focus-visible { outline: 2px solid #365b49; outline-offset: 3px; }
+.clinic-room-art { display: block; width: 100%; height: auto; }
+.clinic-room-art * { animation: none !important; }
+.room-name, .room-status { display: block; margin: 5px 10px 0; }
+.room-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.room-status { font-size: 12px; color: #68716a; }
+.clinic-room-detail { width: min(560px, calc(100vw - 28px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid #d2d9cf; border-radius: 12px; background: #fcfcf7; color: #29372e; }
+.clinic-room-detail::backdrop { background: #18291f80; }
+.clinic-room-detail > div { padding: 22px; }
+.clinic-room-detail header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.clinic-room-detail h2 { font-size: 20px; margin: 0; }
+.clinic-room-detail h3 { font-size: 15px; margin: 24px 0 10px; }
+.clinic-room-detail header button { padding: 9px 14px; border: 1px solid #c8d2c8; border-radius: 4px; color: inherit; background: transparent; cursor: pointer; }
+.clinic-room-detail p, .clinic-room-detail li { font-size: 13px; line-height: 1.8; }
+.clinic-room-detail p { color: #606861; }
+.room-fields { padding: 0; list-style: none; }
+.room-fields li { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #e2e6df; }
+.room-fields small { flex-shrink: 0; color: #68716a; }
+@media (max-width: 640px) { .clinic-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 8px; } .room-name { font-size: 13px; } .room-status { font-size: 11px; } }
+.collection-intro, .career-collection > p { color: #606861; font-size: 13px; line-height: 1.7; }
+.collection-goals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 26px 0; }
+.collection-goals > div { display: grid; grid-template-columns: 1fr auto; gap: 10px; font-size: 13px; }
+.collection-goals progress { grid-column: 1 / -1; width: 100%; height: 6px; accent-color: #3e6755; }
+.collection-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 14px; }
+.collection-tabs button { padding: 9px 14px; border: 1px solid #d7ded7; border-radius: 5px; background: transparent; color: #465148; font: inherit; font-size: 13px; cursor: pointer; }
+.collection-tabs button[aria-pressed=true] { background: #365b49; color: white; border-color: #365b49; }
+.collection-filters { display: flex; gap: 12px; margin: 20px 0; }
+.collection-filters label { display: grid; gap: 6px; font-size: 12px; }
+.collection-filters label:first-child { flex: 1; min-width: 0; }
+.collection-filters input, .collection-filters select { min-width: 0; width: 100%; padding: 10px; border: 1px solid #d7ded7; border-radius: 4px; background: white; color: #29372e; font: inherit; }
+.collection-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 26px; }
+.collection-list li { min-width: 0; padding: 16px 0; border-top: 1px solid #e2e6df; overflow-wrap: anywhere; }
+.collection-list li > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
+.collection-list li span { font-size: 12px; color: #68716a; flex-shrink: 0; }
+.collection-list li.collected span { color: #286344; font-weight: 600; }
+.collection-list p, .collection-list a { font-size: 12px; line-height: 1.7; margin: 6px 0 0; color: #667067; }
+.collection-help { margin-top: 24px; font-size: 12px; line-height: 1.8; color: #606861; }
+.collection-help summary { cursor: pointer; }
+@media (max-width: 640px) { .collection-list { grid-template-columns: 1fr; } .collection-goals { gap: 18px 12px; } .collection-goals > div { font-size: 12px; } .site-header nav { flex-wrap: wrap; } }

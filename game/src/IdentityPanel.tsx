@@ -6,7 +6,7 @@ export default function IdentityPanel({ game }: { game: GameState }) {
   if (!game.identity) return null;
   const route = game.identity.service.route, active = isServing(game);
   return <section className="identity-summary" aria-label="성별과 병역">
-    <p>{GENDER_LABELS[game.identity.gender]} · {serviceSummary(game)}</p>
+    <p>{game.identity.name && `${game.identity.name} · `}{GENDER_LABELS[game.identity.gender]} · {serviceSummary(game)}</p>
     {active && route && <>
       <progress aria-label="복무 진행" max={serviceDuration(route)} value={serviceMonths(game)}/>
       <p>월 급여 {compactWon(SERVICE_RULES[route].income)} · 생활비 {compactWon(SERVICE_RULES[route].expenses)}</p>

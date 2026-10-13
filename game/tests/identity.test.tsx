@@ -32,6 +32,30 @@ function until(s: GameState, done: (s: GameState) => boolean, picks: Picks = {})
 const male = (seed = 42) => configureIdentity(createCareerGame(`identity-${seed}`, seed), 'male');
 
 describe('gender and military paths', () => {
+  it('assigns reproducible names and genders across new-game seeds without changing the game RNG', () => {
+    const identities = Array.from({ length: 32 }, (_, seed) => initialIdentity(seed));
+    expect(new Set(identities.map(i => i.gender))).toEqual(new Set(['male', 'female']));
+    expect(new Set(identities.map(i => i.name)).size).toBeGreaterThan(16);
+    for (const [seed, identity] of identities.entries()) {
+      expect(identity.name).toMatch(/^[가-힣]{3}$/);
+      expect(createCareerGame(`name-${seed}`, seed).identity).toEqual(identity);
+      expect(initialIdentity(seed)).toEqual(identity);
+    }
+    const draft = male();
+    expect(configureIdentity(draft, 'male', 'prior-service').identity!.name).toBe(draft.identity!.name);
+    expect(configureIdentity(draft, 'male', 'prior-service').seed).toBe(draft.seed);
+  });
+  it('keeps nameless older identities valid and rejects malformed names', () => {
+    const older = male(); delete older.identity!.name;
+    expect(validState(older)).toBe(true);
+    const next = reduceGame(older, { type: 'control', id: 'older-name', paused: false });
+    expect(next.identity!.name).toBeUndefined();
+    for (const name of ['', ' ', ' 이름', '가'.repeat(41), 42]) {
+      const bad = structuredClone(older);
+      Object.assign(bad.identity!, { name });
+      expect(validState(bad)).toBe(false);
+    }
+  });
   it('sets gender without changing initial abilities, background, finance or RNG; locks it after start', () => {
     const a = male(), b = configureIdentity(a, 'female');
     expect(b.stats).toEqual(a.stats); expect(b.abilities).toEqual(a.abilities); expect(b.life).toEqual(a.life); expect(b.seed).toBe(a.seed); expect(b.economy).toEqual(a.economy);
@@ -146,7 +170,9 @@ describe('gender and military paths', () => {
   it('renders short opening controls and service information', () => {
     const s = male();
     const opening = renderToStaticMarkup(<Opening draft={s} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
-    expect(opening).toContain('starting-gender'); expect(opening).toContain('입학 때 병역');
+    expect(opening).not.toContain('starting-gender'); expect(opening).toContain('입학 때 병역');
+    expect(opening).toContain(`<dt>이름</dt><dd>${s.identity!.name}</dd>`);
+    expect(opening).toContain('<dt>성별</dt><dd>남자</dd>');
     expect(renderToStaticMarkup(<IdentityPanel game={s}/>)).toContain('남자 · 병역 미이행');
     const scene = (route: 'army' | 'doctor' | 'public-health') => renderToStaticMarkup(<LifeScene stage="university" age={21} month={0} running={false} focus="study" seed={42} relationship="single" serviceRoute={route}/>);
     expect(scene('army')).toContain('부대 생활관');

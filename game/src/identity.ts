@@ -1,12 +1,13 @@
 import type { EventChoice, GameState, Stats } from './contracts';
 import { STAGES } from './fixtures/content';
-import { elapsedMonths, lifeAge } from './random-life';
+import { elapsedMonths, lifeAge, nextRandom } from './random-life';
 
 export type Gender = 'male' | 'female';
 export type ServiceRoute = 'army' | 'doctor' | 'public-health';
 export interface IdentityState {
   version: 1;
   gender: Gender;
+  name?: string;
   service: {
     status: 'pending' | 'deferred' | 'not-required' | 'exempt' | 'prior-service' | 'serving' | 'completed';
     timing?: 'graduation' | 'after-training';
@@ -26,8 +27,41 @@ export const SERVICE_RULES = {
 } as const;
 export const GENDER_LABELS = { male: '남자', female: '여자' };
 export const SERVICE_LABELS = { army: '현역병', doctor: '군의관', 'public-health': '공중보건의' };
+const SURNAMES = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임', '한', '오', '서', '신', '권', '황', '안', '송', '류', '홍'];
+const GIVEN_NAMES = {
+  male: [
+    '도윤', '서준', '하준', '지호', '민준', '주원', '예준', '준우',
+    '건우', '현우', '지훈', '시우', '유준', '우진', '선우', '도현',
+    '준서', '준호', '민재', '지후', '시윤', '승우', '태윤', '은우',
+    '정우', '시현', '지환', '성민', '재윤', '태민', '준혁', '서진',
+    '유찬', '민성', '수호', '승현', '하람', '태준', '재원', '시원',
+    '동현', '성현', '준영', '민규', '승민', '재현', '현준', '태현',
+    '수현', '정현', '영준', '준수', '성준', '민우', '성우', '재민',
+    '승준', '윤우', '시후', '이준', '하진', '지안', '유건', '하율',
+    '로운', '이안', '도하', '은찬', '민찬', '연우', '한결', '찬우',
+    '지성', '찬영', '수혁', '진우', '태양', '강민', '찬희', '대현',
+  ],
+  female: [
+    '서연', '서윤', '지우', '하윤', '민서', '지유', '수아', '채원',
+    '지민', '예은', '다은', '윤서', '소율', '하은', '유나', '수빈',
+    '예린', '예원', '소윤', '지아', '다인', '나은', '소은', '가은',
+    '서현', '예서', '서아', '지원', '유진', '혜원', '수연', '민지',
+    '소연', '수진', '은서', '채은', '지은', '주아', '시은', '세은',
+    '다연', '예진', '보민', '채윤', '지율', '은지', '혜린', '지혜',
+    '하영', '소희', '아린', '가윤', '다현', '민아', '수민', '시연',
+    '채아', '예나', '나윤', '세아', '도연', '주은', '소민', '채린',
+    '혜진', '서희', '승아', '연서', '나연', '세연', '시아', '유림',
+    '가영', '예지', '유정', '은채', '소정', '다희', '수경', '민경',
+  ],
+};
+// Fictional names use a separate seeded draw, preserving the game RNG sequence.
+function initialPlayerName(seed: number, gender: Gender) {
+  const surname = nextRandom((seed ^ 0x1de4717) >>> 0);
+  const given = nextRandom(surname.seed);
+  return SURNAMES[Math.floor(surname.value * SURNAMES.length)] + GIVEN_NAMES[gender][Math.floor(given.value * GIVEN_NAMES[gender].length)];
+}
 export function initialIdentity(seed: number, gender: Gender = (seed >>> 0) % 2 === 0 ? 'male' : 'female'): IdentityState {
-  return { version: 1, gender, service: { status: gender === 'male' ? 'pending' : 'not-required', elapsedMs: 0 }, resolved: [] };
+  return { version: 1, gender, name: initialPlayerName(seed, gender), service: { status: gender === 'male' ? 'pending' : 'not-required', elapsedMs: 0 }, resolved: [] };
 }
 export const isServing = (s: GameState) => s.identity?.service.status === 'serving';
 export const serviceMonths = (s: GameState) => Math.floor((s.identity?.service.elapsedMs ?? 0) / SERVICE_RULES.monthMs);
@@ -45,6 +79,7 @@ export function configureIdentity(s: GameState, gender: Gender, status?: 'pendin
   if (!s.life || elapsedMonths(s) !== 0 || s.revision !== 0 || !s.life.paused || s.pendingEvent || !['male', 'female'].includes(gender)) return s;
   const next = structuredClone(s);
   next.identity = initialIdentity(s.life.initialSeed, gender);
+  if (s.identity?.gender === gender && s.identity.name !== undefined) next.identity.name = s.identity.name;
   if (gender === 'male' && status && ['pending', 'exempt', 'prior-service'].includes(status)) next.identity.service.status = status;
   return next;
 }
@@ -187,6 +222,7 @@ export function validIdentity(s: GameState): boolean {
   const i = s.identity;
   if (i === undefined) return true; // Existing saves retain their original rules.
   if (!i || i.version !== 1 || !['male', 'female'].includes(i.gender) || !i.service || !Array.isArray(i.resolved)) return false;
+  if (i.name !== undefined && (typeof i.name !== 'string' || i.name !== i.name.trim() || i.name.length < 2 || i.name.length > 40)) return false;
   const x = i.service, keys = ['service:plan', 'service:timing', 'service:placement', 'service:volunteer', 'service:daily', 'service:contact', 'identity:campus', 'identity:work', 'identity:care'];
   if (i.resolved.some(k => !keys.includes(k)) || new Set(i.resolved).size !== i.resolved.length || !Number.isSafeInteger(x.elapsedMs) || x.elapsedMs < 0) return false;
   if (!['pending', 'deferred', 'not-required', 'exempt', 'prior-service', 'serving', 'completed'].includes(x.status) || (x.timing !== undefined && !['graduation', 'after-training'].includes(x.timing))) return false;

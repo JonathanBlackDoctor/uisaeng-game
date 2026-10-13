@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-10-14",
+  "hashBasis": "UTF-8 excerpt only, not full page; medical-training source verified via indexed official search excerpt; direct open redirects to error",
+  "excerpts": [
+    {
+      "id": "army",
+      "url": "https://www.mma.go.kr/minwon/contents.do?mc=usr0000041",
+      "excerpt": "육군/해병(18개월), 해군(20개월), 공군(21개월)",
+      "text": "병무청은 육군 현역병 복무기간을 18개월로 안내합니다.",
+      "sha256": "e16cd5512251e0c59d12df763018ffd035e77f6eb4b3a2105000025a271d1099"
+    },
+    {
+      "id": "medical-training",
+      "url": "https://mma.go.kr/board/boardView.do?gesipan_id=2&gsgeul_no=1518879",
+      "excerpt": "군전공의요원으로 수련기간 동안은 병역의무가 연기되며 전공의 과정을 완료 또는 중단 시 의무장교 또는 공중보건의사 등으로 복무하는 제도",
+      "text": "병무청은 의무사관후보생의 수련 종료·중단 후 의무장교·공중보건의사 등 복무를 안내합니다.",
+      "sha256": "faef233666a8b95f42b157cf7e2373fe3a705a4341d707c2de6bb05ab4ad9084"
+    },
+    {
+      "id": "public-health",
+      "url": "https://www.mohw.go.kr/menu.es?mid=a10706010300",
+      "excerpt": "의무 복무기간 : 3년",
+      "text": "보건복지부는 공중보건의사의 의무복무기간을 3년으로 안내합니다.",
+      "sha256": "41e0f225414270a02cbf31718666753be85ae4ab75094eb89ba71515713e6041"
+    }
+  ]
+}

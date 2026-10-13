@@ -1,5 +1,6 @@
 import { STAT_LABELS, TIME_SPEEDS, type Activity, type GameAction, type GameEvent, type GameState, type LifeBackground, type MeetingRoute, type Person, type Stats } from './contracts';
 import { STAGES } from './fixtures/content';
+import { captureHighs } from './stat-highs';
 import { initialFamily } from './family';
 import { expandBackground, backgroundStatEffects, backgroundDescription, BACKGROUND_RULES } from './background';
 import { designEvent } from './event-design';
@@ -165,6 +166,7 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
     let s = structuredClone(state);
     const target = s.life!.elapsedMs + action.elapsedMs * s.life!.speed;
     while ((elapsedMonths(s) + 1) * RANDOM_RULES.monthMs <= target) {
+      captureHighs(s);
       s.life!.elapsedMs = (elapsedMonths(s) + 1) * RANDOM_RULES.monthMs;
       const month = elapsedMonths(s);
       // Focus acts over simulated months, independent of frame rate or speed.
@@ -177,6 +179,7 @@ export function reduceRandomGame(state: GameState, action: GameAction): GameStat
         const age = month - s.life!.childBornMonth;
         s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young';
       }
+      captureHighs(s);
       if (month >= RANDOM_RULES.stageEnds[s.stageIndex]) {
         const milestone = randomEvent(s, 'milestone')!;
         s = record(s, `auto:stage:${s.stageIndex}`, milestone.title, milestone.body);

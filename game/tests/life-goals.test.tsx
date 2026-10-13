@@ -43,7 +43,7 @@ describe('lifetime goals', () => {
     expect(netAssets(s)).toBe(8_000_000);
     s.economy!.assets += 10_000_000; s.economy!.debt += 10_000_000;
     expect(netAssets(s)).toBe(8_000_000);
-    expect(resultShareData(s).text).toContain('누적 진료 0건 · 순자산 8,000,000원');
+    expect(resultShareData(s).text).toContain('누적 진료 0건 · 순자산 800만 원');
   });
   it('keeps old saves valid without inventing past encounters', async () => {
     const s = createCareerGame('old', 42); delete s.encounters;

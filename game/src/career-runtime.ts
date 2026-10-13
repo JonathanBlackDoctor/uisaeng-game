@@ -1,4 +1,5 @@
 import { TIME_SPEEDS, type CareerProgress, type GameAction, type GameEvent, type GameState, type Stats } from './contracts';
+import { captureHighs } from './stat-highs';
 import { initialIncidents, upgradeIncidents, advanceIncidents, requiredIncident, incidentEvent, settleIncident, validIncidents } from './major-events';
 import { initialJourney, upgradeJourney, requiredJourney, journeyEvent, settleJourney, advanceJourney, validJourney, finishJourney } from './specialty-journey';
 import { initialEncounters, settleEncounters, validEncounters } from './life-goals';
@@ -21,6 +22,7 @@ import { designEvent } from './event-design';
 import { careerMonthMs, compactPacing, PACING_RULES } from './pacing';
 import { initialIdentity, identityEvent, requiredIdentity, settleIdentity, advanceService, isServing, waitingForGraduationService, calendarMonths, validIdentity, medicalPlacement } from './identity';
 import { SERVICE_EVIDENCE } from './service-evidence';
+import { canExpandClinic, clinicEvent, clinicLevel, clinicOpen, clinicRevenue, clinicTier, prepareClinic, requiredClinic, settleClinic, settleClinicChoice, validClinic } from './clinic';
 
 // Provisional active time, excluding reading decisions, manual pause and hidden tabs.
 // Legacy saves: 12.3 active minutes. New runs use pacing.ts (7.995 active minutes).
@@ -76,7 +78,7 @@ export function createCareerGame(runId: string, seed: number): GameState {
   s.career = initialCareer(); s.economy = initialEconomy(s.life!.background.finances, familyFunding(s.life!.background).initialCash);
   s.campus = initialCampus();
   s.depth = initialDepth();
-  s.journey = initialJourney();
+  s.journey = initialJourney(0, 2);
   s.encounters = initialEncounters();
   s.legacy = initialLegacy();
   s.publications = initialPublications();
@@ -100,7 +102,10 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
   const journey = key.startsWith('journey:') ? journeyEvent(s, key) : null;
   const identity = key.startsWith('service:') || key.startsWith('identity:') ? identityEvent(s, key) : null;
   const incident = key.startsWith('incident:') ? incidentEvent(s, key) : null;
-  if (incident) {
+  const clinic = key.startsWith('clinic:') ? clinicEvent(s, key) : null;
+  if (clinic) {
+    ({ title, body, choices } = clinic);
+  } else if (incident) {
     ({ title, body, choices } = incident);
   } else if (identity) {
     ({ title, body, choices } = identity);
@@ -212,6 +217,7 @@ function required(s: GameState): string | null {
     log(s, `auto:application:${c.attempts}`, '수련 지원 결과', p.result);
     p.result = '';
   }
+  const clinic = requiredClinic(s); if (clinic) return clinic;
   if (s.economy!.due > 0) return 'funding';
   const identity = requiredIdentity(s, careerStageEnds(s)[1]);
   if (identity) return identity;
@@ -246,6 +252,7 @@ function required(s: GameState): string | null {
   if (!s.depth && s.stageIndex === 2 && c.practice !== 'research' && m >= 216 && !has(s, 'patient-loss')) return 'patient-loss';
   if (!s.depth && s.stageIndex === 2 && c.practice !== 'research' && m >= 300 && !has(s, 'dispute')) return 'dispute';
   if (m >= careerStageEnds(s)[s.stageIndex]) {
+    if (clinicOpen(s) && clinicLevel(s) > 0) return 'clinic:retire';
     if (s.stageIndex === 1 && c.application === 'rejected' && c.practice === 'undecided') return 'specialty-required';
     if (s.stageIndex === 0 && !['accepted', 'untrained'].includes(c.application) && c.practice !== 'research' && !(c.application === 'rejected' && p.retryMonth > m)) return 'specialty-required';
     const event = careerEvent(s, 'stage-end')!;
@@ -263,7 +270,8 @@ function advanceMonth(s: GameState) {
   const funding = familyFunding(s.life!.background);
   advanceAbilities(s);
   preparePortfolio(s);
-  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s), familyMonthly: funding.monthly, familySemester: funding.semester });
+  prepareClinic(s);
+  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s), familyMonthly: funding.monthly, familySemester: funding.semester, clinicRevenue: clinicRevenue(s), clinicCost: clinicTier(s).cost });
   if (s.life!.childBornMonth !== undefined) { const age = calendarMonths(s) - s.life!.childBornMonth; s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young'; }
   advanceCampus(s);
   advanceStories(s);
@@ -276,6 +284,7 @@ function advanceMonth(s: GameState) {
   coverDueFromSavings(s);
   automaticSupport(s);
   if (s.stageIndex === 0 && s.campus?.automaticFunding && s.economy.due > 0) s.economy = fundEducationDue(s.economy, `month:${m}:planned-funding`, m);
+  settleClinic(s);
   finishPortfolio(s);
   if (s.stageIndex > 0 && [84, 108, 132, 168, 192, 240, 360, 480].includes(m)) {
     const scene = careerScene(s.career!);
@@ -291,7 +300,9 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
   upgradeDepth(s);
   s.encounters ??= initialEncounters(elapsedMonths(s));
   if (!key.startsWith('ability-')) upgradeAbilities(s);
-  if (key.startsWith('incident:')) {
+  if (key.startsWith('clinic:')) {
+    if (!settleClinicChoice(s, key, id)) return null;
+  } else if (key.startsWith('incident:')) {
     if (!settleIncident(s, key, id)) return null;
   } else if (key.startsWith('service:') || key.startsWith('identity:')) {
     if (!settleIdentity(s, key, id)) return null;
@@ -408,6 +419,11 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
     if (state.pendingEvent || (action.paused !== undefined && typeof action.paused !== 'boolean') || (action.speed !== undefined && !TIME_SPEEDS.includes(action.speed))) return state;
     const s = structuredClone(state); Object.assign(s.life!, { ...(action.paused !== undefined ? { paused: action.paused } : {}), ...(action.speed !== undefined ? { speed: action.speed } : {}) }); return finish(s, action);
   }
+  if (action.type === 'clinic') {
+    if (state.pendingEvent || !clinicOpen(state) || !['expand', 'manage'].includes(action.kind)
+      || (action.kind === 'expand' ? !canExpandClinic(state) : clinicLevel(state) === 0)) return state;
+    const s = structuredClone(state); pending(s, `clinic:${action.kind}`); return finish(s, action);
+  }
   if (action.type === 'school-funding') {
     if (state.stageIndex !== 0 || state.pendingEvent || typeof action.automatic !== 'boolean' || !!state.campus?.automaticFunding === action.automatic) return state;
     const s = structuredClone(state); upgradeCampus(s); s.campus!.automaticFunding = action.automatic;
@@ -486,6 +502,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   }
   let remaining = action.elapsedMs * s.life!.speed;
   while (remaining > 0 && !s.pendingEvent && s.status === 'active') {
+    captureHighs(s);
     const duration = careerMonthMs(s);
     const simulated = s.life!.elapsedMs % RANDOM_RULES.monthMs;
     const need = ((1000 - simulated) * duration - s.progress!.remainder) / 1000;
@@ -498,6 +515,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
     s.life!.elapsedMs += progress; remaining -= used;
     if (s.life!.elapsedMs % 1000 !== 0 || progress === 0) break;
     advanceMonth(s);
+    captureHighs(s);
     const key = required(s); if (key) { pending(s, key); break; }
     if ((s.status as GameState['status']) === 'completed') break;
     const incident = incidentDepth(s); if (incident) { pending(s, incident); break; }
@@ -519,6 +537,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   return finish(s, action);
 }
 export function validCareerGame(s: GameState): boolean {
+  if (!validClinic(s)) return false;
   if (!validIncidents(s)) return false;
   if (!validIdentity(s)) return false;
   if (!validJourney(s)) return false;

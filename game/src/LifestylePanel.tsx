@@ -1,3 +1,4 @@
+import { clinicDebtBps } from './clinic';
 import { useState } from 'react';
 import type { GameAction, GameState } from './contracts';
 import { LIFESTYLE_OPTIONS, lifestyleKeys, lifestyleSchedule, lifestyleAvailable, initialLifestyle, type Diet } from './lifestyle';
@@ -24,8 +25,8 @@ export default function LifestylePanel({ game, busy, act }: { game: GameState; b
       <label className="career-field"><span>식생활</span><select value={l.diet} disabled={disabled} onChange={event => act({ type: 'diet', id: crypto.randomUUID(), diet: event.target.value as Diet })}><option value="frugal">절약해서 먹기</option><option value="balanced">보통으로 먹기</option><option value="comfortable">여유 있게 챙겨 먹기</option></select></label>
     </details>
     <details><summary>저축·투자·상환</summary>
-      <dl className="portfolio-balances"><div><dt>예금</dt><dd title={exactWon(p.savings)}>{compactWon(p.savings)}</dd></div><div><dt>투자 평가액</dt><dd title={exactWon(p.investments)}>{compactWon(p.investments)}</dd></div><div><dt>이번 달 예금 이자</dt><dd>{exactWon(p.lastInterest)}</dd></div><div><dt>이번 달 대출 이자</dt><dd>{exactWon(p.lastDebtInterest)}</dd></div><div><dt>이번 달 투자 손익</dt><dd>{exactWon(p.lastInvestmentReturn)}</dd></div></dl>
-      <p className="lifestyle-hint">예금 연 {FINANCE_RULES.depositBps / 100}%, 대출 연 {FINANCE_RULES.debtBps / 100}%. 매월 이자가 붙습니다. 갚지 않은 대출 이자는 부채에 더해집니다.</p>
+      <dl className="portfolio-balances"><div><dt>예금</dt><dd title={exactWon(p.savings)}>{compactWon(p.savings)}</dd></div><div><dt>투자 평가액</dt><dd title={exactWon(p.investments)}>{compactWon(p.investments)}</dd></div><div><dt>이번 달 예금 이자</dt><dd>{compactWon(p.lastInterest)}</dd></div><div><dt>이번 달 대출 이자</dt><dd>{compactWon(p.lastDebtInterest)}</dd></div><div><dt>이번 달 투자 손익</dt><dd>{compactWon(p.lastInvestmentReturn)}</dd></div></dl>
+      <p className="lifestyle-hint">예금 연 {FINANCE_RULES.depositBps / 100}%, 대출 연 {clinicDebtBps(game) / 100}%. 매월 이자가 붙습니다. 갚지 않은 대출 이자는 부채에 더해집니다.</p>
       {(['autoSave','autoInvest','autoRepay'] as const).map(field => <label className="career-field" key={field}><span>{{ autoSave: '매달 저축', autoInvest: '매달 투자', autoRepay: '매달 상환' }[field]}</span><select value={p[field]} disabled={disabled} onChange={event => act({ type: 'money-plan', id: crypto.randomUUID(), field, amount: Number(event.target.value) })}>{PLAN_AMOUNTS.map(n => <option key={n} value={n}>{n ? compactWon(n) : '하지 않기'}</option>)}</select></label>)}
       <p className="lifestyle-hint">생활비를 남긴 뒤 상환·저축·투자 순서로 처리합니다. 잔액이 부족하면 가능한 금액만 옮깁니다.</p>
       <label className="career-field"><span>투자 방식</span><select disabled={disabled} value={p.risk} onChange={event => act({ type: 'investment-risk', id: crypto.randomUUID(), risk: event.target.value as InvestmentRisk })}><option value="bonds">채권 중심 · 작은 변동</option><option value="balanced">혼합 · 중간 변동</option><option value="stocks">주식 중심 · 큰 변동</option></select></label>

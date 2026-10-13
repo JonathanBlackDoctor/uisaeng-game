@@ -3,6 +3,7 @@ import { ACTIVITIES, FIXTURE_EVENTS, FIXTURE_INITIAL_STATS, STAGES } from './fix
 import { familyEvent, familySummary, firstFamilyScene, initialFamily, settleFamily } from './family';
 import { createRandomGame, reduceRandomGame } from './random-life';
 import { createCareerGame, reduceCareerGame } from './career-runtime';
+import { captureHighs } from './stat-highs';
 
 export function createGame(runId: string, seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0], version: GameState['rulesVersion'] = 'random-preview-v1'): GameState {
   if (version === 'career-preview-v1') return createCareerGame(runId, seed);
@@ -14,6 +15,11 @@ function adjust(stats: Stats, effects: Partial<Stats>): Stats {
   return Object.fromEntries(Object.keys(STAT_LABELS).map(key => [key, Math.max(0, Math.min(100, stats[key as keyof Stats] + (effects[key as keyof Stats] ?? 0)))])) as Stats;
 }
 export function reduceGame(state: GameState, action: GameAction): GameState {
+  const next = reduceAction(state, action);
+  if (next !== state) captureHighs(next, state);
+  return next;
+}
+function reduceAction(state: GameState, action: GameAction): GameState {
   if (state.rulesVersion !== 'career-preview-v1' && ['lifestyle','diet','money-plan','investment-risk','savings-buffer','money-transfer'].includes(action.type)) return state;
   if (action.type === 'next-choice') return advanceToNextChoice(state, action);
   if (state.rulesVersion === 'career-preview-v1') return reduceCareerGame(state, action);

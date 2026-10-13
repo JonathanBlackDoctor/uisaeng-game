@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { formatMoneyText } from './money-format';
 import './decision-sheet.css';
 
 export interface DecisionSheetProps {
@@ -177,8 +178,8 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities, upda
               <span aria-hidden="true">−</span> 접기
             </button>
           </header>
-          <h2 ref={titleRef} tabIndex={-1} className="ds-title" id={`${id}-title`}>{event.title}</h2>
-          <p className="ds-body" id={`${id}-body`}>{event.body.replaceAll('이 미리보기에서는', '게임에서는')}</p>
+          <h2 ref={titleRef} tabIndex={-1} className="ds-title" id={`${id}-title`}>{formatMoneyText(event.title)}</h2>
+          <p className="ds-body" id={`${id}-body`}>{formatMoneyText(event.body.replaceAll('이 미리보기에서는', '게임에서는'))}</p>
           {!minimized && updateNotice}
           {abilityImpact}
           {feedback}
@@ -197,9 +198,9 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities, upda
                   <span className="ds-number" aria-hidden="true">{index + 1}</span>
                   <span className="ds-choice-copy">
                     <span className="ds-choice-label" id={`${id}-choice-${index}`}>
-                      <span className="ds-sr-only">{index + 1}번. </span>{choice.label}
+                      <span className="ds-sr-only">{index + 1}번. </span>{formatMoneyText(choice.label)}
                     </span>
-                    {choice.description && <span className="ds-choice-description" id={`${id}-description-${index}`}>{choice.description}</span>}
+                    {choice.description && <span className="ds-choice-description" id={`${id}-description-${index}`}>{formatMoneyText(choice.description)}</span>}
                   </span>
                 </button>
               </li>
@@ -220,7 +221,7 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities, upda
         <aside className="ds-waiting" lang="ko" aria-label="중요 선택 대기">
           <div className="ds-waiting-copy">
             <p className="ds-waiting-status" role="status">선택 대기</p>
-            <p className="ds-waiting-title">{event.title}</p>
+            <p className="ds-waiting-title">{formatMoneyText(event.title)}</p>
           </div>
           <button ref={expandRef} type="button" className="ds-expand" onClick={() => setMinimized(false)}>
             선택 보기 <span aria-hidden="true">↗</span>

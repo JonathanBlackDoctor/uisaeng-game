@@ -1,3 +1,4 @@
+import { formatMoneyText } from './money-format';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { STAT_LABELS, type JournalEntry } from './contracts';
 import { STAGES } from './fixtures/content';
@@ -26,7 +27,7 @@ function LogEntry({ entry, expanded = false, history = false }: { entry: Journal
   const age = entry.detail.match(/^\d+세(?:\s*\d+개월)?/)?.[0];
   return <article className={`play-log-entry log-${logEmphasis(entry)}`}>
     {(age || history) && <small className="play-log-age">{[age, history ? STAGES.find(stage => stage.id === entry.stage)?.label : null].filter(Boolean).join(' · ')}</small>}
-    <details open={expanded || undefined}><summary>{entry.title}</summary><p>{entry.detail.replace(/^\d+세(?:\s*\d+개월)?\s*·\s*/, '').replaceAll('이 미리보기에서는', '게임에서는')}</p></details>
+    <details open={expanded || undefined}><summary>{formatMoneyText(entry.title)}</summary><p>{formatMoneyText(entry.detail.replace(/^\d+세(?:\s*\d+개월)?\s*·\s*/, '').replaceAll('이 미리보기에서는', '게임에서는'))}</p></details>
     {effects.length > 0 && <div className="play-log-effects">{effects.map(([key, value]) => <span key={key}>{STAT_LABELS[key as keyof typeof STAT_LABELS]} {value! > 0 ? '+' : ''}{value}</span>)}</div>}
   </article>;
 }

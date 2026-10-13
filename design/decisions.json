@@ -2,6 +2,42 @@
   "schemaVersion": 1,
   "decisions": [
     {
+      "id": "random-player-name-pool-v2",
+      "date": "2026-10-14",
+      "sourceThreadId": "01a13766-e1ad-7972-911b-a7579fc8e592",
+      "status": "confirmed",
+      "source": "user",
+      "instruction": "성씨 20개 × 남녀 이름 각 80개, 총 3,200개로 확대 제안에 사용자 ‘구현해’ 승인",
+      "scope": "새 게임 이름 후보군을 성씨 20개·남녀 각 80개로 확대. 기존 저장 이름과 성별은 유지. 후보군은 창작 설정이며 실제 이름 빈도나 성별 통계를 의미하지 않음."
+    },
+    {
+      "id": "random-player-name-gender-v1",
+      "sourceThreadId": "01a13766-e1ad-7972-911b-a7579fc8e592",
+      "date": "2026-10-14",
+      "status": "confirmed",
+      "source": "user",
+      "instruction": "성별과 이름도 게임 시작시 랜덤하게 정해지도록 해.",
+      "scope": "새 게임에서 성별과 한국어 이름을 자동 배정하고 입학 통지서에 표시. 성별 직접 선택을 제거하고 시작한 게임의 이름·성별은 저장·복원 시 유지.",
+      "implementation": "새 게임 시드로 재현 가능한 배정. 이름 후보군은 창작 설정이며 통계적 분포가 아님. 기존 저장에 이름이나 성별을 소급 배정하지 않음."
+    },
+    {
+      "id": "clinic-leverage-expansion-v1",
+      "date": "2026-10-14",
+      "status": "confirmed",
+      "source": "user",
+      "instruction": "병원을 더 키울 수 있고 그대신 엄청난 위험 부담을 짊어지게 되는 레버리지도 구현하자",
+      "approved": [
+        "개원 병원의 규모 확장",
+        "대출을 통한 확장 이익과 큰 손실 위험 연결"
+      ],
+      "provisional": [
+        "확장 3단계와 투자·부채·매출·운영비·금리 수치",
+        "불황 추첨·기간·손실률과 12개월 재확장 간격",
+        "원리금 상환·위기·버티기·축소·폐업·은퇴 처분 세부 규칙"
+      ],
+      "implementation": "docs/clinic-leverage.md"
+    },
+    {
       "id": "published-papers-lifetime-v1",
       "date": "2026-10-14",
       "status": "confirmed",
@@ -987,6 +1023,17 @@
       "scope": "완료된 논문 지표 교체 후속을 1.1.0 고정본과 구분해 새 고정본·통합검수 후 기존 공개주소에 배포",
       "plannedReleaseVersion": "1.1.1",
       "workerThreadId": "01a13610-6957-7c82-9783-96d794b666c5"
+    },
+    {
+      "id": "all-current-changes-release-1.2.0-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a135ff-11ba-7313-9b9b-ebc14ef4e894",
+      "status": "confirmed",
+      "instruction": "선택지의 돈 단위도 ~억, ~만으로 나오게 하는 건 어때? 그럼 모든 돈 단위 통일인가? / 이번에도 수정사항 다 반영해서 배포하는거지?",
+      "scope": "1.1.1 이후 완료된 게임 변경 및 금액 표시 통일을 통합 검수하고 기존 공개주소에 배포",
+      "plannedReleaseVersion": "1.2.0",
+      "moneyDisplay": "화면·선택·기록·공유는 조/억/만/원으로 정확한 금액을 표시. 1만원 미만은 원. 반올림·저장·비용·사건원문 변경 없음."
     }
   ]
 }

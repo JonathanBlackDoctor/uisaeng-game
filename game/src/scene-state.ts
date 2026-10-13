@@ -40,6 +40,8 @@ export function sceneRoom(stage: string, focus: SceneActivity, work?: 'research'
 // Only completed career choices and enabled activities may decorate the scene.
 export function sceneAppearance(game: GameState | null) {
   return {
+    gender: game?.identity?.gender,
+    protagonistName: game?.identity?.name,
     specialty: game && game.stageIndex > 0 && game.career?.application === 'accepted'
       ? game.career.specialty ?? undefined : undefined,
     exercise: game?.lifestyle?.enabled.exercise === true,

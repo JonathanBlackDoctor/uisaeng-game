@@ -1,4 +1,5 @@
 import type { GameState } from './contracts';
+import { clinicDebtBps } from './clinic';
 import { elapsedMonths, nextRandom } from './random-life';
 
 export const FINANCE_RULES = { version: 'finance-provisional-1', provisional: true, depositBps: 300, debtBps: 500,
@@ -41,7 +42,7 @@ export function preparePortfolio(s: GameState) {
   if ((m - p.since) % 12 === 0) { const a = accrueInterest(p.wageIndex, r.annualWageBps, p.wageCarry, 10_000); p.wageIndex += a.amount; p.wageCarry = a.remainder; }
   const deposit = accrueInterest(p.savings, r.depositBps, p.depositCarry); p.depositCarry = deposit.remainder; p.lastInterest = deposit.amount;
   if (deposit.amount) { p.savings += deposit.amount; entry(s, 'interest', '예금 이자', 0, deposit.amount); }
-  const debt = accrueInterest(s.economy!.debt, r.debtBps, p.debtCarry); p.debtCarry = debt.remainder; p.lastDebtInterest = debt.amount;
+  const debt = accrueInterest(s.economy!.debt, clinicDebtBps(s), p.debtCarry); p.debtCarry = debt.remainder; p.lastDebtInterest = debt.amount;
   if (debt.amount) entry(s, 'debt-interest', '대출 이자 누적', 0, 0, debt.amount);
   const draw = nextRandom(p.seed); p.seed = draw.seed;
   if ((m - p.since) % 12 === 1) p.phase = draw.value < 0.25 ? 'slump' : draw.value > 0.75 ? 'growth' : 'steady';

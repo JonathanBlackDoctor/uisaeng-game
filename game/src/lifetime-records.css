@@ -1,0 +1,8 @@
+.lifetime-records { margin: 22px 0 30px; }
+.lifetime-records h3 { font-size: 17px; margin: 0 0 14px; }
+.lifetime-records table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.lifetime-records th, .lifetime-records td { padding: 12px 8px; border-bottom: 1px solid #e2e6df; text-align: right; font-variant-numeric: tabular-nums; }
+.lifetime-records th:first-child { text-align: left; font-weight: 500; }
+.lifetime-records thead th { color: #667067; font-size: 12px; font-weight: 400; }
+.lifetime-records small { display: block; margin-top: 3px; font-size: 11px; color: #68716a; }
+.lifetime-records p { color: #68716a; font-size: 12px; line-height: 1.6; }

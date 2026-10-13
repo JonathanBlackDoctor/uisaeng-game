@@ -4,6 +4,7 @@ import { lifeStartAge, RANDOM_RULES } from './random-life';
 import { FAMILY_STYLES } from './background';
 import { compactWon } from './finance-view';
 import AdmissionCampus from './AdmissionCampus';
+import { GENDER_LABELS } from './identity';
 import './opening.css';
 
 interface Props {
@@ -33,7 +34,8 @@ export default function Opening({ draft, busy, disabled, entering, onPrepare, on
         <div className="opening-details-heading"><h2>입학을 앞둔 나</h2><span>{age}세</span></div>
         <p className="opening-story">{background.region} · {background.environment}<br/>{background.experience}</p>
         <dl className="opening-facts">
-          {draft.identity && <div><dt><label htmlFor="starting-gender">성별</label></dt><dd><select id="starting-gender" value={draft.identity.gender} disabled={disabled} onChange={e => onIdentity?.(e.target.value as 'male' | 'female')}><option value="male">남자</option><option value="female">여자</option></select></dd></div>}
+          {draft.identity?.name && <div><dt>이름</dt><dd>{draft.identity.name}</dd></div>}
+          {draft.identity && <div><dt>성별</dt><dd>{GENDER_LABELS[draft.identity.gender]}</dd></div>}
           {draft.identity?.gender === 'male' && <div><dt><label htmlFor="starting-service">입학 때 병역</label></dt><dd><select id="starting-service" value={draft.identity.service.status} disabled={disabled} onChange={e => onIdentity?.('male', e.target.value as 'pending' | 'exempt' | 'prior-service')}><option value="pending">미이행</option><option value="prior-service">복무 마침</option><option value="exempt">면제 판정 받음</option></select></dd></div>}
           {background.profile && <div><dt>가족의 지원</dt><dd>{FAMILY_STYLES[background.profile.familyStyle]}</dd></div>}
           {draft.economy && <div><dt>지금 가진 돈</dt><dd>{compactWon(draft.economy.cash)}</dd></div>}

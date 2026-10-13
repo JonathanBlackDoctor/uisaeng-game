@@ -81,8 +81,8 @@ describe('persistent effort outcomes and stat losses', () => {
 
 describe('readable assets and current pay', () => {
   it('formats Korean units without changing the exact value and handles boundaries', () => {
-    expect(compactWon(540_000_000)).toBe('5.4억 원'); expect(compactWon(3_842_716)).toBe('384만 원');
-    expect(compactWon(-3_842_716)).toBe('−384만 원'); expect(compactWon(99_999_999)).toBe('1억 원');
+    expect(compactWon(540_000_000)).toBe('5억 4,000만 원'); expect(compactWon(3_842_716)).toBe('384만 2,716원');
+    expect(compactWon(-3_842_716)).toBe('−384만 2,716원'); expect(compactWon(99_999_999)).toBe('9,999만 9,999원');
     expect(compactWon(0)).toBe('0원'); expect(compactWon(9999)).toBe('9,999원');
   });
   it('deducts debt and unpaid bills, estimates current salary immediately and distinguishes clinic revenue', () => {

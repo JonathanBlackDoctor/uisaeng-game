@@ -37,6 +37,8 @@ export type FamilyScene = 'meeting' | 'gwating' | 'blind-date' | 'campus' | 'con
 export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; choiceVersion?: 1; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
 export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats> }
 export interface GameState {
+  statHighs?: import('./stat-highs').StatHighs;
+  clinic?: import('./clinic').ClinicState;
   identity?: import('./identity').IdentityState;
   runId: string; revision: number; seed: number; stageIndex: number; stats: Stats;
   pendingEvent: GameEvent | null; journal: JournalEntry[]; processedActionIds: string[];
@@ -77,6 +79,7 @@ export interface CareerProgress {
   selectedSpecialty?: string;
 }
 export type GameAction =
+  | { type: 'clinic'; id: string; kind: 'expand' | 'manage' }
   | { type: 'lifestyle'; id: string; key: LifestyleKey; enabled: boolean }
   | { type: 'diet'; id: string; diet: Diet }
   | { type: 'money-plan'; id: string; field: 'autoSave' | 'autoInvest' | 'autoRepay'; amount: number }

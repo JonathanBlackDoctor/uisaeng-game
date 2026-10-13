@@ -5,13 +5,13 @@ import { calendarMonths, GENDER_LABELS, serviceSummary } from './identity';
 import { encounterLabel, netAssets } from './life-goals';
 import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
-import { exactWon } from './finance-view';
+import { formatWon } from './money-format';
 
 // Only the public game address is shared, never local preview URLs or save data.
 export const GAME_SHARE_URL = 'https://JonathanBlackDoctor.github.io/uisaeng-game/';
 export function resultShareData(game: GameState): ShareData {
   const lines = ['의생게임 · 나의 결과'];
-  if (game.career) lines.push(`누적 진료 ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : exactWon(netAssets(game)!)}`);
+  if (game.career) lines.push(`누적 진료 ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : formatWon(netAssets(game)!)}`);
   if (game.career) lines.push(`가족과 보낸 시간 ${familyTimeLabel(game)} · 발표한 논문 ${publicationLabel(game)}`);
   if (game.life) {
     const months = calendarMonths(game);

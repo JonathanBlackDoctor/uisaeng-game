@@ -41,6 +41,15 @@ function Preview() {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     setReport(JSON.stringify({ actorRetained: root.querySelector('[data-actor="protagonist"]') === actor, interpolated: reduce ? 'reduced-motion' : start !== middle && middle !== end, finalPose: actor?.getAttribute('data-pose'), continuousAnimations: animations.length, reducedMotion: reduce, overflow: root.scrollWidth > root.clientWidth }));
   }
+  async function checkPause() {
+    setPaused(true);
+    await new Promise(r => setTimeout(r, 1000));
+    const root = wrapper.current!;
+    const loops = root.getAnimations({ subtree: true }).filter(a => a instanceof CSSAnimation && a.effect?.getTiming().iterations === Infinity);
+    const before = loops.map(a => a.currentTime);
+    await new Promise(r => setTimeout(r, 350));
+    setReport(JSON.stringify({ check: 'pause', cycles: loops.length, allPaused: loops.every(a => a.playState === 'paused'), timeFrozen: loops.every((a, i) => a.currentTime === before[i]), reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches }));
+  }
   return <main style={{ maxWidth: 1100, margin: '30px auto', padding: 16 }}>
     <h1 style={{ fontSize: 21 }}>장면 미리보기</h1>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '18px 0' }}>
@@ -60,6 +69,7 @@ function Preview() {
       <button onClick={() => { const next = initial(); next.pendingEvent = careerEvent(next, 'story:shared-notebook'); setGame(next); setStage('university'); setWork(undefined); setFocus('study'); }}>노트 사건</button>
       <button onClick={() => setGame(JSON.parse(JSON.stringify(game)))}>상태 복원</button>
       <button onClick={checkMotion}>연속 전환 검사</button>
+      <button onClick={checkPause}>모션 정지 검사</button>
     </div>
     <output style={{ display: 'block', overflowWrap: 'anywhere', fontSize: 12, marginBottom: 12 }}>{report}</output>
     <div ref={wrapper} style={{ width: mobile ? 390 : 800, maxWidth: '100%' }} className="scene-card">

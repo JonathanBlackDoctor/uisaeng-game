@@ -1,8 +1,12 @@
+import { formatMoneyText } from './money-format';
 import { encounterLabel, netAssets } from './life-goals';
 import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
 import { compactWon } from './finance-view';
 import Opening from './Opening';
+import CareerCollection from './CareerCollection';
+import LifetimeRecords from './LifetimeRecords';
+import { mergeCareerRecords, recordCareer, type CareerRecord } from './career-records';
 import IdentityPanel from './IdentityPanel';
 import { configureIdentity, calendarMonths, serviceMonths, isServing, serviceSummary, SERVICE_RULES } from './identity';
 import { StrictMode, useEffect, useRef, useState } from 'react';
@@ -32,7 +36,7 @@ import { peerOccupation, peerRelationship, PEER_IDS } from './relationships';
 import { APP_DISPLAY_VERSION, saveAndApplyUpdate } from './game-update';
 import { CAREER_TIME, careerStageEnds } from './career-runtime';
 import { ACTIVITIES, STAGES } from './fixtures/content';
-import { archives, exportRawSave, loadGame, openGameDatabase, persistGame } from './storage';
+import { archives, careerRecords, exportRawSave, loadGame, openGameDatabase, persistGame } from './storage';
 import './style.css';
 import './brand.css';
 import './refinement.css';
@@ -45,13 +49,14 @@ function App() {
   const [openingDraft, setOpeningDraft] = useState<GameState | null>(null);
   const [openingEntering, setOpeningEntering] = useState(false);
   const [history, setHistory] = useState<ArchivedRun[]>([]);
+  const [collection, setCollection] = useState<CareerRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saveTime, setSaveTime] = useState('');
   const [main, setMain] = useState<Activity>('study');
   const [supporting, setSupporting] = useState<Activity>('rest');
-  const [view, setView] = useState<'play' | 'journal' | 'archive'>('play');
+  const [view, setView] = useState<'play' | 'journal' | 'archive' | 'collection'>('play');
   const [confirmReset, setConfirmReset] = useState(false);
   const [showAbilities, setShowAbilities] = useState(false);
   const [feedback, setFeedback] = useState<ChoiceResult | null>(null);
@@ -70,11 +75,17 @@ function App() {
       connection = database;
       if (disposed) { database.close(); return; }
       setDb(database);
-      const [saved, records] = await Promise.all([loadGame(database), archives(database)]);
-      if (!disposed) { setGame(saved?.state ?? null); setHistory(records); setSaveTime(saved?.updatedAt ?? ''); }
+      const [saved, records, careers] = await Promise.all([loadGame(database), archives(database), careerRecords(database)]);
+      if (!disposed) { setGame(saved?.state ?? null); setHistory(records); setCollection(careers); setSaveTime(saved?.updatedAt ?? ''); }
     }).catch(reason => { if (!disposed) setError(String(reason.message ?? reason)); }).finally(() => { if (!disposed) setLoading(false); });
     return () => { disposed = true; connection?.close(); };
   }, []);
+  useEffect(() => {
+    if (!db || !['collection', 'journal', 'archive'].includes(view)) return;
+    let disposed = false;
+    careerRecords(db).then(rows => { if (!disposed) setCollection(rows); }).catch(reason => { if (!disposed) setError(String(reason.message ?? reason)); });
+    return () => { disposed = true; };
+  }, [db, view]);
   useEffect(() => { if (confirmReset) resetCancel.current?.focus(); }, [confirmReset]);
   useEffect(() => { setFeedback(null); }, [game?.runId, openingDraft?.runId]);
   useEffect(() => {
@@ -204,17 +215,19 @@ function App() {
   return <div className={opening ? 'app-shell opening-shell' : view === 'play' ? 'app-shell play-shell' : 'app-shell'}>
     <header className="site-header">
       <a className="brand" href="#" aria-label="의생게임 홈" onClick={e => { e.preventDefault(); setView('play'); setSelectedArchive(null); }}><span className="brand-logo" aria-hidden="true" /></a>
-      {!opening && <nav aria-label="주 메뉴">
+      <nav aria-label="주 메뉴">
         <button className={view === 'play' ? 'nav active' : 'nav'} aria-current={view === 'play' ? 'page' : undefined} onClick={() => { setView('play'); setSelectedArchive(null); }}>지금의 삶</button>
         <button className={view === 'journal' ? 'nav active' : 'nav'} aria-current={view === 'journal' ? 'page' : undefined} onClick={() => { setView('journal'); setSelectedArchive(null); }}>생애 기록 <span className="count">{game?.journal.length ?? 0}</span></button>
         <button className={view === 'archive' ? 'nav active' : 'nav'} aria-current={view === 'archive' ? 'page' : undefined} onClick={() => { setView('archive'); setSelectedArchive(null); }}>회고 보관함</button>
-      </nav>}
+        <button className={view === 'collection' ? 'nav active' : 'nav'} aria-current={view === 'collection' ? 'page' : undefined} onClick={() => { setView('collection'); setSelectedArchive(null); }}>진료실 도감</button>
+      </nav>
       <span className="save-status">{busy ? '저장 중…' : saveTime ? '이 기기에 저장됨' : ''}</span>
     </header>
     <main className="content">
-      {error && <div className="error" role="alert"><strong>기록을 확인해 주세요</strong><p>{error}</p><button onClick={resume} disabled={!db || busy}>저장 기록 다시 읽기</button><button onClick={download} disabled={!db}>원본 백업</button></div>}
-      {!opening && <div className="page-heading"><div><h1 ref={playHeading} tabIndex={-1}>{view === 'play' ? completed ? '회고' : game ? stageLabel : '의생게임' : view === 'journal' ? '생애 기록' : '회고 보관함'}</h1></div>{game && <button className="subtle-button" onClick={() => setConfirmReset(true)} disabled={busy}>새 게임</button>}</div>}
+      {error && <div className="error" role="alert"><strong>기록을 확인해 주세요</strong><p>{formatMoneyText(error)}</p><button onClick={resume} disabled={!db || busy}>저장 기록 다시 읽기</button><button onClick={download} disabled={!db}>원본 백업</button></div>}
+      {!opening && <div className="page-heading"><div><h1 ref={playHeading} tabIndex={-1}>{view === 'play' ? completed ? '회고' : game ? stageLabel : '의생게임' : view === 'journal' ? '생애 기록' : view === 'collection' ? '진료실 도감' : '회고 보관함'}</h1></div>{game && <button className="subtle-button" onClick={() => setConfirmReset(true)} disabled={busy}>새 게임</button>}</div>}
       {loading ? <section className="panel empty">기록을 불러오는 중입니다…</section> : <>
+        {view === 'collection' && <CareerCollection records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>}
         {opening && <Opening draft={openingDraft} busy={busy} disabled={!db || busy || !!error} entering={openingEntering} onPrepare={prepareStart} onIdentity={(gender, status) => setOpeningDraft(draft => draft ? configureIdentity(draft, gender, status) : draft)} onEnter={start} onBack={() => setOpeningDraft(null)}/>}
         {view === 'play' && !opening && <>
           {game && <PlayOverview key={game.runId} game={game} feedback={feedback} busy={busy} onAbilities={() => setShowAbilities(true)}>{life && <section className="time-ribbon" aria-label="나이와 시간 조작">
@@ -256,7 +269,7 @@ function App() {
           {game && !['random-preview-v1', 'career-preview-v1'].includes(game.rulesVersion) && <p className="legacy-note">이전 버전의 기록은 기존 방식으로 이어갑니다. 무작위 배경과 연속 시간은 새 이야기에서 시작됩니다.</p>}
           {game?.pendingEvent && !error && <DecisionSheet key={game.pendingEvent.id} event={game.pendingEvent} busy={busy || confirmReset} onChoose={choiceId => act({ type: 'choose', id: crypto.randomUUID(), eventId: game.pendingEvent!.id, choiceId })} onAbilities={game.career ? () => setShowAbilities(true) : undefined} updateNotice={updateNotice} abilityImpact={<AbilitySummary game={game} decision/>} feedback={feedbackNotice} evidence={game.pendingEvent.sourceNote || evidenceForEvent(game.pendingEvent).length ? <EventEvidencePanel event={game.pendingEvent}/> : undefined}/>}
         </>}
-        {(view === 'journal' || (view === 'archive' && selectedArchive)) && <section className="panel journal"><div className="section-heading"><div><h3>{selectedArchive ? '보관된 회고' : '나의 생애 기록'}</h3><p>기록을 읽는 동안 게임 시간은 흐르지 않습니다.</p></div></div>{(selectedArchive?.state ?? game)?.status === 'completed' && <ResultShare key={(selectedArchive?.state ?? game)!.runId} game={(selectedArchive?.state ?? game)!}/>} {(selectedArchive ? selectedArchive.state.family : game?.family) && <p className="family-card">{familySummary((selectedArchive ? selectedArchive.state.family : game?.family)!)}</p>}{shownJournal.length === 0 ? <p className="empty">아직 남긴 기록이 없습니다. 첫 번째 선택을 해 보세요.</p> : <JournalHistory key={selectedArchive?.runId ?? game?.runId} entries={shownJournal}/>}</section>}
+        {(view === 'journal' || (view === 'archive' && selectedArchive)) && <section className="panel journal"><div className="section-heading"><div><h3>{selectedArchive ? '보관된 회고' : '나의 생애 기록'}</h3><p>기록을 읽는 동안 게임 시간은 흐르지 않습니다.</p></div></div>{(selectedArchive?.state ?? game)?.status === 'completed' && <ResultShare key={(selectedArchive?.state ?? game)!.runId} game={(selectedArchive?.state ?? game)!}/>} {(selectedArchive ? selectedArchive.state.family : game?.family) && <p className="family-card">{familySummary((selectedArchive ? selectedArchive.state.family : game?.family)!)}</p>}<LifetimeRecords game={selectedArchive?.state ?? game ?? undefined} records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>{shownJournal.length === 0 ? <p className="empty">아직 남긴 기록이 없습니다. 첫 번째 선택을 해 보세요.</p> : <JournalHistory key={selectedArchive?.runId ?? game?.runId} entries={shownJournal}/>}</section>}
 
         {view === 'archive' && !selectedArchive && <section className="panel journal"><h3>회고 보관함</h3>{history.length === 0 ? <p className="empty">이야기를 끝내면 이곳에 회고가 남습니다.</p> : history.map((record, i) => <button className="archive-card" key={record.runId} onClick={() => setSelectedArchive(record)}><span><strong>나의 {i + 1}번째 이야기</strong><small>{new Date(record.archivedAt).toLocaleDateString('ko-KR')} · {record.state.journal.length}개 기록</small>{record.state.career && <small>누적 진료 {encounterLabel(record.state)} · 순자산 {netAssets(record.state) === null ? '기록 없음' : compactWon(netAssets(record.state)!)}</small>}{record.state.career && <small>가족과 보낸 시간 {familyTimeLabel(record.state)} · 발표한 논문 {publicationLabel(record.state)}</small>}</span><span>기록 펼치기 →</span></button>)}</section>}
       </>}
@@ -264,7 +277,7 @@ function App() {
     </main>
     {showAbilities && game && <AbilityPanel game={game} onClose={() => setShowAbilities(false)}/>}
     {(!game?.pendingEvent || !!error) && updateNotice}
-    {confirmReset && <div className="modal-backdrop" onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false); if (e.key === 'Tab') { const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'); if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); buttons[buttons.length - 1]?.focus(); } else if (!e.shiftKey && document.activeElement === buttons[buttons.length - 1]) { e.preventDefault(); buttons[0]?.focus(); } } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span className="eyebrow">새 게임</span><h2 id="reset-title">새 게임을 시작할까요?</h2><p>현재 게임은 새 기록으로 바뀝니다. 완료된 회고는 보관함에 남습니다. 필요한 기록은 먼저 백업해 주세요.</p><div><button ref={resetCancel} className="subtle-button" onClick={() => setConfirmReset(false)} disabled={busy}>계속하기</button><button className="primary" onClick={prepareStart} disabled={busy || !!error}>입학 배경 보기</button></div></section></div>}
+    {confirmReset && <div className="modal-backdrop" onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false); if (e.key === 'Tab') { const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'); if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); buttons[buttons.length - 1]?.focus(); } else if (!e.shiftKey && document.activeElement === buttons[buttons.length - 1]) { e.preventDefault(); buttons[0]?.focus(); } } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span className="eyebrow">새 게임</span><h2 id="reset-title">새 게임을 시작할까요?</h2><p>진행 중인 생애 기록은 새 게임으로 바뀝니다. 진로 기록과 완료된 회고는 남습니다. 필요한 기록은 먼저 백업해 주세요.</p><div><button ref={resetCancel} className="subtle-button" onClick={() => setConfirmReset(false)} disabled={busy}>계속하기</button><button className="primary" onClick={prepareStart} disabled={busy || !!error}>입학 배경 보기</button></div></section></div>}
   </div>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>);

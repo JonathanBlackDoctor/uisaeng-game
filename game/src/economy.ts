@@ -11,6 +11,8 @@ export type EconomyContext = {
   livingFactor?: number;
   familyMonthly?: number;
   familySemester?: number;
+  clinicRevenue?: number;
+  clinicCost?: number;
 };
 
 export type EconomyActionKind = 'loan' | 'grant' | 'work' | 'pay-due' | 'repay' | 'open-clinic';
@@ -136,6 +138,8 @@ function assertContext(context: EconomyContext): void {
     || !['undecided', 'employed', 'clinic', 'research', 'untrained'].includes(context.practice)
     || typeof context.working !== 'boolean' || typeof context.scholarship !== 'boolean'
     || (context.familyMonthly !== undefined && !money(context.familyMonthly))
+    || (context.clinicRevenue !== undefined && !money(context.clinicRevenue))
+    || (context.clinicCost !== undefined && !money(context.clinicCost))
     || (context.familySemester !== undefined && !money(context.familySemester))) {
     throw new TypeError('경제 경로가 올바르지 않습니다.');
   }
@@ -184,14 +188,14 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
     if (context.practice === 'employed') receive('salary', '봉직 급여', r.employedSalary);
     if (context.practice === 'research') receive('research', '연구 수입', r.researchIncome);
     if (context.practice === 'untrained') receive('untrained', '미수련 경로 수입', r.untrainedIncome);
-    if (context.practice === 'clinic' && clinicOwned(state)) receive('revenue', '개원 매출', r.clinicRevenue);
+    if (context.practice === 'clinic' && clinicOwned(state)) receive('revenue', '개원 매출', context.clinicRevenue ?? r.clinicRevenue);
   } else {
     receive('retirement', '은퇴 수입', r.retirementIncome);
   }
   spend('living', '생활비', r.livingCost);
   if (context.stage === 'university' && month % r.tuitionInterval === 0) spend('tuition', '학비', r.tuition);
   if (context.stage === 'career' && context.practice === 'clinic' && clinicOwned(state)) {
-    spend('operating', '개원 운영비', r.clinicOperatingCost);
+    spend('operating', '개원 운영비', context.clinicCost ?? r.clinicOperatingCost);
   }
   next.lastMonth = month;
   assertState(next);
