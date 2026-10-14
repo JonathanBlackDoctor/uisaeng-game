@@ -142,7 +142,7 @@ describe('specialty stories, fellowships and academic careers', () => {
     const play = (speed: 1 | 16) => {
       let s = trainee(); s.life!.speed = speed;
       let restoredReview = false;
-      for (let i = 0; i < 4000 && s.status !== 'completed'; i++) {
+      for (let i = 0; i < 8000 && s.status !== 'completed'; i++) {
         const event = s.pendingEvent;
         if (event) {
           if (event.randomKey?.startsWith('journey:review:')) {
@@ -159,7 +159,7 @@ describe('specialty stories, fellowships and academic careers', () => {
     };
     const normal = play(1), fast = play(16);
     expect(normal.journey).toEqual(fast.journey); expect(normal.economy).toEqual(fast.economy); expect(normal.stats).toEqual(fast.stats); expect(normal.seed).toBe(fast.seed);
-  });
+  }, 60000);
   it('actual reducer pauses for a story, prevents replay and restores an open decision from IndexedDB', async () => {
     const s = trainee(); month(s, 82); s.pendingEvent = careerEvent(s, 'journey:scene:0');
     expect(s.pendingEvent).not.toBeNull(); expect(validState(s)).toBe(true);

@@ -60,7 +60,7 @@ function automaticChoice(s: GameState) {
 }
 
 function reach(s: GameState, done: (s: GameState) => boolean, ms?: number) {
-  for (let i = 0; i < 1200; i++) {
+  for (let i = 0; i < 6000; i++) {
     if (done(s)) return s;
     s = s.pendingEvent ? choose(s, automaticChoice(s)) : tick(s, ms);
     const diagnostic = `Invalid state at ${s.life!.elapsedMs}: ${s.pendingEvent?.randomKey}`;
@@ -301,7 +301,7 @@ describe('incident draws and time controls', () => {
     expect(incidentState).toBeDefined();
     const paused = structuredClone(incidentState!); paused.life!.paused = true;
     expect(tick(paused)).toBe(paused);
-    const waiting = tick(incidentState!);
+    const waiting = reach(incidentState!, s => !!s.pendingEvent);
     expect(waiting.pendingEvent!.randomKey).toMatch(/^depth-incident:/);
     expect(tick(waiting)).toBe(waiting);
     const response = choose(waiting, 'team');
@@ -352,7 +352,7 @@ describe('incident draws and time controls', () => {
     const money = (s: GameState) => ({ ...s.economy, ledger: s.economy!.ledger.map(({ id: _id, ...tx }) => tx) });
     expect(money(slow.s)).toEqual(money(fast.s));
     expect(slow.s.journal.filter(j => j.id.startsWith('depth-follow:'))).toEqual(fast.s.journal.filter(j => j.id.startsWith('depth-follow:')));
-  });
+  }, 30000);
 });
 
 describe('club mentors and saved games', () => {

@@ -6,10 +6,11 @@ export const RUN_LENGTH_OPTIONS = ['short', 'standard'] as const;
 export const RUN_LENGTH_LABELS = { short: '기본', standard: '길게' } as const;
 
 // Game tuning, not a model of real-world event frequencies. Missing version keeps old saves intact.
-export const PACING_RULES = { version: 1, monthMs: [3900, 325, 325, 325], abilityLimit: 1, randomChance: 0.035 } as const;
+// Provisional readability tuning: 1x gives each post-university month time to be seen.
+export const PACING_RULES = { version: 1, monthMs: [7800, 4000, 4000, 4000], abilityLimit: 1, randomChance: 0.035 } as const;
 export const compactPacing = (s: GameState) => s.progress?.pacingVersion === 1;
 // Adjustable short-session tuning; the simulated calendar and monthly effects stay intact.
-export const SHORT_PACING = { monthMs: [1950, 163, 163, 163], randomChance: 0.0175, serviceRate: 2 } as const;
+export const SHORT_PACING = { monthMs: [3900, 2000, 2000, 2000], randomChance: 0.0175, serviceRate: 2 } as const;
 export const shortPacing = (s: GameState) => compactPacing(s) && s.progress?.runLength === 'short';
 export const careerMonthMs = (s: GameState) => shortPacing(s) ? SHORT_PACING.monthMs[s.stageIndex] : compactPacing(s) ? PACING_RULES.monthMs[s.stageIndex] : [6000, 500, 500, 500][s.stageIndex];
 export const careerRandomChance = (s: GameState) => shortPacing(s) ? SHORT_PACING.randomChance : PACING_RULES.randomChance;

@@ -15,8 +15,8 @@ describe('session length and readable recent history', () => {
     const base = createCareerGame('length', 42), snapshot = structuredClone(base);
     const short = setStartingLength(base, DEFAULT_RUN_LENGTH);
     expect(short.life).toEqual(base.life); expect(short.identity).toEqual(base.identity);
-    expect(base).toEqual(snapshot); expect(careerMonthMs(short)).toBe(1950);
-    expect(careerMonthMs(setStartingLength(short, 'standard'))).toBe(3900);
+    expect(base).toEqual(snapshot); expect(careerMonthMs(short)).toBe(3900);
+    expect(careerMonthMs(setStartingLength(short, 'standard'))).toBe(7800);
     const begun = reduceGame(short, { type: 'control', id: 'start', paused: false });
     expect(setStartingLength(begun, 'standard')).toBe(begun);
     const html = renderToStaticMarkup(<Opening draft={short} onLengthChange={() => {}} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
@@ -26,7 +26,7 @@ describe('session length and readable recent history', () => {
     const long = setStartingLength(short, 'standard');
     const longHtml = renderToStaticMarkup(<Opening draft={long} onLengthChange={() => {}} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
     expect(longHtml).toMatch(/<input(?=[^>]*value="standard")(?=[^>]*checked="")[^>]*\/>길게/);
-    expect(careerMonthMs(long)).toBe(3900);
+    expect(careerMonthMs(long)).toBe(7800);
   });
   it('restores the chosen length and preserves both generations of old pacing', async () => {
     let short = setStartingLength(createCareerGame('restore-length', 42), 'short');
@@ -35,7 +35,7 @@ describe('session length and readable recent history', () => {
     const db = await openGameDatabase(`length-${crypto.randomUUID()}`);
     try { await persistGame(db, short, null); expect((await loadGame(db))!.state).toEqual(short); } finally { db.close(); }
     const old = createCareerGame('old-length', 42); delete old.progress!.runLength;
-    expect(careerMonthMs(old)).toBe(3900); expect(validState(old)).toBe(true);
+    expect(careerMonthMs(old)).toBe(7800); expect(validState(old)).toBe(true);
     delete old.progress!.pacingVersion; expect(careerMonthMs(old)).toBe(6000); expect(validState(old)).toBe(true);
     old.progress!.runLength = 'short'; expect(validState(old)).toBe(false);
     old.progress!.pacingVersion = 1; old.progress!.runLength = 'unknown' as never; expect(validState(old)).toBe(false);

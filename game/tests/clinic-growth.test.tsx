@@ -2,10 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createCareerGame, careerEvent } from '../src/career-runtime';
 import { reduceGame } from '../src/engine';
+import { ECONOMY_RULES } from '../src/economy';
 import { canExpandClinic, clinicCapital, clinicRevenue, clinicTierAt, CLINIC_RULES, nextClinicTier, settleClinicChoice } from '../src/clinic';
 import { validState } from '../src/storage';
 import ClinicPanel from '../src/ClinicPanel';
 import { clinicScenario } from './helpers/clinic-scenario';
+
+
+// Evaluate the exit after facility-sale losses, independent of clock frame size.
+function exitNet(s: ReturnType<typeof createCareerGame>) {
+  const book = clinicCapital(s.clinic?.level ?? 0, 'book') + ECONOMY_RULES.clinicNonCashAssets;
+  return s.economy!.assets - s.economy!.debt - s.economy!.due - book + Math.round(book * CLINIC_RULES.saleRatio);
+}
 
 describe('simple repeat hospital expansion', () => {
   it('keeps the old three tiers and scales additional investment, capacity and operating costs', () => {
@@ -65,17 +73,17 @@ describe('simple repeat hospital expansion', () => {
           if (k === 'practice-required') prefs = ['clinic', 'employed', 'untrained'];
           if (k === 'clinic-funding') prefs = ['open-clinic', 'loan'];
           if (k === 'clinic:expand') prefs = ['borrow'];
-          if (k === 'clinic:crisis') prefs = s.economy!.assets - s.economy!.debt - s.economy!.due >= 200_000_000_000 ? ['close'] : ['hold', 'shrink', 'close'];
+          if (k === 'clinic:crisis') prefs = exitNet(s) >= 200_000_000_000 ? ['close'] : ['hold', 'shrink', 'close'];
           if (k === 'clinic:manage') prefs = ['close'];
           if (k === 'journey:route') prefs = ['general'];
           if (k === 'marriage-required') prefs = ['single', 'stay'];
           if (k.startsWith('offer-')) prefs = ['decline'];
           const choiceId = prefs.find(id => e.choices.some(c => c.id === id)) ?? e.choices[0].id;
           s = reduceGame(s, { type: 'choose', id: `growth:${s.revision}`, eventId: e.id, choiceId });
-        } else if (s.career!.practice === 'clinic' && (s.clinic?.level ?? 0) > 0 && s.economy!.assets - s.economy!.debt - s.economy!.due >= 200_000_000_000) {
+        } else if (s.career!.practice === 'clinic' && (s.clinic?.level ?? 0) > 0 && exitNet(s) >= 200_000_000_000) {
           // Realise the winnings using the same existing exit choice, rather than expanding forever.
           s = reduceGame(s, { type: 'clinic', id: `growth:${s.revision}`, kind: 'manage' });
-        } else if (canExpandClinic(s)) {
+        } else if (canExpandClinic(s) && s.life!.elapsedMs / 1000 - (s.clinic?.changedAt ?? 0) >= 24) {
           s = reduceGame(s, { type: 'clinic', id: `growth:${s.revision}`, kind: 'expand' });
         } else {
           const focus = s.stageIndex <= 1 ? 'study' : 'rest';

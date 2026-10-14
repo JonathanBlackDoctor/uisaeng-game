@@ -95,7 +95,7 @@ describe('limited opportunities and shorter pacing', () => {
     expect(Object.values(fast.s.stories!.decisions).every(d => d.followed)).toBe(true);
     expect(Object.keys(fast.s.stories!.decisions)).toHaveLength(6);
     for (let stage = 0; stage < 4; stage++) expect(Object.keys(fast.s.stories!.decisions).filter(id => LIFE_STORIES.find(x => x.id === id)!.stage === stage).length).toBe(pacingStoryLimit({ ...fast.s, stageIndex: stage }));
-  }, 15000);
+  }, 60000);
   it('migrates old fractional time without rejecting or replaying monthly settlement', () => {
     const old = createCareerGame('old-clock', 7); delete old.progress!.clockVersion; delete old.stories;
     delete old.progress!.pacingVersion;

@@ -59,7 +59,9 @@ describe('hospital leverage', () => {
   it('turns a cash shortfall into a paused crisis before the generic loan loop', () => {
     let s = expand(clinicScenario(12, 20_000_000));
     s.clinic!.shockUntil = 166;
-    s = reduceGame(s, { type: 'tick', id: 'month', elapsedMs: 325 });
+    for (let ms = 0; ms < careerMonthMs(s) && !s.pendingEvent; ms += 1000) {
+      s = reduceGame(s, { type: 'tick', id: `month:${ms}`, elapsedMs: Math.min(1000, careerMonthMs(s) - ms) });
+    }
     expect(s.pendingEvent?.randomKey).toBe('clinic:crisis'); expect(validState(s)).toBe(true);
     expect(s.clinic!.lastService).toBe(0); // Essential unpaid bills take priority over the lender.
     expect(s.pendingEvent!.choices.map(c => c.id)).not.toContain('hold');
