@@ -210,6 +210,9 @@ describe('workload has actual monthly financial and health effects', () => {
 
   it.each(['employed', 'clinic'] as const)('%s posts additional income and clinic operating costs once per month', (practice: 'employed' | 'clinic') => {
     let base = atMonth(160, 'internal', practice);
+    // Leave room for all three paid lessons; ability-led earlier outcomes may
+    // already have brought the fixture close to the 100-point cap.
+    base.depth!.skill = 40;
     if (practice === 'clinic') base.economy = economyAction(base.economy!, 'open', 'open-clinic', 160).state;
     const balanced = reach(base, s => s.life!.elapsedMs === 163_000);
     const extended = reach(schedule(base, 'extended'), s => s.life!.elapsedMs === 163_000);

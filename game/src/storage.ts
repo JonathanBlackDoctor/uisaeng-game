@@ -46,7 +46,11 @@ export function validState(value: unknown): value is GameState {
     && (s.statHighs === undefined || validStatHighs(s.statHighs))
     && !!s.stats && Object.keys(STAT_LABELS).every(k => Number.isFinite(s.stats[k as keyof typeof STAT_LABELS]) && s.stats[k as keyof typeof STAT_LABELS] >= 0 && s.stats[k as keyof typeof STAT_LABELS] <= 100)
     && (s.status !== 'completed' || (s.stageIndex === 3 && s.pendingEvent === null))
-    && Array.isArray(s.journal) && s.journal.every(e => e && typeof e.id === 'string' && typeof e.title === 'string' && typeof e.detail === 'string' && stages.includes(e.stage) && validEffects(e.effects))
+    && Array.isArray(s.journal) && s.journal.every(e => e && typeof e.id === 'string' && typeof e.title === 'string' && typeof e.detail === 'string' && stages.includes(e.stage) && validEffects(e.effects)
+      && (e.importance === undefined || e.importance === 'major')
+      && (e.choice === undefined || (!!e.choice && typeof e.choice.label === 'string' && typeof e.choice.detail === 'string' && validEffects(e.choice.effects)
+        && (e.choice.context === undefined || typeof e.choice.context === 'string')
+        && (e.choice.resultId === undefined || typeof e.choice.resultId === 'string'))))
     && Array.isArray(s.processedActionIds) && s.processedActionIds.every(id => typeof id === 'string')
     && (s.pendingEvent === null || (!!s.pendingEvent && typeof s.pendingEvent.id === 'string' && s.pendingEvent.stage === stages[s.stageIndex] && ['integration-fixture', ...(s.rulesVersion === 'family-preview-v1' ? ['family-preview'] : []), ...(['random-preview-v1','career-preview-v1'].includes(s.rulesVersion) ? ['random-preview'] : []), ...(s.rulesVersion === 'career-preview-v1' ? ['career-preview'] : [])].includes(s.pendingEvent.provenance) && typeof s.pendingEvent.title === 'string' && typeof s.pendingEvent.body === 'string' && Array.isArray(s.pendingEvent.choices) && s.pendingEvent.choices.length > 0 && s.pendingEvent.choices.every(c => c && typeof c.id === 'string' && typeof c.label === 'string' && typeof c.description === 'string' && validEffects(c.effects))));
 }

@@ -1,0 +1,29 @@
+.time-allocation { border-top: 1px solid var(--line); margin-top: 5px; padding-top: 7px; min-width: 0; }
+.time-allocation-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.time-allocation-summary > div { min-width: 0; }
+.time-allocation-summary strong { font-size: 13px; font-weight: 650; }
+.time-allocation-summary p, .time-allocation-hint p, .time-allocation-warning { margin: 3px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; color: var(--muted); }
+.time-allocation-button { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #416d5c; background: #416d5c; color: white; font-size: 13px; }
+.time-allocation-button:disabled { opacity: .55; }
+.time-allocation-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.time-allocation-hint .subtle-button { min-height: 36px; padding: 5px 8px; font-size: 12px; flex-shrink: 0; }
+.time-allocation-warning { color: #8b4c31; }
+.time-allocation-dialog { width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-sizing: border-box; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: #fffef9; color: #263c35; overflow-y: auto; overscroll-behavior: contain; }
+.time-allocation-dialog::backdrop { background: rgb(26 39 33 / 40%); }
+.time-allocation-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.time-allocation-dialog h2 { margin: 0; font-size: 20px; }
+.time-allocation-dialog > header button { min-height: 44px; }
+.time-allocation-dialog > .lifestyle-hint { font-size: 12px; color: var(--muted); }
+.time-allocation-content { display: grid; gap: 20px; }
+.time-allocation-content > section { display: grid; gap: 12px; min-width: 0; }
+.time-allocation-content > section + section { border-top: 1px solid var(--line); padding-top: 16px; }
+.time-allocation-content h3 { margin: 0; font-size: 15px; }
+.time-allocation-content .career-field { display: grid; gap: 5px; min-width: 0; }
+.time-allocation-content select { max-width: 100%; width: 100%; min-height: 44px; }
+.time-allocation-content .lifestyle-option { min-height: 44px; }
+.time-allocation-content .lifestyle-option span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .time-allocation-summary { align-items: stretch; flex-direction: column; gap: 7px; }
+  .time-allocation-button { align-self: flex-start; }
+  .time-allocation-dialog { padding: 16px; }
+}

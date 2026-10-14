@@ -19,10 +19,11 @@ import { initialPortfolio, preparePortfolio, coverDueFromSavings, finishPortfoli
 import { explorationOptions, specialtyOptions, institutionOptions } from './opportunities';
 import { initialStories, advanceStories, storyEvent, requiredStory, settleStory, validStories, finishStories, upgradeStoryPeople, validStoryContext } from './life-stories';
 import { designEvent } from './event-design';
-import { careerMonthMs, compactPacing, PACING_RULES } from './pacing';
+import { abilityRoute, designAbilityImpact, settleAbilityImpact } from './ability-impact';
+import { careerMonthMs, careerRandomChance, servicePacingRate, compactPacing, PACING_RULES } from './pacing';
 import { initialIdentity, identityEvent, requiredIdentity, settleIdentity, advanceService, isServing, waitingForGraduationService, calendarMonths, validIdentity, medicalPlacement } from './identity';
 import { SERVICE_EVIDENCE } from './service-evidence';
-import { canExpandClinic, clinicEvent, clinicLevel, clinicOpen, clinicRevenue, clinicTier, prepareClinic, requiredClinic, settleClinic, settleClinicChoice, validClinic } from './clinic';
+import { canExpandClinic, clinicEvent, clinicLevel, clinicOpen, clinicRevenue, clinicTier, prepareClinic, requiredClinic, settleClinic, settleClinicChoice, validClinic, legacyClinicQuote } from './clinic';
 
 // Provisional active time, excluding reading decisions, manual pause and hidden tabs.
 // Legacy saves: 12.3 active minutes. New runs use pacing.ts (7.995 active minutes).
@@ -88,11 +89,12 @@ export function createCareerGame(runId: string, seed: number): GameState {
   s.lifestyle = initialLifestyle(); s.portfolio = initialPortfolio(seed);
   s.progress = { version: 1, clockVersion: 2, focus: 'study', club: 'pending', marriage: 'pending', resolved: [], counts: {}, activeMs: [0, 0, 0, 0], remainder: 0, retryMonth: 0, result: '' };
   s.progress.pacingVersion = PACING_RULES.version;
+  s.progress.runLength = 'standard';
   s.journal[0].title = '의대 입학';
   s.journal[0].detail = `${lifeAge(s)} · ${s.journal[0].detail}`;
   return s;
 }
-export function careerEvent(s: GameState, key: string, legacyOptions = false, legacyStory = false, legacyChoices = false): GameEvent | null {
+export function careerEvent(s: GameState, key: string, legacyOptions = false, legacyStory = false, legacyChoices = false, legacyImpact = false): GameEvent | null {
   const p = s.progress!, c = s.career!, e = s.economy!, subject = spec(s);
   let title: string, body: string, choices: GameEvent['choices'];
   const campus = (s.campus || key.startsWith('campus-')) ? campusChoice(s, key, legacyOptions) : null;
@@ -178,9 +180,9 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
     ? { text: '서울대학교병원 2026년 공고는 온라인 접수와 방문 접수를 모두 요구했습니다.', url: 'https://dept.snuh.org/dept/RTO/content.do?menuId=002003', sha256: 'ffaf83d4296437cb3fe8d8d52acf6e67d709fd00ffa06838b1f7a75e6ab50384' }
     : { text: '서울아산병원 2026년 공고는 지원서 작성과 교육수련팀 방문 접수 시간을 안내했습니다.', url: 'https://edtr.amc.seoul.kr/education/service/template/view.do?seq=75', sha256: 'aeed9ee3523b05390be302a71d16a9b0a4c1fe356ad8f4c2c47cabef25392a06' }) : undefined;
   const serviceSource = key === 'service:plan' ? SERVICE_EVIDENCE.army : key === 'service:timing' ? SERVICE_EVIDENCE['medical-training'] : key === 'service:placement' && medicalPlacement(s) === 'public-health' ? SERVICE_EVIDENCE['public-health'] : undefined;
-  return designEvent(s, { id: `${s.runId}:career:${key}:${elapsedMonths(s)}:${s.revision}`, stage: stage(s), title, body, choices, provenance: 'career-preview', randomKey: key,
+  return designAbilityImpact(s, designEvent(s, { id: `${s.runId}:career:${key}:${elapsedMonths(s)}:${s.revision}`, stage: stage(s), title, body, choices, provenance: 'career-preview', randomKey: key,
     ...(!legacyOptions && (['specialty-required', 'institution-required', 'campus-club-kind'].includes(key) || (key === 'club-required' && s.campus)) ? { opportunityVersion: 1 as const } : {}),
-    ...(info ? { sourceNote: { text: info.fact, url: info.url, sha256: info.sha256 } } : applicationSource ? { sourceNote: applicationSource } : serviceSource ? { sourceNote: serviceSource } : {}) }, legacyChoices);
+    ...(info ? { sourceNote: { text: info.fact, url: info.url, sha256: info.sha256 } } : applicationSource ? { sourceNote: applicationSource } : serviceSource ? { sourceNote: serviceSource } : {}) }, legacyChoices), legacyImpact || legacyChoices);
 }
 function pending(s: GameState, key: string) { s.pendingEvent = careerEvent(s, key); }
 function automaticSupport(s: GameState) {
@@ -294,7 +296,8 @@ function advanceMonth(s: GameState) {
   if (m % 6 === 0) log(s, `auto:money:${m}`, '이번 달 수입과 지출', `수입 ${won(s.economy.income)} · 지출 ${won(s.economy.expenses)} · 현금 ${won(s.economy.cash)} · 부채 ${won(s.economy.debt)}`);
 }
 function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose' }>) {
-  const e = s.pendingEvent!, key = e.randomKey!, id = action.choiceId, choice = e.choices.find(c => c.id === id)!;
+  const e = s.pendingEvent!, key = e.randomKey!, choice = e.choices.find(c => c.id === action.choiceId)!;
+  const route = abilityRoute(s, e, action.choiceId), before = route ? structuredClone(s) : s, id = route?.base ?? action.choiceId;
   s.pendingEvent = null;
   upgradeCampus(s);
   upgradeDepth(s);
@@ -311,7 +314,7 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
   } else if (key.startsWith('story:')) {
     if (!settleStory(s, key, id)) return null;
   } else if (key.startsWith('ability-')) {
-    if (!settleAbilityEvent(s, key, id, action.id, e.choiceVersion)) return null;
+    if (!route && !settleAbilityEvent(s, key, id, action.id, e.choiceVersion)) return null;
   } else if (key === 'depth-application' && id === 'revise') {
     delete s.depth!.pendingInstitution; pending(s, 'institution-required');
   } else if (key === 'institution-required' && ['snuh', 'asan'].includes(id)) {
@@ -379,8 +382,14 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
     else s.stageIndex++;
   } else resolved(s, key);
   log(s, action.id, e.title, key.startsWith('story:') || key.startsWith('journey:') ? choice.description : choice.label, choice.effects);
-  resolveChoiceEffort(s, key, id, action.id);
-  practiceAbilityChoice(s, key, id);
+  if (route) {
+    upgradeDynamics(s);
+    const roll = nextRandom(s.dynamics!.seed); s.dynamics!.seed = roll.seed;
+    settleAbilityImpact(s, before, e, action.choiceId, action.id, roll.value);
+  } else {
+    resolveChoiceEffort(s, key, id, action.id, true);
+    practiceAbilityChoice(s, key, id);
+  }
   return s;
 }
 export function reduceCareerGame(state: GameState, action: GameAction): GameState {
@@ -475,7 +484,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
     }
     const s = reduceRandomGame(state, action);
     if (s === state) return state;
-    resolveChoiceEffort(s, state.pendingEvent.randomKey!, action.choiceId, action.id);
+    resolveChoiceEffort(s, state.pendingEvent.randomKey!, action.choiceId, action.id, true);
     practiceAbilityChoice(s, state.pendingEvent.randomKey!, action.choiceId);
     if (state.pendingEvent.randomKey === 'marriage' && action.choiceId !== 'later') s.progress!.marriage = 'settled';
     if (state.pendingEvent.randomKey === 'marriage' && action.choiceId === 'later') {
@@ -496,7 +505,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   if (isServing(s)) {
     const before = s.identity!.service.elapsedMs;
     advanceService(s, action.elapsedMs);
-    s.progress!.activeMs[s.stageIndex] += (s.identity!.service.elapsedMs - before) / s.life!.speed;
+    s.progress!.activeMs[s.stageIndex] += (s.identity!.service.elapsedMs - before) / (s.life!.speed * servicePacingRate(s));
     const key = required(s); if (key) pending(s, key);
     return finish(s, action);
   }
@@ -522,7 +531,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
     const abilityKey = nextAbilityEvent(s); if (abilityKey) { pending(s, abilityKey); break; }
     const m = elapsedMonths(s);
     const chance = nextRandom(s.seed); s.seed = chance.seed;
-    if (m % CAREER_TIME.randomSpacing !== 0 || chance.value >= (compactPacing(s) ? PACING_RULES.randomChance : CAREER_TIME.randomChance)) continue;
+    if (m % CAREER_TIME.randomSpacing !== 0 || chance.value >= (compactPacing(s) ? careerRandomChance(s) : CAREER_TIME.randomChance)) continue;
     const candidates = eligibleEvents(s).filter(d => !['club', 'mentor', 'research', 'research-followup', 'study-cost'].includes(d.key) && (s.progress!.counts[d.key] ?? 0) < CAREER_TIME.maxRandomPerKind && !(d.key === 'marriage' && s.progress!.marriage === 'settled'));
     if (!candidates.length) continue;
     const draw = nextRandom(s.seed); s.seed = draw.seed;
@@ -555,6 +564,8 @@ export function validCareerGame(s: GameState): boolean {
     || !Array.isArray(p.activeMs) || p.activeMs.length !== 4 || p.activeMs.some(n => !Number.isFinite(n) || n < 0)
     || (p.clockVersion !== undefined && p.clockVersion !== 2)
     || (p.pacingVersion !== undefined && p.pacingVersion !== 1)
+    || (p.runLength !== undefined && !['standard', 'short'].includes(p.runLength))
+    || (p.runLength === 'short' && p.pacingVersion !== 1)
     || !Number.isInteger(p.remainder) || p.remainder < 0 || p.remainder >= (p.clockVersion === 2 ? careerMonthMs(s) : s.stageIndex === 0 ? 20_000 : 1_000)
     || !Number.isInteger(p.retryMonth) || p.retryMonth < 0 || typeof p.result !== 'string' || (p.selectedSpecialty !== undefined && !SPECIALTIES.some(x => x.id === p.selectedSpecialty)) || !s.life) return false;
   if ((p.marriageRetryMonth !== undefined && (!Number.isSafeInteger(p.marriageRetryMonth) || p.marriageRetryMonth < 0 || p.marriageRetryMonth > elapsedMonths(s) + 36))
@@ -570,11 +581,15 @@ export function validCareerGame(s: GameState): boolean {
   if (!s.pendingEvent || s.pendingEvent.provenance !== 'career-preview') return true;
   if (s.pendingEvent.choiceVersion !== undefined && s.pendingEvent.choiceVersion !== 1) return false;
   const legacyChoices = s.pendingEvent.choiceVersion === undefined;
-  const canonical = careerEvent(s, s.pendingEvent.randomKey!, false, false, legacyChoices);
+  if (s.pendingEvent.abilityImpactVersion !== undefined && s.pendingEvent.abilityImpactVersion !== 1) return false;
+  const legacyImpact = s.pendingEvent.abilityImpactVersion === undefined;
+  const canonical = careerEvent(s, s.pendingEvent.randomKey!, false, false, legacyChoices, legacyImpact);
   // Event identity is fixed before revision increments and persists across restore.
   if (!canonical || !s.pendingEvent.id.startsWith(`${s.runId}:career:${s.pendingEvent.randomKey}:${elapsedMonths(s)}:`)) return false;
   const matches = (event: GameEvent) => JSON.stringify({ ...event, id: s.pendingEvent!.id }) === JSON.stringify(s.pendingEvent);
   if (matches(canonical)) return true;
+  const legacyClinic = legacyClinicQuote(s, canonical);
+  if (legacyClinic && matches(legacyClinic)) return true;
   // Preserve exact, already-open pre-release story text; arbitrary edits still fail.
   if (s.pendingEvent.randomKey?.startsWith('story:')) {
     const legacy = careerEvent(s, s.pendingEvent.randomKey, false, true, legacyChoices);

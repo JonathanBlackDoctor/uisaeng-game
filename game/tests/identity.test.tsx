@@ -170,7 +170,8 @@ describe('gender and military paths', () => {
   it('renders short opening controls and service information', () => {
     const s = male();
     const opening = renderToStaticMarkup(<Opening draft={s} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
-    expect(opening).not.toContain('starting-gender'); expect(opening).toContain('입학 때 병역');
+    expect(opening).not.toContain('starting-gender'); expect(opening).not.toContain('입학 때 병역');
+    expect(opening).not.toContain('starting-service');
     expect(opening).toContain(`<dt>이름</dt><dd>${s.identity!.name}</dd>`);
     expect(opening).toContain('<dt>성별</dt><dd>남자</dd>');
     expect(renderToStaticMarkup(<IdentityPanel game={s}/>)).toContain('남자 · 병역 미이행');

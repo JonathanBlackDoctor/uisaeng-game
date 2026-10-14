@@ -205,3 +205,6 @@
   from { opacity: 0; transform: translateY(12px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+.ds-memory { margin: 0 0 16px; font-size: 13px; line-height: 1.6; }
+.ds-memory summary { cursor: pointer; }
+.ds-memory p { margin: 6px 0 0; }

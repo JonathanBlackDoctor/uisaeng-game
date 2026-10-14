@@ -2,6 +2,23 @@
   "schemaVersion": 1,
   "decisions": [
     {
+      "id": "clinic-simple-large-wealth-growth-v2",
+      "date": "2026-10-14",
+      "status": "confirmed",
+      "source": "user",
+      "instruction": "몇백·몇천억원을 벌 수 있는 경로에 대해: 구현해. 뭘 더 많이 만들거나 복잡하게 만들진 말고 간단히.",
+      "approved": [
+        "수백·수천억원 순자산을 얻을 수 있는 병원 성장 가능성",
+        "기존 확장·축소·폐업 조작을 유지하는 단순한 구현"
+      ],
+      "provisional": [
+        "중형 월 매출1.4억원·대형4.2억원",
+        "대형 이후2배 반복확장·최대512배",
+        "단위 운영비 최대25% 절감과 대형 기준 금리·불황 유지"
+      ],
+      "implementation": "docs/clinic-leverage.md"
+    },
+    {
       "id": "random-player-name-pool-v2",
       "date": "2026-10-14",
       "sourceThreadId": "01a13766-e1ad-7972-911b-a7579fc8e592",
@@ -1034,6 +1051,80 @@
       "scope": "1.1.1 이후 완료된 게임 변경 및 금액 표시 통일을 통합 검수하고 기존 공개주소에 배포",
       "plannedReleaseVersion": "1.2.0",
       "moneyDisplay": "화면·선택·기록·공유는 조/억/만/원으로 정확한 금액을 표시. 1만원 미만은 원. 반올림·저장·비용·사건원문 변경 없음."
+    },
+    {
+      "id": "fixed-unserved-start-hidden-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a13779-f6ab-7721-8719-6754fefba4f4",
+      "status": "confirmed",
+      "instruction": "병역은 무조건 미이행으로 고정이니 시작시에 안 보여줘도 돼.",
+      "scope": "새 게임의 남성 캐릭터는 기존 초기값인 병역 미이행으로 시작하며 입학 통지서의 병역 표시·선택과 시작화면 변경 콜백을 제거. 여성의 기존 병역 의무 없음 규칙과 이미 저장된 게임의 병역 이력·게임 중 복무 진행은 유지."
+    },
+    {
+      "id": "rounded-display-opening-motion-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a13779-f6ab-7721-8719-6754fefba4f4",
+      "status": "confirmed",
+      "instruction": "일부 수치가 소수점까지 표시돼서 문제가 되는데, 반올림돼서 표시되도록 해. 그리고 처음 입학통지서가 뜰 때 훌륭하고 세련된 애니메이션 넣어.",
+      "scope": "스탯·능력·숙련·최고기록·증감·공유를 정수로 반올림 표시. 배율은 정수 보너스 퍼센트로 표시. 계산·저장·선택 판정값은 유지. 입학통지서는 종이 입체감·빛·순차등장 연출을 적용하며 재렌더 때 재생하지 않고 동작 줄이기 설정에서는 즉시 표시."
+    },
+    {
+      "id": "readable-events-choice-log-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a137e0-ebe4-7533-9db0-3d14581e87fd",
+      "status": "confirmed",
+      "instruction": "이벤트나 선택지 설명을 직관적으로 바로 이해하게 바꾸고, 왼쪽 로그도 선택을 반영하는 보충 설명을 넣되 간결하게 교체. 생애 기록이 너무 많고 잦고 최근 요약만으로는 내용을 알 수 없으므로 밀도와 가독성 개선.",
+      "scope": "화면 문구·선택과 실제 결과의 기록 연결·최근 기록의 중요 변화 선별 및 전체 기록 묶음. 비용·조건·결과 판정과 연구 원문 보존."
+    },
+    {
+      "id": "starting-run-length-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a137e0-ebe4-7533-9db0-3d14581e87fd",
+      "status": "confirmed",
+      "instruction": "시작 분량 기본/짧게 제안에 시간 진행을 빠르게 + 반복 생활 이벤트를 줄이기 선택.",
+      "scope": "새 게임 시작에서 기본/짧게 선택. 짧게는 시간 진행을 빠르게 하고 반복 생활 선택을 줄이며 필수 진로·복무 및 연결 이야기 결말 유지. 기존 저장의 진행 설정 유지.",
+      "provisional": "정확한 시간 계수·사건 노출량은 변경 가능한 게임 조정값이며 실제 플레이 시간 보장 아님."
+    },
+    {
+      "id": "visible-time-allocation-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a13862-5aa0-7391-900e-a0103e68573f",
+      "status": "confirmed",
+      "instruction": "시간·생활 투자 설정이 잘 보이지 않는 문제에 대해 제안한 개선을 구현해.",
+      "scope": "시간 조작 아래 현재 주활동·생활 활동·여유 시간과 시간·생활 바꾸기 버튼 상시 표시. 주활동·생활 활동·식생활 설정 통합, 재정 설정 분리. 최초 안내와 생활 시간 변경·중단 안내. 계산·저장 규칙 유지. 공개 배포는 이번 요청에 포함하지 않음."
+    },
+    {
+      "id": "ability-impact-and-starting-origins-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "status": "confirmed",
+      "instruction": "능력이 행동·성과·부담을 좌우하고 결과에 원인이 드러나는 개선 계획을 구현. 시작 능력치에도 간결하고 개연적인 설명 추가.",
+      "scope": "여섯 능력의 일상 수행·기존 사건의 능력별 해결·결과 피드백·배경에 근거한 시작 설명·기존 저장 호환. 세부 내용 docs/ability-impact.md.",
+      "provisional": "수행 가중치·난수 폭·요구 수준·피로·성장·보상 계수는 조정 가능한 시험 설정. 현실 확률이 아니며 실제 플레이 체감은 별도 검증."
+    },
+    {
+      "id": "major-incident-severity-log-v2",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a13862-5aa0-7391-900e-a0103e68573f",
+      "status": "confirmed",
+      "instruction": "경제적 타격을 더 키우고, 다른 영향도 키워. 그리고 로그에 이런 것과 같은 종류의 큰 사건이나 큰 영향은 강조되게 해.",
+      "scope": "새 큰 사건의 경제적 손실·회복 기간·수입 공백·건강·행복·관계·피로 부담 강화. 최근·전체 기록에서 큰 사건·큰 실제 변화 강조, 실제 비용·부채·후속 영향 표시. 기존 진행 사건과 저장된 영향의 조건 보존. docs/major-incidents.md 영향 강화 v2 참조. 공개 배포는 포함하지 않음.",
+      "provisional": "비용 배율·자산 손실률·기간·스탯·로그 강조 기준은 변경 가능한 게임 조정값이며 현실 통계나 정식 수치 승인으로 기록하지 않는다."
+    },
+    {
+      "id": "all-current-changes-release-1.3.0-v1",
+      "date": "2026-10-14",
+      "source": "user",
+      "sourceThreadId": "01a13862-5aa0-7391-900e-a0103e68573f",
+      "status": "confirmed",
+      "instruction": "변경된 모든 작업 묶어서 배포 완료했어? → 미배포 상태 안내 후 사용자: 배포해.",
+      "scope": "1.2.0 이후 완료된 모든 게임 변경을 고정·통합검증·이전 공개 저장 호환 검사 후 기존 GitHub Pages 주소에 1.3.0으로 배포. 연구원본·개인 저장·큐·보류 보존."
     }
   ]
 }

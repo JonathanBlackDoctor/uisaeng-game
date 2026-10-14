@@ -4,14 +4,15 @@ import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
 import { compactWon } from './finance-view';
 import Opening from './Opening';
+import { setStartingLength } from './pacing';
 import CareerCollection from './CareerCollection';
 import LifetimeRecords from './LifetimeRecords';
 import { mergeCareerRecords, recordCareer, type CareerRecord } from './career-records';
 import IdentityPanel from './IdentityPanel';
-import { configureIdentity, calendarMonths, serviceMonths, isServing, serviceSummary, SERVICE_RULES } from './identity';
+import { calendarMonths, serviceMonths, isServing, serviceSummary, SERVICE_RULES } from './identity';
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { TIME_SPEEDS, type Activity, type ArchivedRun, type GameAction, type GameState, type TimeSpeed } from './contracts';
+import { TIME_SPEEDS, type ArchivedRun, type GameAction, type GameState, type TimeSpeed } from './contracts';
 import { createGame, reduceGame } from './engine';
 import { EventEvidencePanel } from './EventEvidence';
 import { evidenceForEvent } from './evidence';
@@ -27,6 +28,7 @@ import PlayDetails from './PlayDetails';
 import DecisionSheet from './DecisionSheet';
 import CareerPanel from './CareerPanel';
 import AbilityPanel from './AbilityPanel';
+import TimeAllocation, { TimeAllocationDialog } from './TimeAllocation';
 import AbilitySummary from './AbilitySummary';
 import ResultShare from './ResultShare';
 import UpdateToast, { useGameUpdate } from './UpdateToast';
@@ -35,7 +37,7 @@ import { choiceResult, type ChoiceResult } from './choice-feedback';
 import { peerOccupation, peerRelationship, PEER_IDS } from './relationships';
 import { APP_DISPLAY_VERSION, saveAndApplyUpdate } from './game-update';
 import { CAREER_TIME, careerStageEnds } from './career-runtime';
-import { ACTIVITIES, STAGES } from './fixtures/content';
+import { STAGES } from './fixtures/content';
 import { archives, careerRecords, exportRawSave, loadGame, openGameDatabase, persistGame } from './storage';
 import './style.css';
 import './brand.css';
@@ -54,11 +56,10 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saveTime, setSaveTime] = useState('');
-  const [main, setMain] = useState<Activity>('study');
-  const [supporting, setSupporting] = useState<Activity>('rest');
   const [view, setView] = useState<'play' | 'journal' | 'archive' | 'collection'>('play');
   const [confirmReset, setConfirmReset] = useState(false);
   const [showAbilities, setShowAbilities] = useState(false);
+  const [showTimeAllocation, setShowTimeAllocation] = useState(false);
   const [feedback, setFeedback] = useState<ChoiceResult | null>(null);
   const [selectedArchive, setSelectedArchive] = useState<ArchivedRun | null>(null);
   const lock = useRef(false);
@@ -89,10 +90,10 @@ function App() {
   useEffect(() => { if (confirmReset) resetCancel.current?.focus(); }, [confirmReset]);
   useEffect(() => { setFeedback(null); }, [game?.runId, openingDraft?.runId]);
   useEffect(() => {
-    if (!feedback || game?.pendingEvent || view !== 'play' || showAbilities || confirmReset || openingDraft) return;
+    if (!feedback || game?.pendingEvent || view !== 'play' || showAbilities || showTimeAllocation || confirmReset || openingDraft) return;
     const timer = window.setTimeout(() => setFeedback(null), 8000);
     return () => window.clearTimeout(timer);
-  }, [feedback, game?.pendingEvent?.id, view, showAbilities, confirmReset, openingDraft]);
+  }, [feedback, game?.pendingEvent?.id, view, showAbilities, showTimeAllocation, confirmReset, openingDraft]);
   function prepareStart() {
     if (!db || lock.current || error) return;
     setOpeningDraft(createGame(crypto.randomUUID(), undefined, 'career-preview-v1'));
@@ -171,13 +172,10 @@ function App() {
   }
   latestAct.current = act;
   useEffect(() => {
-    if (game?.life) { setMain(game.life.focus.main); setSupporting(game.life.focus.supporting); }
-  }, [game?.runId, game?.life?.focus.main, game?.life?.focus.supporting]);
-  useEffect(() => {
     if (game && !openingDraft) playHeading.current?.focus({ preventScroll: true });
   }, [game?.runId, openingDraft]);
   useEffect(() => {
-    if (!db || view !== 'play' || busy || error || openingDraft || confirmReset || showAbilities || game?.status !== 'active' || !game.life || game.life.paused || game.pendingEvent) return;
+    if (!db || view !== 'play' || busy || error || openingDraft || confirmReset || showAbilities || showTimeAllocation || game?.status !== 'active' || !game.life || game.life.paused || game.pendingEvent) return;
     let previous = performance.now();
     const resetClock = () => { previous = performance.now(); };
     document.addEventListener('visibilitychange', resetClock);
@@ -189,7 +187,7 @@ function App() {
       void latestAct.current({ type: 'tick', id: crypto.randomUUID(), elapsedMs });
     }, 500);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', resetClock); };
-  }, [db, view, busy, error, openingDraft, confirmReset, showAbilities, game?.runId, game?.status, game?.life?.paused, game?.pendingEvent?.id]);
+  }, [db, view, busy, error, openingDraft, confirmReset, showAbilities, showTimeAllocation, game?.runId, game?.status, game?.life?.paused, game?.pendingEvent?.id]);
   const baseStage = STAGES[game?.stageIndex ?? 0];
   const stage = game?.stageIndex === 1 && game.career && game.career.application !== 'accepted' ? { ...baseStage, id: 'career' as const, label: '진로와 일', chapter: game.career.practice === 'research' ? '연구 생활' : game.career.practice === 'untrained' ? '일반진료와 생활' : '다음 지원 준비' } : baseStage;
   const workContext = game?.stageIndex !== 0 && game?.career?.practice === 'research' ? 'research' as const : game?.stageIndex === 1 && game.career?.application !== 'accepted' && game.career?.practice === 'undecided' ? 'preparation' as const : undefined;
@@ -201,8 +199,8 @@ function App() {
   const startAge = game ? lifeStartAge(game) : RANDOM_RULES.startAge;
   const age = startAge + Math.floor(months / 12);
   const month = months % 12;
-  const running = !!life && !life.paused && !game?.pendingEvent && !completed && view === 'play' && !confirmReset && !showAbilities && !error;
-  const timeStatus = completed ? '이야기 마침' : error ? '저장 확인 필요' : game?.pendingEvent ? '선택 대기' : showAbilities ? '능력 확인 중' : confirmReset || life?.paused ? '일시정지' : '진행 중';
+  const running = !!life && !life.paused && !game?.pendingEvent && !completed && view === 'play' && !confirmReset && !showAbilities && !showTimeAllocation && !error;
+  const timeStatus = completed ? '이야기 마침' : error ? '저장 확인 필요' : game?.pendingEvent ? '선택 대기' : showAbilities ? '능력 확인 중' : showTimeAllocation ? '시간·생활 설정 중' : confirmReset || life?.paused ? '일시정지' : '진행 중';
   const partnerName = game?.family?.partner?.name ?? (game?.family?.meeting ? MEETINGS[game.family.meeting].name : undefined);
   const shownJournal = selectedArchive?.state.journal ?? game?.journal ?? [];
   const knownPeer = game?.stories?.peer && PEER_IDS.some(id => game.stories?.decisions[id]) ? game.stories.peer : undefined;
@@ -210,7 +208,7 @@ function App() {
   const visualStory = sceneStory(game);
   const visualFocus = sceneActivity(game);
   const visualWork = game?.progress?.focus === 'research' ? 'research' as const : workContext;
-  const updateNotice = update.version && !showAbilities && !confirmReset && !openingDraft ? <UpdateToast key={update.version} onApply={applyUpdate} onLater={update.later} disabled={busy || loading || !db || !!error}/> : null;
+  const updateNotice = update.version && !showAbilities && !showTimeAllocation && !confirmReset && !openingDraft ? <UpdateToast key={update.version} onApply={applyUpdate} onLater={update.later} disabled={busy || loading || !db || !!error}/> : null;
   const opening = view === 'play' && (!game || !!openingDraft);
   return <div className={opening ? 'app-shell opening-shell' : view === 'play' ? 'app-shell play-shell' : 'app-shell'}>
     <header className="site-header">
@@ -228,9 +226,9 @@ function App() {
       {!opening && <div className="page-heading"><div><h1 ref={playHeading} tabIndex={-1}>{view === 'play' ? completed ? '회고' : game ? stageLabel : '의생게임' : view === 'journal' ? '생애 기록' : view === 'collection' ? '진료실 도감' : '회고 보관함'}</h1></div>{game && <button className="subtle-button" onClick={() => setConfirmReset(true)} disabled={busy}>새 게임</button>}</div>}
       {loading ? <section className="panel empty">기록을 불러오는 중입니다…</section> : <>
         {view === 'collection' && <CareerCollection records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>}
-        {opening && <Opening draft={openingDraft} busy={busy} disabled={!db || busy || !!error} entering={openingEntering} onPrepare={prepareStart} onIdentity={(gender, status) => setOpeningDraft(draft => draft ? configureIdentity(draft, gender, status) : draft)} onEnter={start} onBack={() => setOpeningDraft(null)}/>}
+        {opening && <Opening draft={openingDraft} busy={busy} disabled={!db || busy || !!error} entering={openingEntering} onPrepare={prepareStart} onEnter={start} onBack={() => setOpeningDraft(null)} onLengthChange={length => setOpeningDraft(draft => draft ? setStartingLength(draft, length) : draft)}/>}
         {view === 'play' && !opening && <>
-          {game && <PlayOverview key={game.runId} game={game} feedback={feedback} busy={busy} onAbilities={() => setShowAbilities(true)}>{life && <section className="time-ribbon" aria-label="나이와 시간 조작">
+          {game && <PlayOverview key={game.runId} game={game} feedback={feedback} busy={busy} onAbilities={() => setShowAbilities(true)} allocation={<TimeAllocation key={game.runId} game={game} busy={busy || !!error} onOpen={() => setShowTimeAllocation(true)}/>} >{life && <section className="time-ribbon" aria-label="나이와 시간 조작">
             <div className="age-display"><strong>{age}<span>세</span></strong><span>{month}개월 · {stageLabel}</span></div>
             <div className="year-clock"><div><span role="status" className={running ? 'time-state running' : 'time-state'}><i/>{timeStatus}</span><span>올해 {month + 1}/12</span></div><div className="year-progress" role="progressbar" aria-label="올해의 시간" aria-valuemin={0} aria-valuemax={12} aria-valuenow={month}><span style={{ width: `${((months + (serving ? (game.identity!.service.elapsedMs % SERVICE_RULES.monthMs) / SERVICE_RULES.monthMs : (life.elapsedMs % RANDOM_RULES.monthMs) / RANDOM_RULES.monthMs)) % 12) / 12 * 100}%` }}/></div></div>
             {!completed && <div className="time-controls"><button className="time-toggle" disabled={busy || !!error || !!game.pendingEvent} onClick={() => act({ type: 'control', id: crypto.randomUUID(), paused: !life.paused })}>{life.paused ? '▶ 재생' : 'Ⅱ 일시정지'}</button><label><span className="sr-only">시간 진행 속도</span><select aria-label="시간 진행 속도" value={life.speed} disabled={busy || !!error || !!game.pendingEvent} onChange={e => act({ type: 'control', id: crypto.randomUUID(), speed: Number(e.target.value) as TimeSpeed })}>{TIME_SPEEDS.map(speed => <option key={speed} value={speed}>{speed}배속</option>)}</select></label><button className="time-toggle next-choice" disabled={busy || !!error || !!game.pendingEvent} onClick={() => act({ type: 'next-choice', id: crypto.randomUUID() })}>다음 선택</button></div>}
@@ -247,12 +245,7 @@ function App() {
                 <>
               {game && <IdentityPanel game={game}/>}
               {game?.career && !serving && <CareerPanel game={game} busy={busy || !!error} act={act}/>}
-              {game && !completed && !game.career && <section className="panel activity-panel">
-                <div className="section-heading"><div><span className="eyebrow">생활</span><h3>{life ? '주로 무엇을 할까요?' : '시간을 어디에 쓸까요?'}</h3></div><span className="focus-caption">{game.pendingEvent ? '선택을 기다리며 쉬는 중' : '주활동 + 보조활동'}</span></div>
-                <div className="activity-options" role="group" aria-label="주활동">{(Object.entries(ACTIVITIES) as [Activity, typeof ACTIVITIES[Activity]][]).map(([id, activity]) => <button key={id} className={main === id ? 'activity selected' : 'activity'} aria-pressed={main === id} onClick={() => { setMain(id); if (supporting === id) setSupporting(main); }} disabled={busy || !!game.pendingEvent}><span className="activity-icon">{activity.icon}</span><strong>{activity.label}</strong><small>{activity.description}</small><span className="activity-check">{main === id ? '✓' : '＋'}</span></button>)}</div>
-                <div className="focus-actions"><label className="support">보조활동<select value={supporting} disabled={busy || !!game.pendingEvent} onChange={e => setSupporting(e.target.value as Activity)}>{Object.entries(ACTIVITIES).filter(([id]) => id !== main).map(([id, activity]) => <option key={id} value={id}>{activity.label}</option>)}</select></label><button className="primary" disabled={busy || !!error || !!game.pendingEvent || !!(life && life.focus.main === main && life.focus.supporting === supporting)} onClick={() => act({ type: 'activity', id: crypto.randomUUID(), main, supporting })}>{life ? '활동 변경' : '이렇게 하루 보내기'} →</button></div>
-                <p className="save-hint">{life ? '활동에 따라 능력치와 사건이 달라집니다.' : '활동과 선택은 완료될 때마다 자동으로 저장됩니다.'}</p>
-              </section>}
+
                 </>
                 <>
               {game && life && <details className="background-card"><summary><span>시작 배경</span><strong>{life.background.region} · {life.background.profile ? `가정 형편 상위 ${life.background.profile.wealthTopPercent}%` : life.background.environment}</strong><span>배경 펼치기 ＋</span></summary><BackgroundDetails background={life.background} hasEconomy={!!game.economy} /><p className="life-time-hint">진행 속도: 1배에서 {game.rulesVersion === 'career-preview-v1' ? CAREER_TIME.monthMs[game.stageIndex] / 1000 : RANDOM_RULES.monthMs / 1000}초에 한 달. 중요한 선택·기록 열람·다른 탭·저장 중에는 시간이 멈춥니다. 자리를 비운 시간은 따라잡지 않습니다.</p></details>}
@@ -275,6 +268,7 @@ function App() {
       </>}
       <footer className="disclosure"><div><span><a href="https://1in8b.life/ko/" target="_blank" rel="noreferrer">80억 분의 1</a>을 오마주한 게임</span><button className="text-button" onClick={download} disabled={!db}>저장 기록 백업</button></div><details><summary>게임 안내</summary><p>인물과 사건, 능력치와 금액은 게임을 위한 창작 설정입니다. 실제 의료 제도나 개인의 삶을 예측하지 않습니다.</p></details>{APP_DISPLAY_VERSION && <small className="app-version">버전 {APP_DISPLAY_VERSION}</small>}</footer>
     </main>
+    {showTimeAllocation && game && <TimeAllocationDialog key={game.runId} game={game} busy={busy || !!error} error={error} act={act} onClose={() => setShowTimeAllocation(false)}/>}
     {showAbilities && game && <AbilityPanel game={game} onClose={() => setShowAbilities(false)}/>}
     {(!game?.pendingEvent || !!error) && updateNotice}
     {confirmReset && <div className="modal-backdrop" onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false); if (e.key === 'Tab') { const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'); if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); buttons[buttons.length - 1]?.focus(); } else if (!e.shiftKey && document.activeElement === buttons[buttons.length - 1]) { e.preventDefault(); buttons[0]?.focus(); } } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span className="eyebrow">새 게임</span><h2 id="reset-title">새 게임을 시작할까요?</h2><p>진행 중인 생애 기록은 새 게임으로 바뀝니다. 진로 기록과 완료된 회고는 남습니다. 필요한 기록은 먼저 백업해 주세요.</p><div><button ref={resetCancel} className="subtle-button" onClick={() => setConfirmReset(false)} disabled={busy}>계속하기</button><button className="primary" onClick={prepareStart} disabled={busy || !!error}>입학 배경 보기</button></div></section></div>}

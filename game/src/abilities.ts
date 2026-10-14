@@ -116,11 +116,11 @@ function change(s: GameState, id: AbilityId, amount: number, reason: string) {
     a.changes[id] = { month: month(s), delta: round(after - before + (last?.month === month(s) ? last.delta : 0)), reason };
   }
 }
-export function practiceAbilities(s: GameState, ids: readonly AbilityId[], amount: number, reason: string) {
+export function practiceAbilities(s: GameState, ids: readonly AbilityId[], amount: number, reason: string, focus: Focus = s.progress?.focus ?? 'study') {
   upgradeAbilities(s);
   const learning = clamp(0.55 + s.stats.health / 400 + s.stats.happiness / 400
     + s.stats.knowledge / 600 + s.stats.relationships / 800 - (s.dynamics?.fatigue ?? 0) / 60, 0.3, 1.4);
-  const synergy = specialtySynergy(s, s.progress?.focus ?? 'study');
+  const synergy = specialtySynergy(s, focus);
   const aligned = SPECIALTY_SYNERGY[s.career?.specialty ?? ''] ?? [];
   for (const id of new Set(ids)) change(s, id, amount > 0 ? amount * learning * (aligned.includes(id) ? synergy : 1) : amount, reason);
 }

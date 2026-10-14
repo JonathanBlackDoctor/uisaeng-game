@@ -8,22 +8,30 @@ import PublicationRecord from './PublicationRecord';
 import { FINANCE_RULES, initialPortfolio, PLAN_AMOUNTS, type InvestmentRisk } from './portfolio';
 import { compactWon, exactWon } from './finance-view';
 
-export default function LifestylePanel({ game, busy, act }: { game: GameState; busy: boolean; act: (a: GameAction) => unknown }) {
-  const [amount, setAmount] = useState(100_000);
-  const l = game.lifestyle ?? initialLifestyle(), p = game.portfolio ?? initialPortfolio(game.seed), e = game.economy!;
+export function LifestyleSettings({ game, busy, act }: { game: GameState; busy: boolean; act: (a: GameAction) => unknown }) {
+  const l = game.lifestyle ?? initialLifestyle(), p = game.portfolio ?? initialPortfolio(game.seed);
   const schedule = lifestyleSchedule(game), disabled = busy || !!game.pendingEvent || game.status === 'completed';
-  const transferDisabled = busy || game.status === 'completed' || (!!game.pendingEvent && game.pendingEvent.randomKey !== 'funding');
-  const transfer = (kind: 'save' | 'withdraw' | 'invest' | 'sell', value: number) => act({ type: 'money-transfer', id: crypto.randomUUID(), kind, amount: value });
-  return <div className="lifestyle-panel">
-    <details><summary>생활 설정 <small>주 {schedule.remaining}시간 여유</small></summary>
+  return <>
       <p className="lifestyle-hint">수업·근무와 주활동을 뺀 시간입니다. 여러 활동을 함께 이어갈 수 있습니다.</p>
       {lifestyleKeys.map(key => { const o = LIFESTYLE_OPTIONS[key]; const eligible = lifestyleAvailable(game, key), unavailable = !l.enabled[key] && (o.hours > schedule.remaining || !eligible);
-        return <label className="lifestyle-option" key={key}><input type="checkbox" role="switch" checked={!!l.enabled[key]} disabled={disabled || unavailable} onChange={event => act({ type: 'lifestyle', id: crypto.randomUUID(), key, enabled: event.target.checked })}/><span>{o.label}<small>주 {o.hours}시간 · {o.income ? `월 수입 ${compactWon(o.income)}` : o.cost ? `월 ${compactWon(Math.round(o.cost * p.priceIndex / 1_000_000))}` : '비용 없음'}{!eligible && key === 'mentoring' ? ' · 직업 생활부터 가능' : schedule.suspended.includes(key) ? ' · 시간 부족으로 중단 중' : ''}</small>{key === 'family' && <small>가족과 함께 보낸 시간이 쌓입니다.</small>}{key === 'mentoring' && eligible && <small>{currentStudent(game) ? mentoringSummary(game) : `누적 ${LEGACY_RULES.mentoringMonths}개월 지도하면 1명`}</small>}</span></label>;
+        return <label className="lifestyle-option" key={key}><input type="checkbox" role="switch" checked={!!l.enabled[key]} disabled={disabled || unavailable} onChange={event => act({ type: 'lifestyle', id: crypto.randomUUID(), key, enabled: event.target.checked })}/><span>{o.label}<small>주 {o.hours}시간 · {o.income ? `월 수입 ${compactWon(o.income)}` : o.cost ? `월 ${compactWon(Math.round(o.cost * p.priceIndex / 1_000_000))}` : '비용 없음'}{!eligible && key === 'mentoring' ? ' · 직업 생활부터 가능' : schedule.suspended.includes(key) ? ' · 중단 중' : !eligible ? ' · 현재는 할 수 없음' : unavailable ? ' · 남은 시간 부족' : ''}</small>{key === 'family' && <small>가족과 함께 보낸 시간이 쌓입니다.</small>}{key === 'mentoring' && eligible && <small>{currentStudent(game) ? mentoringSummary(game) : `누적 ${LEGACY_RULES.mentoringMonths}개월 지도하면 1명`}</small>}</span></label>;
       })}
       <MentoringRecord game={game}/>
       <PublicationRecord game={game}/>
       <label className="career-field"><span>식생활</span><select value={l.diet} disabled={disabled} onChange={event => act({ type: 'diet', id: crypto.randomUUID(), diet: event.target.value as Diet })}><option value="frugal">절약해서 먹기</option><option value="balanced">보통으로 먹기</option><option value="comfortable">여유 있게 챙겨 먹기</option></select></label>
-    </details>
+  </>;
+}
+
+export default function LifestylePanel({ game, busy, act, showSettings = true }: { game: GameState; busy: boolean; act: (a: GameAction) => unknown; showSettings?: boolean }) {
+  const [amount, setAmount] = useState(100_000);
+  const p = game.portfolio ?? initialPortfolio(game.seed), e = game.economy!;
+  const schedule = lifestyleSchedule(game), disabled = busy || !!game.pendingEvent || game.status === 'completed';
+  const transferDisabled = busy || game.status === 'completed' || (!!game.pendingEvent && game.pendingEvent.randomKey !== 'funding');
+  const transfer = (kind: 'save' | 'withdraw' | 'invest' | 'sell', value: number) => act({ type: 'money-transfer', id: crypto.randomUUID(), kind, amount: value });
+  return <div className="lifestyle-panel">
+    {showSettings && <details><summary>생활 설정 <small>주 {schedule.remaining}시간 여유</small></summary>
+      <LifestyleSettings game={game} busy={busy} act={act}/>
+    </details>}
     <details><summary>저축·투자·상환</summary>
       <dl className="portfolio-balances"><div><dt>예금</dt><dd title={exactWon(p.savings)}>{compactWon(p.savings)}</dd></div><div><dt>투자 평가액</dt><dd title={exactWon(p.investments)}>{compactWon(p.investments)}</dd></div><div><dt>이번 달 예금 이자</dt><dd>{compactWon(p.lastInterest)}</dd></div><div><dt>이번 달 대출 이자</dt><dd>{compactWon(p.lastDebtInterest)}</dd></div><div><dt>이번 달 투자 손익</dt><dd>{compactWon(p.lastInvestmentReturn)}</dd></div></dl>
       <p className="lifestyle-hint">예금 연 {FINANCE_RULES.depositBps / 100}%, 대출 연 {clinicDebtBps(game) / 100}%. 매월 이자가 붙습니다. 갚지 않은 대출 이자는 부채에 더해집니다.</p>

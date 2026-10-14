@@ -6,6 +6,7 @@ import { encounterLabel, netAssets } from './life-goals';
 import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
 import { formatWon } from './money-format';
+import { roundedValue } from './display-values';
 
 // Only the public game address is shared, never local preview URLs or save data.
 export const GAME_SHARE_URL = 'https://JonathanBlackDoctor.github.io/uisaeng-game/';
@@ -23,7 +24,7 @@ export function resultShareData(game: GameState): ShareData {
     const practice = { undecided: '진로 탐색', employed: '봉직의', clinic: '개원', research: '연구', untrained: '일반진료' }[game.career.practice];
     lines.push([specialty, practice].filter(Boolean).join(' · '));
   }
-  lines.push((Object.keys(STAT_LABELS) as Stat[]).map(key => `${STAT_LABELS[key]} ${game.stats[key]}`).join(' · '));
+  lines.push((Object.keys(STAT_LABELS) as Stat[]).map(key => `${STAT_LABELS[key]} ${roundedValue(game.stats[key])}`).join(' · '));
   lines.push(`생애 기록 ${game.journal.length}개`);
   return { title: '의생게임 · 나의 결과', text: lines.join('\n'), url: GAME_SHARE_URL };
 }

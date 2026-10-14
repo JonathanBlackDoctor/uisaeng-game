@@ -49,7 +49,13 @@ describe('multiplicative specialty synergy', () => {
       expect(s.career!.experience.clinical - 20).toBe(Math.round(delta * (delta > 0 ? specialtySynergy(s, 'clinical') : 1)));
       expect(s.dynamics!.seed).toBe(base.dynamics!.seed);
     }
-    expect(grades.has(2)).toBe(true); expect(grades.has(-2)).toBe(true);
+    expect(grades.has(2)).toBe(true);
+    // Skilled routine work no longer randomly collapses; novices still have setbacks.
+    expect([...grades].every(grade => grade >= 0)).toBe(true);
+    const novice = trained(); for (const a of ABILITIES) novice.abilities!.values[a.id] = 0;
+    novice.life!.elapsedMs = 1000; novice.career!.experience.clinical = 20;
+    advanceDynamics(novice); expect(novice.dynamics!.lastGrade).toBe(-2);
+    expect(novice.career!.experience.clinical).toBe(18);
   });
   it('accelerates relevant skill growth, restores deterministically and does not reapply a month', () => {
     const s = trained(); s.abilities!.values.technique = s.abilities!.values.judgment = 60;
@@ -74,9 +80,9 @@ describe('multiplicative specialty synergy', () => {
     const s = trained(); s.career!.experience.clinical = 20;
     resolveChoiceEffort(s, 'clinical-case', 'review', 'case-1');
     const once = structuredClone(s); resolveChoiceEffort(s, 'clinical-case', 'review', 'case-1'); expect(s).toEqual(once);
-    const shown = specialtySynergy(s, 'clinical').toFixed(1);
-    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toContain(`전공 시너지 ×${shown}`);
-    expect(renderToStaticMarkup(<AbilityContent game={s}/>)).toContain(`외과 시너지 ×${shown}`);
+    const shown = Math.round((specialtySynergy(s, 'clinical') - 1) * 100);
+    expect(renderToStaticMarkup(<AbilitySummary game={s}/>)).toContain(`전공 시너지 +${shown}%`);
+    expect(renderToStaticMarkup(<AbilityContent game={s}/>)).toContain(`외과 시너지 +${shown}%`);
     expect(s).toEqual(once);
   });
   it('keeps career experience and training skill integral at fractional multipliers', () => {

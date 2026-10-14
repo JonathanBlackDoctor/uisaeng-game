@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { formatMoneyText } from './money-format';
+import { eventParagraphs, readableEvent } from './event-copy';
 import './decision-sheet.css';
 
 export interface DecisionSheetProps {
@@ -22,10 +23,11 @@ export interface DecisionSheetProps {
 
 // A new event gets a fresh sheet, including its focus and accidental-input guard.
 export default function DecisionSheet(props: DecisionSheetProps) {
-  return <EventDecisionSheet key={props.event.id} {...props} />;
+  return <EventDecisionSheet key={props.event.id} {...props} event={readableEvent(props.event)} />;
 }
 
 function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities, updateNotice, abilityImpact, feedback }: DecisionSheetProps) {
+  const { situation, memory } = eventParagraphs(event.body);
   const id = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -179,7 +181,8 @@ function EventDecisionSheet({ event, busy, onChoose, evidence, onAbilities, upda
             </button>
           </header>
           <h2 ref={titleRef} tabIndex={-1} className="ds-title" id={`${id}-title`}>{formatMoneyText(event.title)}</h2>
-          <p className="ds-body" id={`${id}-body`}>{formatMoneyText(event.body.replaceAll('이 미리보기에서는', '게임에서는'))}</p>
+          <p className="ds-body" id={`${id}-body`}>{formatMoneyText(situation)}</p>
+          {memory && <details className="ds-memory"><summary>이전 선택</summary><p>{formatMoneyText(memory)}</p></details>}
           {!minimized && updateNotice}
           {abilityImpact}
           {feedback}

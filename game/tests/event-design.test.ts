@@ -80,8 +80,14 @@ describe('meaningful event decisions', () => {
     const practiced = (x: GameState) => situation.skills.reduce((n, id) => n + x.abilities!.values[id], 0);
     expect(practiced(direct)).toBeGreaterThan(practiced(advanced));
     expect(practiced(advanced)).toBeGreaterThan(practiced(help));
-    expect(help.stats.health).toBeGreaterThan(advanced.stats.health);
-    expect(advanced.stats.health).toBeGreaterThan(direct.stats.health);
+    // New routes charge their actual fatigue rather than fixed health penalties.
+    if (key === 'ability-recovery') {
+      expect(help.stats.health).toBeGreaterThan(s.stats.health);
+      expect(direct.stats.health).toBeGreaterThan(s.stats.health);
+    } else {
+      expect(help.dynamics!.fatigue).toBeLessThanOrEqual(direct.dynamics!.fatigue);
+      expect(help.dynamics!.fatigue).toBeLessThan(advanced.dynamics!.fatigue);
+    }
   });
   it('keeps old pending choices exact and rejects forged new effects', () => {
     const s = at(1); s.progress!.club = 'pending';

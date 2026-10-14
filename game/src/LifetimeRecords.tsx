@@ -2,6 +2,7 @@ import { STAT_LABELS, type GameState } from './contracts';
 import { mergeCareerRecords, type CareerRecord } from './career-records';
 import { observedHighs, STAT_KEYS } from './stat-highs';
 import './lifetime-records.css';
+import { roundedValue } from './display-values';
 
 export default function LifetimeRecords({ game, records }: { game?: GameState; records: CareerRecord[] }) {
   const current = game ? observedHighs(game) : undefined;
@@ -13,7 +14,7 @@ export default function LifetimeRecords({ game, records }: { game?: GameState; r
       {STAT_KEYS.map(key => {
         const peak = Math.max(current?.values[key] ?? -1, own?.values[key] ?? -1, ...rows.map(r => r.statHighs?.values[key] ?? -1));
         const first = rows.findIndex(r => r.statHighs?.values[key] === peak);
-        return <tr key={key}><th scope="row">{STAT_LABELS[key]}</th>{current && <td>{Number(Math.max(current.values[key], own?.values[key] ?? 0).toFixed(1))}</td>}<td>{peak < 0 ? '—' : <><strong>{Number(peak.toFixed(1))}</strong>{first >= 0 && <small>{first + 1}번째 플레이</small>}</>}</td></tr>;
+        return <tr key={key}><th scope="row">{STAT_LABELS[key]}</th>{current && <td>{roundedValue(Math.max(current.values[key], own?.values[key] ?? 0))}</td>}<td>{peak < 0 ? '—' : <><strong>{roundedValue(peak)}</strong>{first >= 0 && <small>{first + 1}번째 플레이</small>}</>}</td></tr>;
       })}
     </tbody></table>
     <p>저장된 기록을 기준으로 합니다. 이전 저장에 없는 과거 최고값은 포함하지 않습니다.</p>

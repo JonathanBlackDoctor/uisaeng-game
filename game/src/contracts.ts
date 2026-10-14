@@ -34,8 +34,8 @@ export interface RandomLife {
   childBornMonth?: number;
 }
 export type FamilyScene = 'meeting' | 'gwating' | 'blind-date' | 'campus' | 'confession' | 'cc-life' | 'distance' | 'marriage' | 'parenthood' | 'care' | 'growth' | 'couple-life' | 'single-life' | 'family-recap';
-export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; choiceVersion?: 1; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
-export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats> }
+export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; choiceVersion?: 1; abilityImpactVersion?: 1; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
+export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats>; importance?: 'major'; choice?: { label: string; detail: string; context?: string; effects: Partial<Stats>; resultId?: string } }
 export interface GameState {
   statHighs?: import('./stat-highs').StatHighs;
   clinic?: import('./clinic').ClinicState;
@@ -65,6 +65,7 @@ export interface CareerProgress {
   version: 1;
   clockVersion?: 2;
   pacingVersion?: 1;
+  runLength?: 'standard' | 'short';
   focus: 'study' | 'research' | 'clinical' | 'people' | 'rest' | 'work';
   club: 'pending' | 'joined' | 'declined';
   marriage: 'pending' | 'later' | 'settled';

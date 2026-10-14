@@ -3,6 +3,7 @@ import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { ECONOMY_RULES } from './economy';
 import { focusAbilityModifier, abilityFatigueRelief, specialtySynergy } from './abilities';
 import { familyFatigueModifier } from './background';
+import { performanceExplanation, performanceGrade, performancePreview } from './ability-impact';
 
 type Focus = CareerProgress['focus'];
 const focuses: Focus[] = ['study', 'research', 'clinical', 'people', 'rest', 'work'];
@@ -33,9 +34,15 @@ const labels: Record<Focus, string> = { study: '공부', research: '연구', cli
 const outcomes = ['여러 번 어긋나 계획을 크게 줄였습니다.', '예상보다 막히는 일이 많았습니다.', '계획한 만큼 진행했습니다.', '일이 잘 풀려 다음 계획까지 준비했습니다.', '기대한 것보다 훨씬 좋은 결과를 얻었습니다.'];
 
 /** One draw per resolved effort, never per frame or UI interaction. */
-export function rollEffort(s: GameState, focus: Focus): number {
+export function rollEffort(s: GameState, focus: Focus, legacy = false): number {
   const d = s.dynamics!;
   const draw = nextRandom(d.seed); d.seed = draw.seed;
+  if (!legacy && s.abilities) {
+    const grade = performanceGrade(performancePreview(s, focus), draw.value, d.momentum[focus]);
+    d.momentum[focus] = clamp(d.momentum[focus] + grade, -12, 12);
+    d.lastGrade = grade;
+    return grade;
+  }
   const readiness = (s.stats[relevant[focus]] - 50) / 150;
   const trend = clamp(readiness + d.momentum[focus] * 0.035 - d.fatigue * 0.012 + focusAbilityModifier(s, focus), -0.6, 0.6);
   const weights = [8, 22, 40, 22, 8].map((w, i) => w * Math.exp((i - 2) * trend));
@@ -58,7 +65,7 @@ function effortEffects(focus: Focus, grade: number, synergy = 1): Partial<Stats>
   return { [target]: grade < 0 ? grade * 2 : (grade + 1) * synergy,
     ...(focus !== 'rest' ? { happiness: grade } : { happiness: Math.max(0, grade + 1) }) };
 }
-export function resolveChoiceEffort(s: GameState, eventKey: string, choice: string, actionId: string) {
+export function resolveChoiceEffort(s: GameState, eventKey: string, choice: string, actionId: string, legacy = false) {
   // Decisions about identity, relationships, money transfers and declining an offer are never rerolled.
   const focus: Focus | undefined = eventKey === 'clinical-case' ? 'clinical'
     : eventKey === 'research-followup' && choice === 'review' ? 'research'
@@ -71,14 +78,15 @@ export function resolveChoiceEffort(s: GameState, eventKey: string, choice: stri
   const d = s.dynamics!;
   if (d.attempts.includes(actionId)) return;
   d.attempts.push(actionId);
-  const grade = rollEffort(s, focus);
+  const preview = !legacy && s.abilities ? performancePreview(s, focus) : undefined;
+  const grade = rollEffort(s, focus, legacy);
   const synergy = specialtySynergy(s, focus);
   if (focus in s.career!.experience) {
     const k = focus as keyof NonNullable<GameState['career']>['experience'];
     s.career!.experience[k] = clamp(s.career!.experience[k] + Math.round(grade * 3 * (grade > 0 ? synergy : 1)), 0, 100);
   }
   if (eventKey.startsWith('depth-') && s.depth) s.depth.skill = clamp(s.depth.skill + Math.round(grade * 2 * (grade > 0 ? synergy : 1)), 0, 100);
-  record(s, `${actionId}:effort`, `${labels[focus]}의 결과`, outcomes[grade + 2], effortEffects(focus, grade, synergy));
+  record(s, `${actionId}:effort`, `${labels[focus]}의 결과`, preview ? performanceExplanation(preview, grade) : outcomes[grade + 2], effortEffects(focus, grade, synergy));
 }
 
 /** Called once after the existing monthly content. Old saves start at their current month. */
@@ -92,12 +100,14 @@ export function advanceDynamics(s: GameState) {
     if (decision?.followed && decision.month + 3 > (d.since ?? 0)) resolveChoiceEffort(s, `${key}-result`, decision.choice, `followup:${key}:${decision.month}`);
   }
   const demanding = s.stageIndex !== 3 && ['study', 'research', 'clinical', 'work'].includes(focus);
-  d.fatigue = clamp(d.fatigue + (focus === 'rest' ? -5 : focus === 'people' ? -2 : demanding ? 1 : -1)
+  const efficient = s.abilities && performancePreview(s, focus).margin >= 8;
+  d.fatigue = clamp(d.fatigue + (focus === 'rest' ? -5 : focus === 'people' ? -2 : demanding ? (efficient && m % 2 === 0 ? 0 : 1) : -1)
     + (s.stageIndex === 0 && m % 3 === 0 ? familyFatigueModifier(s.life?.background) : 0)
     + (s.depth?.workload === 'extended' ? 1 : 0)
     - (focus === 'rest' || m % 3 === 0 ? abilityFatigueRelief(s) : 0), 0, 24);
   // Past success or failure matters, but cannot lock a focus into one outcome for decades.
   if (m % 3 === 0) for (const key of focuses) d.momentum[key] -= Math.sign(d.momentum[key]);
+  const preview = s.abilities ? performancePreview(s, focus) : undefined;
   const grade = rollEffort(s, focus);
   const synergy = specialtySynergy(s, focus);
   if (focus in s.career!.experience) {
@@ -127,7 +137,7 @@ export function advanceDynamics(s: GameState) {
     effects[key] = (change < 0 ? -Math.max(1, Math.round(-change * (0.2 + 0.8 * value / 100))) : change) + recovery;
   }
   record(s, `auto:dynamics:${m}`, `${labels[focus]}하며 보낸 석 달`,
-    `${outcomes[grade + 2]}${s.abilities ? ' 관련 능력과 현재 컨디션이 결과에 반영됐습니다.' : ''}${d.fatigue >= 12 ? ' 피로가 쌓여 집중하기 어려웠습니다.' : ''}${debtBurden ? ' 갚을 돈이 생활의 부담으로 남았습니다.' : ''}`, effects);
+    `${preview ? performanceExplanation(preview, grade) : outcomes[grade + 2]}${d.fatigue >= 12 ? ' 피로가 쌓여 집중하기 어려웠습니다.' : ''}${debtBurden ? ' 갚을 돈이 생활의 부담으로 남았습니다.' : ''}`, effects);
 }
 
 /** Variable earnings only; the agreed salary itself is not randomly docked. */

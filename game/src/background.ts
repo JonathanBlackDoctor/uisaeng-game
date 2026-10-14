@@ -56,10 +56,12 @@ export function familyFunding(b?: LifeBackground) {
   const amount = (column: 1 | 2 | 3) => Math.round((lo[column] + (hi[column] - lo[column]) * ratio) * factor / 10_000) * 10_000;
   return { initialCash: amount(1), monthly: amount(2), semester: amount(3) };
 }
-export function backgroundStatEffects(b: LifeBackground): Partial<Stats> {
+export function backgroundStatEffects(b: LifeBackground, trace?: (reason: string, effects: Partial<Stats>) => void): Partial<Stats> {
   const p = b.profile; if (!p) return {};
   const effects = { health: 0, happiness: 0, knowledge: 0, relationships: 0 };
-  const add = (x: Partial<Stats>) => { for (const k of Object.keys(x) as (keyof Stats)[]) effects[k] += x[k]!; };
+  let index = 0;
+  const reasons = [CHILDHOOD_HEALTH[p.childhoodHealth], CLIMATES[p.climate], LEARNING[p.learning], b.experience];
+  const add = (x: Partial<Stats>) => { trace?.(reasons[index++], x); for (const k of Object.keys(x) as (keyof Stats)[]) effects[k] += x[k]!; };
   add(({ robust: { health: 12 }, ordinary: {}, recovering: { health: -12, happiness: -3 }, active: { health: 8, happiness: 3 } })[p.childhoodHealth]);
   add(({ warm: { happiness: 10, relationships: 12 }, distant: { happiness: -5, relationships: -8 }, demanding: { happiness: -9, knowledge: 4 }, independent: { happiness: 3 }, steady: { happiness: 3, relationships: 4 } })[p.climate]);
   add(({ library: { knowledge: 9 }, tutoring: { knowledge: 10 }, peers: { knowledge: 5, relationships: 7 }, moving: { relationships: -4, happiness: -3 }, practical: { knowledge: 6 } })[p.learning]);
@@ -72,18 +74,22 @@ export function backgroundStatEffects(b: LifeBackground): Partial<Stats> {
   if (p.version === 3) for (const k of Object.keys(effects) as (keyof Stats)[]) effects[k] = Math.round(effects[k] * BACKGROUND_RULES.statEffectMultiplier);
   return effects;
 }
-export function backgroundAbilityBonuses(b?: LifeBackground): Record<string, number> {
+export function backgroundAbilityBonuses(b?: LifeBackground, trace?: (reason: string, skills: string[], amount: number) => void): Record<string, number> {
   if (!b?.profile) return {};
   const p = b.profile, values: Record<string, number> = {};
-  const add = (skills: string[], n: number) => skills.forEach(k => { values[k] = (values[k] ?? 0) + n; });
+  let reason = b.experience;
+  const add = (skills: string[], n: number) => { trace?.(reason, skills, n); skills.forEach(k => { values[k] = (values[k] ?? 0) + n; }); };
   const experiences = [ ['memory', 'concentration', 'persistence'], ['stamina', 'strength', 'reflexes'], ['sociability', 'leadership', 'mediation'],
     ['empathy', 'planning', 'adaptability'], ['business', 'planning', 'persuasion'], ['dexterity', 'concentration', 'persistence'],
     ['researchDesign', 'analysis', 'observation'], ['writing', 'comprehension', 'regulation'], ['empathy', 'teamwork', 'explanation'], ['explanation', 'reasoning', 'composure'] ];
   add(experiences[EXPERIENCES.indexOf(b.experience as typeof EXPERIENCES[number])] ?? [], 15);
   const learning = { library: ['memory', 'concentration'], tutoring: ['comprehension', 'planning'], peers: ['teamwork', 'explanation'], moving: ['adaptability', 'composure'], practical: ['spatial', 'dexterity'] };
+  reason = LEARNING[p.learning];
   add(learning[p.learning], 10);
+  reason = CHILDHOOD_HEALTH[p.childhoodHealth];
   if (p.childhoodHealth === 'robust' || p.childhoodHealth === 'active') add(['stamina', 'recovery'], 10);
   if (p.childhoodHealth === 'recovering') { add(['stamina', 'strength'], -10); add(['planning', 'observation'], 8); }
+  reason = CLIMATES[p.climate];
   if (p.climate === 'warm') add(['empathy', 'regulation'], 8);
   if (p.climate === 'distant') { add(['sociability'], -8); add(['persistence'], 8); }
   if (p.climate === 'demanding') { add(['regulation', 'composure'], -8); add(['persistence'], 10); }

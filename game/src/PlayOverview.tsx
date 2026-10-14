@@ -7,9 +7,10 @@ import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
 import FinanceSummary from './FinanceSummary';
 import { incidentSummary } from './major-events';
+import { roundedValue, signedValue } from './display-values';
 
-export default function PlayOverview({ game, children, busy, onAbilities, feedback }: {
-  game: GameState; children: ReactNode; busy: boolean; onAbilities: () => void; feedback?: ChoiceResult | null;
+export default function PlayOverview({ game, children, busy, onAbilities, feedback, allocation }: {
+  game: GameState; children: ReactNode; busy: boolean; onAbilities: () => void; feedback?: ChoiceResult | null; allocation?: ReactNode;
 }) {
   const [expiredFeedback, setExpiredFeedback] = useState<string | null>(null);
   useEffect(() => {
@@ -25,14 +26,19 @@ export default function PlayOverview({ game, children, busy, onAbilities, feedba
     <div className="overview-top">
       {children}
       <div className="overview-stats" aria-label="현재 능력치">
-        {Object.entries(STAT_LABELS).map(([key, label]) => <div className={`overview-stat stat-${key}`} key={key}>
-          <div className="overview-stat-value"><span>{label}</span><strong>{game.stats[key as keyof typeof STAT_LABELS]}</strong></div>
-          {!!changes[key as keyof typeof STAT_LABELS] && <span key={feedback!.id} className={`overview-stat-change ${changes[key as keyof typeof STAT_LABELS]! > 0 ? 'positive' : 'negative'}`} aria-label={`${label} ${changes[key as keyof typeof STAT_LABELS]! > 0 ? '증가' : '감소'} ${Math.abs(changes[key as keyof typeof STAT_LABELS]!)}`}>{changes[key as keyof typeof STAT_LABELS]! > 0 ? '+' : '−'}{Math.abs(changes[key as keyof typeof STAT_LABELS]!)}</span>}
-          <div className="overview-stat-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={game.stats[key as keyof typeof STAT_LABELS]}><i style={{ width: `${Math.max(0, Math.min(100, game.stats[key as keyof typeof STAT_LABELS]))}%` }}/></div>
-        </div>)}
+        {Object.entries(STAT_LABELS).map(([key, label]) => {
+          const stat = key as keyof typeof STAT_LABELS;
+          const value = roundedValue(game.stats[stat]), change = roundedValue(changes[stat] ?? 0);
+          return <div className={`overview-stat stat-${key}`} key={key}>
+            <div className="overview-stat-value"><span>{label}</span><strong>{value}</strong></div>
+            {change !== 0 && <span key={feedback!.id} className={`overview-stat-change ${change > 0 ? 'positive' : 'negative'}`} aria-label={`${label} ${change > 0 ? '증가' : '감소'} ${Math.abs(change)}`}>{signedValue(change)}</span>}
+            <div className="overview-stat-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}><i style={{ width: `${Math.max(0, Math.min(100, game.stats[stat]))}%` }}/></div>
+          </div>;
+        })}
         {game.career && <button className="subtle-button" onClick={onAbilities} disabled={busy}>능력 보기</button>}
       </div>
     </div>
+      {allocation}
     </section>
     {(game.career || assets !== null) && <div className="overview-finance" aria-label="생애 기록과 재정">
       {game.career && <div className="overview-goal"><span>누적 진료</span><strong>{encounterLabel(game)}</strong></div>}

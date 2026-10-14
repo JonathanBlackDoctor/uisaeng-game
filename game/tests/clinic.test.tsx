@@ -48,10 +48,10 @@ describe('hospital leverage', () => {
     const s = expand(clinicScenario(42, 3_000_000_000));
     for (let n = 2; n <= 3; n++) { s.life!.elapsedMs += 12_000; expect(settleClinicChoice(s, 'clinic:expand', 'borrow')).toBe(true); }
     expect(s.clinic!.level).toBe(3); expect(s.economy!.debt).toBe(2_580_000_000);
-    expect(clinicRevenue(s)).toBe(260_000_000); expect(clinicService(s)).toBe(60_200_000);
+    expect(clinicRevenue(s)).toBe(420_000_000); expect(clinicService(s)).toBe(60_200_000);
     s.economy!.lastMonth = s.life!.elapsedMs / 1000;
     month(s); expect(s.portfolio!.lastDebtInterest).toBe(38_700_000);
-    expect(s.economy!.ledger.find(t => t.label === '개원 매출')!.cashDelta).toBe(260_000_000);
+    expect(s.economy!.ledger.find(t => t.label === '개원 매출')!.cashDelta).toBe(420_000_000);
     expect(s.clinic!.lastService).toBeGreaterThan(60_000_000);
     expect(canExpandClinic(s)).toBe(false); expect(validState(s)).toBe(true);
     const settled = structuredClone(s); settleClinic(s); prepareClinic(s); expect(s).toEqual(settled);

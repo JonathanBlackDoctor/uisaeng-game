@@ -4,6 +4,7 @@ import { familyEvent, familySummary, firstFamilyScene, initialFamily, settleFami
 import { createRandomGame, reduceRandomGame } from './random-life';
 import { createCareerGame, reduceCareerGame } from './career-runtime';
 import { captureHighs } from './stat-highs';
+import { describeChoice } from './choice-journal';
 
 export function createGame(runId: string, seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0], version: GameState['rulesVersion'] = 'random-preview-v1'): GameState {
   if (version === 'career-preview-v1') return createCareerGame(runId, seed);
@@ -16,7 +17,7 @@ function adjust(stats: Stats, effects: Partial<Stats>): Stats {
 }
 export function reduceGame(state: GameState, action: GameAction): GameState {
   const next = reduceAction(state, action);
-  if (next !== state) captureHighs(next, state);
+  if (next !== state) { captureHighs(next, state); describeChoice(state, next, action); }
   return next;
 }
 function reduceAction(state: GameState, action: GameAction): GameState {

@@ -5,12 +5,13 @@ import { backgroundSummary } from './random-life';
 import { CLIMATES, FAMILY_STYLES, LEARNING, CHILDHOOD_HEALTH, familyFunding, backgroundStatEffects, familyFatigueModifier } from './background';
 import { compactWon, exactWon } from './finance-view';
 import './background.css';
+import { signedValue } from './display-values';
 
 export default function BackgroundDetails({ background: b, hasEconomy }: { background: LifeBackground; hasEconomy: boolean }) {
   const p = b.profile;
   if (!p) return <p>{backgroundSummary(b)}</p>;
   const funding = familyFunding(b), stats = backgroundStatEffects(b), skills = abilityBackgroundBonuses(b);
-  const sign = (n: number) => n > 0 ? `+${n}` : `${n}`;
+  const sign = signedValue;
   const fatigue = familyFatigueModifier(b);
   return <div className="background-details">
     <dl>

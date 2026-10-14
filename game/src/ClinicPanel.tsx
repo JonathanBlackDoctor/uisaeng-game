@@ -1,11 +1,11 @@
 import type { GameAction, GameState } from './contracts';
-import { CLINIC_RULES, canExpandClinic, clinicDebtBps, clinicLevel, clinicOpen, clinicRevenue, clinicService, clinicTier } from './clinic';
+import { CLINIC_RULES, canExpandClinic, clinicDebtBps, clinicLevel, clinicOpen, clinicRevenue, clinicService, clinicTier, nextClinicTier } from './clinic';
 import { compactWon as won } from './finance-view';
 import { elapsedMonths } from './random-life';
 
 export default function ClinicPanel({ game, disabled, act }: { game: GameState; disabled: boolean; act: (a: GameAction) => unknown }) {
   if (!clinicOpen(game)) return null;
-  const tier = clinicTier(game), next = CLINIC_RULES.tiers[clinicLevel(game) + 1];
+  const tier = clinicTier(game), next = nextClinicTier(game);
   const price = (game.portfolio?.priceIndex ?? 1e6) / 1e6, wage = (game.portfolio?.wageIndex ?? 1e6) / 1e6;
   const wait = Math.max(0, (game.clinic?.changedAt ?? -12) + CLINIC_RULES.cooldown - elapsedMonths(game));
   return <details className="money-details"><summary>병원 운영 · {tier.name}</summary>

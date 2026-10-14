@@ -146,7 +146,7 @@ describe('detailed abilities', () => {
     practiceAbilities(s, ['selfManagement'], 1, '운동');
     const html = renderToStaticMarkup(<AbilityContent game={s}/>);
     expect(html).toContain('쌓은 실력'); expect(html).toContain('현재 수행력'); expect(html).toContain('운동');
-    expect(html).toContain(abilityPerformance(s, 'selfManagement').current.toFixed(1));
+    expect(html).toContain(`현재 수행력 ${Math.round(abilityPerformance(s, 'selfManagement').current)}`);
     expect(html).not.toContain('provisional');
     expect(html.match(/class="ability-row(?: ability-relevant)?"/g)).toHaveLength(6);
     expect(html).toContain('상세 능력 6가지');

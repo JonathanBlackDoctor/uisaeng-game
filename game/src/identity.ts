@@ -1,6 +1,7 @@
 import type { EventChoice, GameState, Stats } from './contracts';
 import { STAGES } from './fixtures/content';
 import { elapsedMonths, lifeAge, nextRandom } from './random-life';
+import { servicePacingRate } from './pacing';
 
 export type Gender = 'male' | 'female';
 export type ServiceRoute = 'army' | 'doctor' | 'public-health';
@@ -195,7 +196,7 @@ export function advanceService(s: GameState, elapsedMs: number) {
   const before = serviceMonths(s), end = serviceDuration(route);
   // Stop at each decision boundary even at 16x; do not consume time after a choice.
   const stop = !seen(s, 'service:daily') ? 3 : !seen(s, 'service:contact') ? Math.floor(end / 2) : end;
-  x.elapsedMs = Math.min(stop * SERVICE_RULES.monthMs, x.elapsedMs + elapsedMs * s.life!.speed);
+  x.elapsedMs = Math.min(stop * SERVICE_RULES.monthMs, x.elapsedMs + elapsedMs * s.life!.speed * servicePacingRate(s));
   const targetMs = x.elapsedMs, after = serviceMonths(s);
   const e = s.economy!;
   for (let month = before + 1; month <= after; month++) {

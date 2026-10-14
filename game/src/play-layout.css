@@ -90,10 +90,18 @@
 .play-log-group > article { padding-left: 14px; border-left: 2px solid var(--line); }
 .play-log .log-milestone { border-left: 2px solid #548575; padding-left: 12px; margin-block: 6px; }
 .play-log .log-milestone > details > summary { font-weight: 700; color: #294f46; font-size: 15px; }
+.play-log .log-major { border-left: 3px solid #a25934; background: #faf1e7; padding: 10px 12px; margin-block: 8px; border-radius: 0 4px 4px 0; }
+.play-log .log-major > details > summary, .play-log .log-major .play-log-choice > strong { font-weight: 750; color: #703c24; font-size: 15px; }
+.play-log .log-major p { color: #574638; }
+.play-log .log-major .play-log-effects { font-weight: 650; color: #703c24; }
+.play-log-major-label { display: inline-block; font-size: 11px; font-weight: 700; color: #854721; margin-right: 8px; }
+.play-log .log-consequence { border-left: 2px solid #c7aa8d; padding-left: 12px; }
 .play-log .log-routine > details > summary, .play-log-group > summary { font-size: 12px; color: var(--muted); }
 .play-log .log-routine { padding-block: 4px; }
 .journal .journal-history article { display: block; border-bottom: 0; margin: 0; padding: 14px 0; }
 .journal .journal-history .log-milestone { padding-left: 14px; margin-block: 10px; }
+.journal .journal-history .log-major { padding: 12px 14px; margin-block: 10px; }
+.journal .journal-history .log-consequence { padding-left: 14px; }
 .journal .journal-history .log-routine { padding-block: 4px; }
 .journal-history .play-log-group > article { padding-left: 14px; }
 .play-log-notice { display: flex; justify-content: center; }
@@ -111,6 +119,11 @@
   .play-shell .life-layout { gap: 20px; }
   .play-shell .life-companions { top: 200px; }
 }
+.play-log-choice { overflow-wrap: anywhere; }
+.play-log-choice > strong { font-size: 14px; font-weight: 600; }
+.play-log-choice > p { margin: 5px 0 0; font-size: 13px; line-height: 1.6; }
+.play-log-choice > .play-log-action { font-weight: 600; }
+
 @media (max-width: 760px) {
   .play-shell .site-header { padding: 12px 18px; gap: 10px; flex-wrap: wrap; }
   .play-shell .site-header .save-status { display: none; }
