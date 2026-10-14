@@ -1,6 +1,6 @@
 import type { GameState, LifeStage } from './contracts';
 import { abilityState } from './abilities';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { academicRank } from './specialty-journey';
 
 // Fictional tuning: work units represent research progress, not real publication rates.

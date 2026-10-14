@@ -1,9 +1,11 @@
+import { isAddedProfession } from './professions';
 import type { GameState, GameEvent, Stats, EventChoice, CareerProgress } from './contracts';
-import { type Experience, SPECIALTIES } from './career';
+import { type Experience, ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { adjustStats, elapsedMonths, lifeAge, nextRandom } from './random-life';
 import { STAGES } from './fixtures/content';
 import { practiceAbilities, FOCUS_ABILITIES, abilityEventWeight, weightedAbilityPick } from './abilities';
 import { opportunitySubset, OPPORTUNITY_RULES } from './opportunities';
+import { condensedStory } from './pacing';
 
 // Fictional campus stories and adjustable game effects, never real admissions data.
 export const CAMPUS_RULES = { version: 'campus-stories-provisional-2', provisional: true, monthlyChance: 0.72, maxQuietMonths: 2, cooldown: 10, repeatLimit: 2, experienceGain: 3 };
@@ -46,12 +48,14 @@ export function campusChoice(s: GameState, key: string, legacy = false): Pick<Ga
   return milestones[key] ?? null;
 }
 export function requiredCampus(s: GameState): string | null {
+  if (isAddedProfession(s)) return null;
   if (s.stageIndex !== 0 || !s.campus) return null;
   const c = s.campus, m = elapsedMonths(s);
   if (s.progress!.club === 'joined' && !c.club) return 'campus-club-kind';
   if (c.invitation && c.project === 'none') return 'campus-invitation';
   if (c.project === 'finished' && m >= c.projectDue + 6 && !c.milestones.includes('campus-next-step')) return 'campus-next-step';
   for (const [key, at] of [['campus-team', 12], ['campus-summer', 24], ['campus-practice', 42], ['campus-final', 60]] as const) {
+    if (condensedStory(s) && key !== 'campus-final') continue;
     if (m >= at && !c.milestones.includes(key)) return key;
   }
   return null;

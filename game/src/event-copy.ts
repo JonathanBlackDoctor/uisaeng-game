@@ -125,8 +125,8 @@ export function readableEvent<T extends { title: string; body: string; choices: 
     choices: event.choices.map(choice => ({ ...choice, label: readableText(choice.label), description: readableText(choice.description) })) };
 }
 
-/** The authored journey template appends recalled choices after this marker. */
+/** Keep recalled choices separate from the current situation in both career runtimes. */
 export function eventParagraphs(body: string) {
-  const index = body.indexOf(' 앞서 ‘');
-  return index < 0 ? { situation: body, memory: '' } : { situation: body.slice(0, index), memory: body.slice(index + 1) };
+  const index = body.search(/ 앞서 ‘|\n\n지난 ‘/);
+  return index < 0 ? { situation: body, memory: '' } : { situation: body.slice(0, index), memory: body.slice(index).trim() };
 }

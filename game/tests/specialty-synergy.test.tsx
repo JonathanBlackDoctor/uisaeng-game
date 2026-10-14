@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createCareerGame } from '../src/career-runtime';
 import { ABILITIES, SPECIALTY_SYNERGY, advanceAbilities, specialtySynergy } from '../src/abilities';
-import { SPECIALTIES } from '../src/career';
+import { ALL_SPECIALTIES as SPECIALTIES } from '../src/career';
 import { advanceDynamics, resolveChoiceEffort, variableEarnings, settleVariableEarnings } from '../src/life-dynamics';
 import AbilitySummary from '../src/AbilitySummary';
 import { AbilityContent } from '../src/AbilityPanel';

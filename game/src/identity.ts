@@ -1,3 +1,4 @@
+import { professionOf, professionDefinition } from './professions';
 import type { EventChoice, GameState, Stats } from './contracts';
 import { STAGES } from './fixtures/content';
 import { elapsedMonths, lifeAge, nextRandom } from './random-life';
@@ -100,7 +101,7 @@ export function requiredIdentity(s: GameState, trainingEnd: number): string | nu
   if (x.status === 'pending' && m >= 12) return 'service:plan';
   if (x.status === 'deferred' && !x.timing && m >= 60) return 'service:timing';
   if (x.status === 'deferred' && m >= 72 && (x.timing === 'graduation' || s.career!.application !== 'accepted' || m >= trainingEnd)) return 'service:placement';
-  if (s.identity.gender === 'female' && x.status === 'not-required' && !seen(s, 'service:volunteer') && m >= 72 && (s.career!.application !== 'accepted' || m >= trainingEnd)) return 'service:volunteer';
+  if (professionOf(s) !== 'nursing' && s.identity.gender === 'female' && x.status === 'not-required' && !seen(s, 'service:volunteer') && m >= 72 && (s.career!.application !== 'accepted' || m >= trainingEnd)) return 'service:volunteer';
   if (m >= 24 && !seen(s, 'identity:campus')) return 'identity:campus';
   if (s.stageIndex >= 1 && m >= 96 && !seen(s, 'identity:work')) return 'identity:work';
   if (s.family!.children !== 'none' && !seen(s, 'identity:care')) return 'identity:care';
@@ -112,9 +113,11 @@ export const medicalPlacement = (s: GameState): ServiceRoute => ((Math.imul(s.li
 export function identityEvent(s: GameState, key: string): { title: string; body: string; choices: EventChoice[] } | null {
   if (!s.identity) return null;
   const x = s.identity.service, female = s.identity.gender === 'female';
+  if (professionOf(s) === 'nursing' && key === 'service:plan') return { title: '병역과 학업', body: '학업을 잠시 멈추고 병역을 마친 뒤 복학합니다.', choices: [choice('army', '휴학하고 현역병으로 복무', '18개월 뒤 복학합니다.')] };
+  if (professionOf(s) !== 'medicine' && key === 'identity:work') return { title: '내 역할 소개', body: `환자와 새 동료에게 담당 ${professionDefinition(s).job}로서 맡은 업무를 설명합니다.`, choices: [choice('talk', '내 역할을 차분히 설명하기', '', { relationships: 2 }), choice('team', '팀과 함께 담당 업무 소개하기', '', { knowledge: 1, relationships: 1 })] };
   if (key === 'service:plan' && x.status === 'pending') return {
-    title: '병역과 학업 계획', body: '재학 중 입대할지, 의사가 된 뒤 의료인으로 복무할지 정합니다. 복무하는 동안 학업과 수련은 잠시 멈춥니다.', choices: [
-      choice('army', '휴학하고 현역병으로 복무', '18개월 뒤 복학합니다. 의사가 된 뒤 병역 때문에 진로를 멈추지 않습니다.'),
+    title: '병역과 학업 계획', body: `재학 중 입대할지, ${professionDefinition(s).job}가 된 뒤 의료인으로 복무할지 정합니다. 복무하는 동안 학업과 수련은 잠시 멈춥니다.`, choices: [
+      choice('army', '휴학하고 현역병으로 복무', `18개월 뒤 복학합니다. ${professionDefinition(s).job}가 된 뒤 병역 때문에 진로를 멈추지 않습니다.`),
       choice('medical', '군의관·공보의 경로로 복무', '학업을 이어갑니다. 졸업 직후 또는 수련 후 의료인 복무를 시작합니다.'),
     ],
   };
@@ -229,6 +232,7 @@ export function validIdentity(s: GameState): boolean {
   if (!['pending', 'deferred', 'not-required', 'exempt', 'prior-service', 'serving', 'completed'].includes(x.status) || (x.timing !== undefined && !['graduation', 'after-training'].includes(x.timing))) return false;
   if (i.gender === 'female' && !['not-required', 'serving', 'completed'].includes(x.status)) return false;
   if (i.gender === 'male' && x.status === 'not-required') return false;
+  if (professionOf(s) === 'nursing' && (x.route && x.route !== 'army' || x.status === 'deferred')) return false;
   if (x.status === 'serving' || x.status === 'completed') {
     if (!x.route || !Object.hasOwn(SERVICE_LABELS, x.route) || !Number.isSafeInteger(x.startedMonth) || x.startedMonth! < 12 || x.startedMonth! > elapsedMonths(s)) return false;
     if (i.gender === 'female' && (x.route !== 'doctor' || !seen(s, 'service:volunteer'))) return false;

@@ -1,0 +1,118 @@
+{
+  "version": "profession-evidence-v1",
+  "reviewedAt": "2026-10-14",
+  "sources": [
+    {
+      "file": ".orchestrator/professions-v1/evidence/specialist.html",
+      "url": "https://law.go.kr/LSW/lsLinkCommonInfo.do?lspttninfSeq=61760",
+      "title": "치과의사전문의 / 한의사전문의 수련 규정",
+      "sha256": "db5a1cac4677ee17afc7bea48ca9213ff395e6d77ec286ba91b79c178aa50dad"
+    },
+    {
+      "file": ".orchestrator/professions-v1/evidence/nursing.html",
+      "url": "https://www.law.go.kr/lsLinkCommonInfo.do?lspttninfSeq=195121",
+      "title": "전문간호사 자격인정 등에 관한 규칙",
+      "sha256": "c7bde3cdeb8fc137f0bb1b276f16c33c6a38b893ec1c5e856df173855458581a"
+    },
+    {
+      "file": ".orchestrator/professions-v1/evidence/medical-license.html",
+      "url": "https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1032850727",
+      "title": "의료법 제5조",
+      "sha256": "ea7b77b555bbb31e7ba8baa2c84128b2ee92ae91ec2f3abd3216c41c186e258a"
+    },
+    {
+      "file": ".orchestrator/professions-v1/evidence/nurse-license-article.html",
+      "url": "https://www.law.go.kr/LSW/lsLinkProc.do?chrClsCd=010202&joLnkStr=%EB%B2%95%20%EC%A0%9C4%EC%A1%B0&lsNm=%EA%B0%84%ED%98%B8%EB%B2%95&mode=10",
+      "title": "간호법 제4조·제5조",
+      "sha256": "53b97b24e57d09c0859166778585ec210222fd14dabdbb3b38c3e8416d5e71be"
+    }
+  ],
+  "facts": {
+    "dentistry": {
+      "specialties": [
+        "구강악안면외과",
+        "치과보철과",
+        "치과교정과",
+        "소아치과",
+        "치주과",
+        "치과보존과",
+        "구강내과",
+        "영상치의학과",
+        "구강병리과",
+        "예방치과",
+        "통합치의학과"
+      ],
+      "standardTrainingMonths": 48,
+      "integratedTrainingMonths": 36,
+      "provisions": [
+        "치과의사전문의의 수련 및 자격 인정 등에 관한 규정 제3조",
+        "동 규정 제5조"
+      ],
+      "license": "의료법 제5조: 인증 대학의 치의학사 또는 인증 전문대학원 석사·박사 등 법정 요건을 갖추고 국가시험 합격 후 장관 면허. 외국 교육·면허 및 예비시험 경로도 있음."
+    },
+    "korean-medicine": {
+      "specialties": [
+        "한방내과",
+        "한방부인과",
+        "한방소아과",
+        "한방신경정신과",
+        "침구과",
+        "한방안·이비인후·피부과",
+        "한방재활의학과",
+        "사상체질과"
+      ],
+      "standardTrainingMonths": 48,
+      "provisions": [
+        "한의사전문의의 수련 및 자격 인정 등에 관한 규정 제3조",
+        "동 규정 제5조"
+      ],
+      "license": "의료법 제5조: 인증 대학의 한의학사 또는 인증 전문대학원 석사·박사 등 법정 요건을 갖추고 국가시험 합격 후 장관 면허. 외국 교육·면허 및 예비시험 경로도 있음."
+    },
+    "nursing": {
+      "certificates": [
+        "보건",
+        "마취",
+        "정신",
+        "가정",
+        "감염관리",
+        "산업",
+        "응급",
+        "노인",
+        "중환자",
+        "호스피스",
+        "종양",
+        "임상",
+        "아동"
+      ],
+      "minimumFieldExperienceMonths": 36,
+      "experienceLookbackMonths": 120,
+      "minimumEducationMonths": 24,
+      "provisions": [
+        "전문간호사 자격인정 등에 관한 규칙 제2조",
+        "동 규칙 제4조",
+        "간호법 제4조·제5조"
+      ],
+      "license": "간호법 제4조: 인증 간호학 대학·전문대학 등 법정 학력 요건을 갖추고 국가시험 합격 후 장관 면허. 외국 교육·면허 경로도 있음.",
+      "certificate": "간호사 면허와 별도 자격. 국내 지정 교육과정 이수 또는 인정 외국 전문간호사 자격, 전문간호사 자격시험 합격 후 장관 자격인정."
+    }
+  },
+  "limits": [
+    "수련기간은 원칙 경로. 군복무·공중보건·출산 등 예외와 조정 조항을 게임에서 모두 재현하지 않음.",
+    "해당분야 실무경력 기관 범위는 전문간호사 규칙 별표1에 따름. 임의의 간호 경력36개월과 동일하지 않음.",
+    "대학72/48개월은 선택한 게임 경로이며 여기의 면허 법령만으로 모든 대학 학제를 입증하지 않음.",
+    "간호 업무 분야19개는 게임의 진로 분류이며 전문간호사13분야와 일대일 대응하지 않음.",
+    "급여·등록금·비용·합격기준·재응시·적응기간·장면 선택의 수치 효과는 provisional 게임 설정. 실증적 소득·성공률·치료효과 근거가 아님."
+  ],
+  "content": {
+    "basePerProfession": 28,
+    "specialtyScenesEach": 3,
+    "counts": {
+      "dentistry": 61,
+      "korean-medicine": 52,
+      "nursing": 85
+    },
+    "ruleVersion": "authored-profession-scenes-v2",
+    "status": "authored-fiction",
+    "note": "상황과 대화는 창작. 법령은 자격·수련 구조만 뒷받침하며 개별 임상 장면의 안전성이나 효과를 검증하지 않음."
+  }
+}

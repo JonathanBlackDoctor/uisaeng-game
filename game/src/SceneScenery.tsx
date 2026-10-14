@@ -1,9 +1,11 @@
+import ProfessionEquipment from './ProfessionEquipment';
+import { PROFESSION_SPECIALTIES } from './professions';
 import { RoomDesign, ClinicalStorage, OutdoorDesign, type DesignVariant } from './SceneDesign';
 import type { SceneRoom } from './scene-state';
 
 export type VisualRoom = SceneRoom | 'barracks' | 'military-clinic' | 'public-health';
 type Equipment = 'chart' | 'surgical' | 'toys' | 'ultrasound' | 'counseling' | 'mobility' | 'eye' | 'scope' | 'skin' | 'imaging' | 'monitor' | 'microscope' | 'community' | 'safety';
-// Visual motifs, not a clinical simulation. All 26 existing specialty IDs are covered.
+// Visual motifs, not a clinical simulation. Medical visuals stay keyed by their original IDs.
 export const SPECIALTY_VISUALS: Record<string, { equipment: Equipment; motif: 'heart' | 'brain' | 'lung' | 'bone' | 'cells' | 'general'; color: string }> = {
   internal: { equipment: 'chart', motif: 'heart', color: '#789b92' },
   surgery: { equipment: 'surgical', motif: 'general', color: '#5f8c89' },
@@ -41,6 +43,8 @@ function Books({ x, y, count = 6 }: { x: number; y: number; count?: number }) {
     </g>)}
   </g>;
 }
+
+for (const s of PROFESSION_SPECIALTIES) SPECIALTY_VISUALS[s.id] = { equipment: s.profession === 'dentistry' ? 'surgical' : s.profession === 'nursing' ? 'monitor' : 'chart', motif: 'general', color: s.profession === 'dentistry' ? '#789f9d' : s.profession === 'nursing' ? '#819faf' : '#a38e71' };
 
 export function Anatomy({ motif }: { motif: string }) {
   if (motif === 'heart') return <path d="M-24-8C-30-31-3-34 0-18 13-41 40-21 24-1L0 25Z" fill="#bb8b83" stroke="#976e69" strokeWidth="2"/>;
@@ -129,7 +133,7 @@ export function RoomFurniture({ room, specialty, children, exercise, extraStudy,
       <g transform="translate(180 137)"><Anatomy motif={design?.motif ?? 'general'}/></g>
       {variant > 0 ? <ClinicalStorage variant={variant}/> : <><rect x="93" y="241" width="167" height="101" rx="5" fill="#f1f4e9"/><path d="M97 276h159m-159 32h159m-94-55h29m-29 36h29m-29 33h29" stroke="#b6c9bc" strokeWidth="3"/></>}
       {room === 'military-clinic' && <g><rect x="114" y="211" width="58" height="28" rx="4" fill="#737f61"/><path d="M143 216v18m-9-9h18" stroke="#f2f1dc" strokeWidth="4"/></g>}
-      <ClinicalEquipment equipment={room === 'public-health' ? 'community' : design?.equipment ?? (room === 'ward' ? 'monitor' : 'chart')}/>
+      {specialty?.includes(':') ? <ProfessionEquipment specialty={specialty}/> : <ClinicalEquipment equipment={room === 'public-health' ? 'community' : design?.equipment ?? (room === 'ward' ? 'monitor' : 'chart')}/>}
     </g>}
     {room === 'home' && variant === 0 && <g>
       <rect x="106" y="91" width="128" height="95" rx="3" fill="#fbf6e8" stroke="#c7b398" strokeWidth="5"/><path d="m118 172 35-39 25 23 43-47v63Z" fill="#b0b698"/><circle cx="140" cy="116" r="10" fill="#dbc78d"/>

@@ -1,14 +1,19 @@
+import ProfessionEquipment from './ProfessionEquipment';
 import { Anatomy, ClinicalEquipment, SPECIALTY_VISUALS } from './SceneScenery';
 import { CREDENTIALS } from './credential-catalog';
 import { credentialKey, fieldKey, specialtyKey, type CareerRecord } from './career-records';
+import { NURSING_CERTIFICATES } from './professions';
 
 export function clinicRoom(records: CareerRecord[], id: string) {
   const has = (key: string) => records.some(r => r.milestones[key] !== undefined);
   return {
     status: has(specialtyKey(id, true)) ? 'qualified' : has(specialtyKey(id)) ? 'training' : 'locked',
     // A shared certificate decorates only the specialty in which it was earned.
-    credentials: CREDENTIALS.filter(c => c.routes.some(route => route.specialty === id && records.some(r =>
-      r.milestones[credentialKey(c.id)] !== undefined && r.milestones[fieldKey(id, route.field, true)] !== undefined))),
+    credentials: id.startsWith('nursing:')
+      ? NURSING_CERTIFICATES.filter(name => records.some(r => r.milestones[specialtyKey(id)] !== undefined && r.milestones[credentialKey(`nursing:${name}`)] !== undefined))
+        .map(name => ({ id: `nursing:${name}`, name, kind: '전문간호사' }))
+      : CREDENTIALS.filter(c => c.routes.some(route => route.specialty === id && records.some(r =>
+        r.milestones[credentialKey(c.id)] !== undefined && r.milestones[fieldKey(id, route.field, true)] !== undefined))),
   } as const;
 }
 export default function ClinicRoom({ specialty, records }: { specialty: string; records: CareerRecord[] }) {
@@ -25,7 +30,7 @@ export default function ClinicRoom({ specialty, records }: { specialty: string; 
     {opened ? <g opacity={complete ? 1 : .66}>
       <rect x="131" y="93" width="116" height="115" rx="3" fill="#faf9ef" stroke={design.color} strokeWidth="5"/>
       <g transform="translate(189 151)"><Anatomy motif={design.motif}/></g>
-      <g transform="translate(-17 -7)"><ClinicalEquipment equipment={design.equipment}/></g>
+      <g transform="translate(-17 -7)">{specialty.includes(':') ? <ProfessionEquipment specialty={specialty}/> : <ClinicalEquipment equipment={design.equipment}/>}</g>
       {specialty === 'pediatrics' ? <g><rect x="175" y="279" width="222" height="42" rx="12" fill="#b8c8b0"/><rect x="181" y="268" width="60" height="20" rx="6" fill="#fbf8e8"/><path d="M185 321v49m200-49v49" stroke="#9f9987" strokeWidth="9"/></g>
         : <g><path d="M160 279h243v19H160Z" fill="#c2a88a"/><path d="M177 298v72m209-72v72" stroke="#a28f78" strokeWidth="9"/><rect x="215" y="223" width="90" height="54" rx="4" fill="#8ba6a1"/><rect x="222" y="230" width="76" height="37" rx="2" fill="#e3ece2"/><path d="M246 278h40" stroke="#627f7b" strokeWidth="6"/></g>}
       {complete && <g><rect x="307" y="101" width="57" height="72" rx="2" fill="#fbf4dd" stroke="#bca46b" strokeWidth="5"/><path d="M319 120h32m-32 10h32m-32 10h24" stroke="#b6ab91" strokeWidth="3"/><circle cx="337" cy="157" r="7" fill="#ac9360"/></g>}

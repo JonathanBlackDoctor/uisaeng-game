@@ -1,3 +1,4 @@
+import { isAddedProfession, professionDefinition, professionOf } from './professions';
 import { clinicRevenue, clinicService, clinicTier } from './clinic';
 import type { GameState } from './contracts';
 import { ECONOMY_RULES as R } from './economy';
@@ -10,6 +11,8 @@ import { isServing, SERVICE_RULES } from './identity';
 export { exactWon, formatWon as compactWon } from './money-format';
 export function financeView(s: GameState) {
   const e = s.economy!, c = s.career!, school = s.stageIndex === 0;
+  const definition = professionDefinition(s);
+  const settings = isAddedProfession(s) ? { ...R, tuition: definition.tuition, employedSalary: definition.salary, untrainedIncome: definition.salary, trainingSalary: professionOf(s) === 'nursing' ? definition.salary : R.trainingSalary } : R;
   if (isServing(s)) {
     const { income, expenses } = SERVICE_RULES[s.identity!.service.route!];
     return { netAssets: e.assets - e.debt - e.due, salary: income * 12, income, expenses, disposable: income - expenses,
@@ -19,22 +22,24 @@ export function financeView(s: GameState) {
   const working = s.stageIndex === 2 || (s.stageIndex === 1 && !training);
   const clinic = working && c.practice === 'clinic' && e.ledger.some(t => t.kind === 'open-clinic');
   let income = school ? (s.progress!.focus === 'work' ? R.universityWorkMonthly : 0) + (s.life!.flags.includes('scholarship') ? R.scholarshipMonthly : 0)
-    : training ? R.trainingSalary : s.stageIndex === 3 ? R.retirementIncome
-    : c.practice === 'employed' ? R.employedSalary : c.practice === 'research' ? R.researchIncome
-    : c.practice === 'untrained' ? R.untrainedIncome : clinic ? clinicRevenue(s) : 0;
+    : training ? settings.trainingSalary : s.stageIndex === 3 ? R.retirementIncome
+    : c.practice === 'employed' ? settings.employedSalary : c.practice === 'research' ? R.researchIncome
+    : c.practice === 'untrained' ? settings.untrainedIncome : clinic ? clinicRevenue(s) : 0;
   const price = (s.portfolio?.priceIndex ?? 1_000_000) / 1_000_000, wage = (s.portfolio?.wageIndex ?? 1_000_000) / 1_000_000;
   const scholarship = school && s.life!.flags.includes('scholarship') ? R.scholarshipMonthly : 0;
   income = Math.round((income - scholarship) * wage) + scholarship;
+  if (professionOf(s) === 'nursing' && s.professional?.shift === 'rotating' && s.stageIndex > 0 && s.stageIndex < 3 && c.practice === 'employed') income += 400_000;
   const salary = income * 12, lifestyle = lifestyleBudget(s);
   const funding = familyFunding(s.life?.background);
   const familyMonthly = school ? funding.monthly : 0, familySemester = school ? funding.semester : 0;
   income += familyMonthly + Math.round(familySemester / R.tuitionInterval);
-  let expenses = Math.round(R.livingCost * price * dietFactor(s.lifestyle?.diet ?? 'balanced')) + (school ? Math.round(R.tuition * price / R.tuitionInterval) : 0) + (clinic ? Math.round(clinicTier(s).cost * price) : 0);
+  let expenses = Math.round(R.livingCost * price * dietFactor(s.lifestyle?.diet ?? 'balanced')) + (school ? Math.round(settings.tuition * price / R.tuitionInterval) : 0) + (clinic ? Math.round(clinicTier(s).cost * price) : 0);
   if (s.stageIndex === 2 && s.depth?.workload === 'extended' && c.practice !== 'research') {
     income += clinic ? DEPTH_RUNTIME.extendedRevenue : DEPTH_RUNTIME.extendedSalary;
     if (clinic) expenses += DEPTH_RUNTIME.extendedCost;
   }
   if (s.stageIndex === 2 && s.depth?.workload === 'learning') expenses += DEPTH_RUNTIME.learningCost;
+  if (s.professional?.certificateStart !== null && s.professional?.certificateStart !== undefined && !s.professional.certificateEarned && !s.professional.decisions['certificate-review'] && s.stageIndex > 0 && s.stageIndex < 3) expenses += 120_000;
   income += variableEarnings(s);
   income += lifestyle.income; expenses += lifestyle.cost;
   const impactMonth = Math.floor((s.life?.elapsedMs ?? 0) / 1000);

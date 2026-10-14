@@ -1,3 +1,4 @@
+import { professionOf } from './professions';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ChoiceResult } from './choice-feedback';
 import { STAT_LABELS, type GameState } from './contracts';
@@ -8,6 +9,9 @@ import { publicationLabel } from './publications';
 import FinanceSummary from './FinanceSummary';
 import { incidentSummary } from './major-events';
 import { roundedValue, signedValue } from './display-values';
+import { careerStageEnds } from './career-runtime';
+import { lifeStartAge } from './random-life';
+import { serviceMonths } from './identity';
 
 export default function PlayOverview({ game, children, busy, onAbilities, feedback, allocation }: {
   game: GameState; children: ReactNode; busy: boolean; onAbilities: () => void; feedback?: ChoiceResult | null; allocation?: ReactNode;
@@ -39,9 +43,10 @@ export default function PlayOverview({ game, children, busy, onAbilities, feedba
       </div>
     </div>
       {allocation}
+      {game.aging && game.stageIndex === 2 && <p className="life-time-hint">예상 은퇴 · {Math.floor(lifeStartAge(game) + (careerStageEnds(game)[2] + serviceMonths(game)) / 12)}세{game.aging.burdenMonths >= 12 ? ' · 건강 부담으로 앞당겨졌습니다.' : ''}</p>}
     </section>
     {(game.career || assets !== null) && <div className="overview-finance" aria-label="생애 기록과 재정">
-      {game.career && <div className="overview-goal"><span>누적 진료</span><strong>{encounterLabel(game)}</strong></div>}
+      {game.career && <div className="overview-goal"><span>{professionOf(game) === 'nursing' ? '누적 돌봄' : '누적 진료'}</span><strong>{encounterLabel(game)}</strong></div>}
       {game.career && <div className="overview-goal"><span>가족과 보낸 시간</span><strong>{familyTimeLabel(game)}</strong></div>}
       {game.career && <div className="overview-goal"><span>발표한 논문</span><strong>{publicationLabel(game)}</strong></div>}
       {assets !== null && game.status === 'completed' && <div className="overview-goal"><span>순자산</span><strong title={exactWon(assets)}>{compactWon(assets)}</strong></div>}

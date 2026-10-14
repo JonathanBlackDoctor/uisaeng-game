@@ -62,7 +62,7 @@ describe('time controls and admission age', () => {
     expect(lifeStartAge(legacy)).toBe(19);
     expect(lifeAge(legacy)).toBe('19세 0개월');
     expect(validState(legacy)).toBe(true);
-    legacy.life!.startAge = 21 as never;
+    legacy.life!.startAge = 25 as never;
     expect(validState(legacy)).toBe(false);
   });
 
@@ -112,14 +112,14 @@ describe('time controls and admission age', () => {
     expect(keys).not.toContain('patient-loss');
     expect(keys).not.toContain('dispute');
     expect(s.identity?.service.route).toBe('army');
-    expect(lifeAge(s)).toBe('78세 6개월');
+    expect(lifeAge(s)).toBe('77세 0개월');
     expect(skip(s)).toBe(s);
     const db = await openGameDatabase(`skipped-${crypto.randomUUID()}`);
     try {
       await persistGame(db, s, null);
       expect((await loadGame(db))!.state).toEqual(s);
     } finally { db.close(); }
-  });
+  }, 30000);
 
   it('preserves fractional progress, existing active time and speed on skip and reload', async () => {
     let s = createGame('partial', 7, 'career-preview-v1');

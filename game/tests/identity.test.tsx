@@ -172,8 +172,8 @@ describe('gender and military paths', () => {
     const opening = renderToStaticMarkup(<Opening draft={s} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
     expect(opening).not.toContain('starting-gender'); expect(opening).not.toContain('입학 때 병역');
     expect(opening).not.toContain('starting-service');
-    expect(opening).toContain(`<dt>이름</dt><dd>${s.identity!.name}</dd>`);
-    expect(opening).toContain('<dt>성별</dt><dd>남자</dd>');
+    expect(opening).toContain(`${s.identity!.name} · 20세`);
+    expect(opening).toContain('입학 통지서');
     expect(renderToStaticMarkup(<IdentityPanel game={s}/>)).toContain('남자 · 병역 미이행');
     const scene = (route: 'army' | 'doctor' | 'public-health') => renderToStaticMarkup(<LifeScene stage="university" age={21} month={0} running={false} focus="study" seed={42} relationship="single" serviceRoute={route}/>);
     expect(scene('army')).toContain('부대 생활관');

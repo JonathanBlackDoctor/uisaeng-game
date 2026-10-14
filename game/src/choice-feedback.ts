@@ -4,7 +4,8 @@ import { STAT_LABELS, type GameState, type Stats } from './contracts';
 export interface ChoiceResult { id: string; title: string; detail: string; changes: string[]; statChanges: Partial<Stats>; statChangesUntil: number; reaction: 'learning' | 'connection' | 'rest' | null }
 export function choiceResult(before: GameState, after: GameState, actionId: string): ChoiceResult | null {
   if (before === after || !before.pendingEvent) return null;
-  const entries = after.journal.slice(before.journal.length);
+  // Periodic snapshots may have been replaced while settling this action.
+  const entries = after.journal;
   const entry = entries.find(x => x.id === actionId && x.choice) ?? entries.find(x => x.id === `${actionId}:result`) ?? entries.find(x => x.id === actionId);
   if (!entry) return null;
   const diff = Object.keys(STAT_LABELS).map(k => { const key = k as keyof Stats; return { key, value: after.stats[key] - before.stats[key] }; });

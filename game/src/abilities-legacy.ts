@@ -1,7 +1,7 @@
 // Version 1 compatibility only: validate and settle already-open saved choices.
 import type { CareerProgress, GameEvent, GameState as CurrentGameState, Stats } from './contracts';
 type GameState = Omit<CurrentGameState, 'abilities'> & { abilities?: AbilityState };
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { backgroundAbilityBonuses } from './background';
 
 export const ABILITY_GROUPS = { body: '신체', learning: '학습·사고', self: '자기관리', social: '대인관계', clinical: '의료 실무', professional: '연구·운영' } as const;

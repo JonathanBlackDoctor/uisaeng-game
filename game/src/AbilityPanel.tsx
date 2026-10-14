@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameState } from './contracts';
 import { ABILITIES, abilityPerformance, abilityState, SPECIALTY_SYNERGY, specialtySynergy } from './abilities';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import './ability-panel.css';
 import { relevantAbilities } from './AbilitySummary';
 import { roundedValue, signedValue, synergyLabel } from './display-values';

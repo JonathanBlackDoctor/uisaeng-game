@@ -1,3 +1,5 @@
+import { isAddedProfession } from './professions';
+import { condensedStory, shortPacing } from './pacing';
 import type { EventChoice, GameEvent, GameState, Stats } from './contracts';
 import { SPECIALTY_PATHS, RESEARCH_DEPARTMENTS } from './specialty-paths';
 import { elapsedMonths, lifeAge } from './random-life';
@@ -5,8 +7,8 @@ import { STAGES } from './fixtures/content';
 import { credentialFor, specialtyFields, CREDENTIAL_GAME_RULES } from './credential-catalog';
 
 export const JOURNEY_RULES = { version: 'specialty-journey-provisional-1', provisional: true, spacing: 4, fellowshipMonths: 18, promotionMonths: [24, 48, 60], reviewMonths: 6, maxReviews: 12, followupMonths: 3 };
-export interface SpecialtyJourney { version: 1 | 2; since: number; decisions: Record<string, { choice: string; month: number; followed: boolean }> }
-export const initialJourney = (since = 0, version: 1 | 2 = 1): SpecialtyJourney => ({ version, since, decisions: {} });
+export interface SpecialtyJourney { version: 1 | 2 | 3; since: number; decisions: Record<string, { choice: string; month: number; followed: boolean }> }
+export const initialJourney = (since = 0, version: 1 | 2 | 3 = 1): SpecialtyJourney => ({ version, since, decisions: {} });
 export function upgradeJourney(s: GameState) { s.journey ??= initialJourney(elapsedMonths(s), 2); }
 const record = (s: GameState, key: string) => s.journey?.decisions[key];
 const chosen = (s: GameState, key: string) => record(s, key)?.choice;
@@ -16,10 +18,10 @@ const start = (s: GameState) => Math.max(s.journey?.since ?? elapsedMonths(s), w
 const opt = (id: string, label: string, description: string, effects: Partial<Stats> = {}): EventChoice => ({ id, label, description, effects });
 const done = (s: GameState, key: string) => !!record(s, key);
 const hasExit = (s: GameState) => Object.entries(s.journey?.decisions ?? {}).some(([k, d]) => !k.startsWith('scene:') && ['exit', 'leave'].includes(d.choice));
-export function journeyField(s: GameState) { return specialtyFields(s.career?.specialty ?? '', s.journey?.version === 2).find(f => f.id === chosen(s, 'field')); }
+export function journeyField(s: GameState) { return specialtyFields(s.career?.specialty ?? '', (s.journey?.version ?? 1) >= 2).find(f => f.id === chosen(s, 'field')); }
 export function journeyCredential(s: GameState) { return credentialFor(s.career?.specialty ?? '', chosen(s, 'field') ?? ''); }
 export function credentialEarned(s: GameState) {
-  return s.journey?.version === 2 && s.career?.application === 'accepted' && s.stageIndex >= 2
+  return (s.journey?.version ?? 1) >= 2 && s.career?.application === 'accepted' && s.stageIndex >= 2
     && !!journeyCredential(s) && fellowshipComplete(s) && chosen(s, 'credential-preparation') === 'prepare' && chosen(s, 'credential-exam') === 'pass';
 }
 const department = (s: GameState) => RESEARCH_DEPARTMENTS.find(f => f.id === chosen(s, 'department'));
@@ -38,6 +40,9 @@ export function academicTitle(s: GameState) {
 export function academicCredits(s: GameState, rank: number) {
   const points = { research: 0, teaching: 0, clinical: 0 };
   for (const [key, d] of Object.entries(s.journey?.decisions ?? {})) {
+    if (key === `academic:${rank}:term` && ['lead', 'team'].includes(d.choice)) {
+      points.research += 2; points.teaching += 2; points.clinical += 2;
+    }
     if (key === `academic:${rank}:research`) { if (d.choice === 'lead') { points.research += 2; points.clinical++; } if (d.choice === 'team') { points.research++; points.teaching++; } }
     if (key === `academic:${rank}:teaching`) { if (d.choice === 'lead') { points.teaching += 2; points.clinical++; } if (d.choice === 'team') { points.teaching++; points.research++; } }
     if (key === `academic:${rank}:clinical`) { if (d.choice === 'lead') { points.clinical += 2; points.teaching++; } if (d.choice === 'team') { points.clinical++; points.research++; } }
@@ -54,7 +59,7 @@ function nextKey(s: GameState): string | null {
   if (m < last + JOURNEY_RULES.spacing) return null;
   const p = topic(s), training = Math.max(j.since, s.progress?.trainingStartMonth ?? 72);
   if (p && c.application === 'accepted') {
-    const indexes = s.stageIndex === 1 ? [0, 1] : c.practice === 'research' ? [] : [2, 3];
+    const indexes = s.stageIndex === 1 ? condensedStory(s) ? [0] : [0, 1] : c.practice === 'research' ? [] : condensedStory(s) ? [3] : [2, 3];
     for (const i of indexes) {
       const due = i < 2 ? training + [10, 32][i] : start(s) + [24, 96][i - 2];
       if (!done(s, `scene:${i}`) && m >= due) return `scene:${i}`;
@@ -73,11 +78,11 @@ function nextKey(s: GameState): string | null {
     if (!done(s, 'fellow-project')) return m >= since + 10 ? 'fellow-project' : null;
     if (!fellowshipComplete(s)) {
       const reviews = Object.keys(j.decisions).filter(k => k.startsWith('fellow-review:')).length;
-      const duration = j.version === 2 && journeyCredential(s) ? CREDENTIAL_GAME_RULES.trainingMonths : JOURNEY_RULES.fellowshipMonths;
+      const duration = j.version >= 2 && journeyCredential(s) ? CREDENTIAL_GAME_RULES.trainingMonths : JOURNEY_RULES.fellowshipMonths;
       const previous = record(s, `fellow-review:${reviews - 1}`)?.month ?? since + duration - JOURNEY_RULES.reviewMonths;
       return reviews <= JOURNEY_RULES.maxReviews && m >= previous + JOURNEY_RULES.reviewMonths ? `fellow-review:${reviews}` : null;
     }
-    if (j.version === 2 && journeyCredential(s)) {
+    if (j.version >= 2 && journeyCredential(s)) {
       if (!done(s, 'credential-preparation')) return 'credential-preparation';
       if (chosen(s, 'credential-preparation') === 'prepare' && !done(s, 'credential-exam')) {
         return m >= record(s, 'credential-preparation')!.month + CREDENTIAL_GAME_RULES.preparationMonths ? 'credential-exam' : null;
@@ -89,14 +94,15 @@ function nextKey(s: GameState): string | null {
   const rank = academicRank(s);
   const since = rank === 0 ? record(s, 'academic-entry')!.month : Object.entries(j.decisions).find(([k, d]) => k.startsWith(`review:${rank - 1}:`) && d.choice === 'promote')![1].month;
   if (rank === 3) return !done(s, 'legacy') && m >= since + 24 ? 'legacy' : null;
-  for (const [i, area] of ['research', 'teaching', 'clinical'].entries()) {
-    if (!done(s, `academic:${rank}:${area}`)) return m >= since + (i + 1) * 6 ? `academic:${rank}:${area}` : null;
+  for (const [i, area] of (condensedStory(s) ? ['term'] : ['research', 'teaching', 'clinical']).entries()) {
+    if (!done(s, `academic:${rank}:${area}`)) return m >= since + (condensedStory(s) ? 18 : (i + 1) * 6) ? `academic:${rank}:${area}` : null;
   }
   const attempts = Object.keys(j.decisions).filter(k => k.startsWith(`review:${rank}:`)).length;
   const previous = record(s, `review:${rank}:${attempts - 1}`)?.month ?? since;
   return attempts <= JOURNEY_RULES.maxReviews && m >= Math.max(since + JOURNEY_RULES.promotionMonths[rank], previous + JOURNEY_RULES.reviewMonths) ? `review:${rank}:${attempts}` : null;
 }
-export function requiredJourney(s: GameState) { const key = nextKey(s); return key ? `journey:${key}` : null; }
+export function requiredJourney(s: GameState) {
+  if (isAddedProfession(s)) return null; const key = nextKey(s); return key ? `journey:${key}` : null; }
 
 export function journeyEvent(s: GameState, fullKey: string): Pick<GameEvent, 'title' | 'body' | 'choices'> | null {
   if (!fullKey.startsWith('journey:')) return null;
@@ -105,21 +111,23 @@ export function journeyEvent(s: GameState, fullKey: string): Pick<GameEvent, 'ti
   const p = topic(s), field = journeyField(s);
   const exit = opt('exit', '지금의 진료로 돌아간다', '추가 수련을 멈추고 봉직 진료를 이어갑니다.', { health: 2, happiness: 1 });
   if (key.startsWith('scene:')) {
-    const index = Number(key.split(':')[1]), scene = p.scenes[index], previous = record(s, `scene:${index - 1}`);
-    const previousScene = p.scenes[index - 1];
+    const index = Number(key.split(':')[1]), scene = p.scenes[index];
+    const previousIndex = condensedStory(s) ? [0, 1, 2].filter(i => i < index && record(s, `scene:${i}`)).at(-1) : index - 1;
+    const previous = previousIndex === undefined ? undefined : record(s, `scene:${previousIndex}`);
+    const previousScene = previousIndex === undefined ? undefined : p.scenes[previousIndex];
     const memory = previous && previousScene ? ` 앞서 ‘${previousScene.title}’에서 ${previous.choice === 'lead' || previous.choice === 'reuse' ? previousScene.choices[1] : previous.choice === 'team' ? previousScene.choices[3] : '맡을 범위를 줄여 쉬는 시간을 지켰다.'}` : '';
     return { title: scene.title, body: scene.body + memory, choices: [
       opt('lead', scene.choices[0], scene.choices[1], { knowledge: 3, health: -2 }),
       opt('team', scene.choices[2], scene.choices[3], { relationships: 3, knowledge: 1 }),
-      ...(previous && previous.choice !== 'rest' ? [opt('reuse', previous.choice === 'team' ? '함께했던 팀에 다시 의논한다' : '앞서 배운 방법을 조정해 쓴다', `‘${previousScene.title}’에서 배운 방식을 그대로 반복하지 않고 이번 질문에 맞게 바꿨다.`, { knowledge: 2, relationships: 1, health: 1 })] : []),
+      ...(previous && previousScene && previous.choice !== 'rest' ? [opt('reuse', previous.choice === 'team' ? '함께했던 팀에 다시 의논한다' : '앞서 배운 방법을 조정해 쓴다', `‘${previousScene.title}’에서 배운 방식을 그대로 반복하지 않고 이번 질문에 맞게 바꿨다.`, { knowledge: 2, relationships: 1, health: 1 })] : []),
       opt('rest', '담당 범위를 정하고 쉰다', '지금 맡을 부분과 이어받을 사람을 정하고 휴식 시간을 확보했다.', { health: 3, happiness: 1 })] };
   }
   if (key === 'route') return { title: '전문의 이후의 길', body: p ? `${p.theme}. 지금의 일을 깊게 이어갈지, 더 좁은 분야를 배울지 정합니다.` : '진료 밖에서 풀고 싶은 질문이 생겼습니다. 연구할 교실과 교육 진로를 살펴봅니다.', choices: [
     ...(p && s.career?.application === 'accepted' ? [opt('fellowship', '분과·세부 수련에 들어간다', '전임의로 돌아가 한 분야를 더 배웁니다. 이후 교수 진로도 선택할 수 있습니다. 개원 중이면 병원 근무로 옮깁니다.', { knowledge: 2, health: -1 })] : []),
     opt('research', '기초·연구 교실로 간다', '연구자로 일하며 연구교원과 교수 임용을 준비할 수 있습니다.', { knowledge: 2 }),
     opt('general', '현재 진료와 일을 이어간다', '추가 수련 없이 현재 경력을 쌓습니다.', { happiness: 2 })] };
-  if (key === 'field') return { title: '더 배울 분야', body: '전임의 수련에서 오래 붙잡을 질문을 고릅니다.', choices: specialtyFields(s.career!.specialty!, s.journey?.version === 2).map(f => {
-    const credential = s.journey?.version === 2 ? credentialFor(s.career!.specialty!, f.id) : undefined;
+  if (key === 'field') return { title: '더 배울 분야', body: '전임의 수련에서 오래 붙잡을 질문을 고릅니다.', choices: specialtyFields(s.career!.specialty!, (s.journey?.version ?? 1) >= 2).map(f => {
+    const credential = (s.journey?.version ?? 1) >= 2 ? credentialFor(s.career!.specialty!, f.id) : undefined;
     return opt(f.id, f.name, `${f.problem}. 이 문제를 수련 사례와 연구로 이어갑니다.${credential ? ` 수료 뒤 ${credential.name} ${credential.kind} 자격 심사를 준비할 수 있습니다.` : ''}`);
   }) };
   if (key === 'credential-preparation') return { title: `${journeyCredential(s)!.name} 자격 준비`, body: '수련은 마쳤습니다. 연수교육과 발표·연구 기록을 정리하고 자격시험을 준비할지 정합니다.', choices: [
@@ -148,6 +156,13 @@ export function journeyEvent(s: GameState, fullKey: string): Pick<GameEvent, 'ti
     opt('decline', '지금의 전문 분야에서 일한다', '대학 임용 대신 지금의 일을 이어갑니다.', { happiness: 2, health: 1 })] };
   if (key.startsWith('academic:')) {
     const [, r, area] = key.split(':'), rank = Number(r);
+    if (area === 'term') return { title: `${academicTitle(s)}의 연구·교육·팀 운영`,
+      body: `${project(s)}를 이어오며 연구 자료와 수업, 팀의 역할을 함께 돌아봅니다. 이번 단계를 어떻게 마무리할지 정합니다.`, choices: [
+        opt('lead', '자료와 수업, 팀 운영을 직접 정리한다', '연구·교육·팀 기여를 각각 2건 남깁니다. 직접 책임지는 만큼 휴식이 줄어듭니다.', { knowledge: 6, health: -4 }),
+        opt('team', '동료와 역할을 나눠 함께 마무리한다', '연구·교육·팀 기여를 각각 2건 남깁니다. 공동 작업과 교육을 나눠 맡습니다.', { knowledge: 3, relationships: 5 }),
+        opt('rest', '이번 단계는 회복에 집중한다', '성과를 추가하지 않고 쉽니다. 다음 심사에서 부족한 경험을 보완할 수 있습니다.', { health: 5, happiness: 2 }),
+        opt('leave', '대학 밖의 일로 옮긴다', '승진 준비를 멈추고 지금까지의 교원 경력을 남깁니다.', { health: 2, happiness: 2 }),
+      ] };
     const situations: Record<string, string[]> = {
       research: [`${project(s)}를 첫 논문으로 묶으려는데 빠진 자료가 발견됐습니다. 공동연구자는 제출 날짜를 지키자고 합니다.`, `${project(s)} 공동연구가 다른 기관으로 넓어졌습니다. 자료 정의와 기여자 역할이 달라 조율이 필요합니다.`, `${project(s)} 연구팀에 새 과제가 제안됐습니다. 실적은 늘겠지만 후배의 독립 주제가 묻힐 수 있습니다.`],
       teaching: [`학생이 ${project(s)}를 사례 수업에서 다루고 싶다고 합니다. 실제 사람의 이야기를 어디까지 사용할지 정해야 합니다.`, `전공의가 ${project(s)} 발표에서 어려웠던 부분을 말하지 못합니다. 평가를 맡은 내가 수업도 진행하고 있습니다.`, `후배 교수가 ${project(s)} 수업을 새로 맡습니다. 내 자료를 그대로 쓰면 편하지만 자신만의 질문을 만들 시간도 필요합니다.`],
@@ -188,10 +203,11 @@ export function settleJourney(s: GameState, key: string, choiceId: string) {
   if (id === 'route' && choiceId === 'fellowship') s.career!.practice = 'employed';
   if (choiceId === 'exit' || choiceId === 'leave') s.career!.practice = department(s) ? 'research' : 'employed';
   if (id.startsWith('scene:') && s.depth) { s.depth.skill = Math.min(100, s.depth.skill + (choiceId === 'lead' ? 4 : choiceId === 'rest' ? 0 : 2)); s.depth.safety = Math.min(100, s.depth.safety + (choiceId === 'team' || choiceId === 'reuse' ? 3 : 1)); }
-  if (id === 'fellow-project' || id.includes(':research')) s.career!.experience.research = Math.min(100, s.career!.experience.research + (choiceId === 'rest' || choiceId === 'leave' ? 0 : 4));
+  if (id === 'fellow-project' || id.includes(':research') || id.endsWith(':term')) s.career!.experience.research = Math.min(100, s.career!.experience.research + (choiceId === 'rest' || choiceId === 'leave' ? 0 : 4));
   return true;
 }
 export function advanceJourney(s: GameState) {
+  if (isAddedProfession(s)) return;
   for (const [key, d] of Object.entries(s.journey?.decisions ?? {})) {
     if (d.followed || elapsedMonths(s) < d.month + JOURNEY_RULES.followupMonths) continue;
     d.followed = true;
@@ -222,7 +238,7 @@ export function finishJourney(s: GameState) {
 export function validJourney(s: GameState): boolean {
   const v = s.journey; if (v === undefined) return true;
   const month = elapsedMonths(s);
-  if (!v || ![1, 2].includes(v.version) || !Number.isSafeInteger(v.since) || v.since < 0 || v.since > month || !v.decisions || typeof v.decisions !== 'object' || Array.isArray(v.decisions)) return false;
+  if (!v || ![1, 2, 3].includes(v.version) || v.version === 3 && !shortPacing(s) || !Number.isSafeInteger(v.since) || v.since < 0 || v.since > month || !v.decisions || typeof v.decisions !== 'object' || Array.isArray(v.decisions)) return false;
   const entries = Object.entries(v.decisions);
   if (entries.length > 75) return false;
   let last = v.since;

@@ -1,6 +1,6 @@
 import type { GameState, Stats } from './contracts';
 import type { Story, StoryChoice } from './life-stories';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { SPECIALTY_DEPTH } from './specialty-depth';
 
 // Fictional work dilemmas. These are not treatment recommendations or risk models.

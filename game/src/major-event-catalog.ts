@@ -63,3 +63,7 @@ export const MAJOR_EVENTS: readonly IncidentDefinition[] = [
   life('disaster', '삶의 터전을 잃은 재난', '큰 재난으로 살던 지역에서 장기간 생활하기 어려워졌습니다. 다른 지역에서 거처와 일상을 다시 마련해야 합니다.', 80_000_000, 48, .4, ['새 지역에 정착하기', '임시 거처에서 복구 기다리기'], 'any', 'loss', 'rare'),
   life('financial-crisis', '길어진 경제 위기', '경제 위기로 수입과 생활 여건이 함께 흔들렸습니다. 지출과 자금 계획을 오랫동안 조정해야 합니다.', 40_000_000, 48, .35, ['비용을 들여 생활 규모 줄이기', '현재 기반 유지하며 버티기'], 'working', 'loss', 'rare'),
 ];
+
+export const ALL_MAJOR_EVENTS: readonly IncidentDefinition[] = [...MAJOR_EVENTS,
+  medical('nursing-handover', '간호 인계와 관찰 기록 검토', '환자 측이 상태 변화의 보고와 인계 과정에 이의를 제기했습니다. 담당 팀과 실제 기록·업무 분담을 확인합니다.', ['nursing'], 12_000_000),
+];

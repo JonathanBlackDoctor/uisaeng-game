@@ -1,7 +1,7 @@
 import type { GameState, EventChoice } from './contracts';
 import type { Story, StoryChoice } from './life-stories';
 import { campusClub } from './campus';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 
 // Fictional continuing thread. It replaces one existing story slot per stage.
 export const STORYLINE_IDS = ['shared-notebook', 'notebook-return', 'notebook-handover', 'notebook-ending'] as const;

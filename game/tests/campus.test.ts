@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import type { GameState } from '../src/contracts';
+import type { GameState, JournalEntry } from '../src/contracts';
 import { createCareerGame, careerEvent } from '../src/career-runtime';
 import { reduceGame } from '../src/engine';
 import { CLUBS, advanceCampus, initialCampus, validCampus } from '../src/campus';
@@ -25,10 +25,11 @@ function answer(s: GameState, club = 'pass') {
 function start(seed = 42, speed: 1 | 8 = 8) {
   return reduceGame(createCareerGame('campus-test', seed), { type: 'control', id: 'start', paused: false, speed });
 }
-function until(s: GameState, done: (s: GameState) => boolean, club = 'pass') {
+function until(s: GameState, done: (s: GameState) => boolean, club = 'pass', observe?: (state: GameState) => void) {
   for (let i = 0; i < 12000; i++) {
     if (done(s)) return s;
     s = s.pendingEvent ? choose(s, answer(s, club)) : tick(s);
+    observe?.(s);
     const diagnostic = `invalid month ${s.life!.elapsedMs / 1000}: ${s.pendingEvent?.randomKey}`;
     if (!validState(s)) throw new Error(diagnostic);
   }
@@ -59,14 +60,18 @@ describe('campus life', () => {
     } finally { db.close(); }
   });
   it('keeps automatic news through late university and retirement, with no exhausted pool', () => {
-    const s = until(start(), s => s.status === 'completed');
-    const months = news(s).map(j => Number(j.id.split(':').at(-1)));
+    // Observe events as they happen: storage now retains only the latest per stage.
+    const observed = new Map<string, JournalEntry>();
+    const s = until(start(), s => s.status === 'completed', 'pass', state => news(state).forEach(j => observed.set(j.id, j)));
+    const allNews = [...observed.values()];
+    const months = allNews.map(j => Number(j.id.split(':').at(-1)));
     expect(months.filter(m => m <= 72).length).toBeGreaterThan(35);
     expect(months.some(m => m >= 68 && m <= 72)).toBe(true);
     expect(months.some(m => m >= 650)).toBe(true);
     // Monthly campus news and six-month adult news both guarantee at most two slots of silence.
     for (let i = 1; i < months.length; i++) expect(months[i] - months[i - 1]).toBeLessThanOrEqual(months[i] <= 72 ? 2 : 12);
-    expect(new Set(news(s).map(j => j.title)).size).toBeGreaterThan(25);
+    expect(new Set(allNews.map(j => j.title)).size).toBeGreaterThan(25);
+    expect(news(s).length).toBeLessThanOrEqual(4);
     expect(new Set(news(s).map(j => j.id)).size).toBe(news(s).length);
   });
   it('reuses long-running stories after the preferred count instead of going silent', () => {
@@ -136,8 +141,8 @@ describe('revocable university funding plan', () => {
     expect(settleEconomyMonth(automatic, 2, { ...ctx, automaticEducationLoan: true })).toBe(automatic);
     const stopped = settleEconomyMonth(automatic, 3, ctx);
     expect(stopped.debt).toBe(automatic.debt); expect(stopped.due).toBe(ECONOMY_RULES.livingCost);
-    const after = settleEconomyMonth(automatic, 3, { ...ctx, stage: 'retirement', automaticEducationLoan: true });
-    expect(after.debt).toBe(automatic.debt); expect(after.due).toBeGreaterThan(0);
+    const after = settleEconomyMonth(automatic, 3, { ...ctx, stage: 'retirement', priceIndex: 3, automaticEducationLoan: true });
+    expect(after.debt).toBe(automatic.debt); expect(after.due).toBe(ECONOMY_RULES.livingCost * 3 - ECONOMY_RULES.retirementIncome);
   });
   it('settles an existing due with available cash and only the remaining gap', () => {
     const s = initialEconomy('tight'); s.cash = s.assets = 300_000; s.due = 900_000;

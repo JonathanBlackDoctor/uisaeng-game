@@ -137,7 +137,7 @@ export function requiredStory(s: GameState): string | null {
   const v = s.stories, m = elapsedMonths(s); if (!v) return null;
   const compact = compactPacing(s);
   if (Object.keys(v.decisions).filter(id => LIFE_STORIES.find(x => x.id === id)?.stage === s.stageIndex).length >= (compact ? pacingStoryLimit(s) : STORY_RULES.perStage[s.stageIndex])) return null;
-  const start = [0, s.progress?.trainingStartMonth ?? 72, 144 + Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72), 564 + Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72)][s.stageIndex];
+  const start = [0, s.progress?.trainingStartMonth ?? 72, 144 + Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72), (s.aging?.retirementMonth ?? (564 + Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72)))][s.stageIndex];
   const last = Math.max(v.since, start, ...Object.entries(v.decisions).filter(([id]) => LIFE_STORIES.find(x => x.id === id)?.stage === s.stageIndex).map(([, d]) => d.month));
   if (m - last < STORY_RULES.spacing[s.stageIndex]) return null;
   const arc = STORYLINE_IDS[s.stageIndex];

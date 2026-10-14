@@ -1,10 +1,12 @@
+import { isAddedProfession, professionDefinition, professionOf, practiceLabel } from './professions';
+import { professionalSummary } from './profession-runtime';
 import { roundedValue } from "./display-values";
 import ClinicPanel from './ClinicPanel';
 import { useState } from 'react';
 import SpecialtyJourneyPanel from './SpecialtyJourneyPanel';
 import { journeySummary } from './specialty-journey';
 import type { GameAction, GameState } from './contracts';
-import { INSTITUTIONS, SPECIALTIES } from './career';
+import { ALL_INSTITUTIONS as INSTITUTIONS, ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { campusClub } from './campus';
 import { DEPTH_RUNTIME } from './career-depth';
 import './career-panel.css';
@@ -22,13 +24,13 @@ export default function CareerPanel({ game, busy, act }: { game: GameState; busy
   const disabled = busy || !!game.pendingEvent || game.status === 'completed';
   const school = game.stageIndex === 0;
   const club = campusClub(game);
-  const practice = { undecided: '수련 준비', employed: '봉직의', clinic: '개원', research: '연구', untrained: '미수련·일반진료' }[c.practice];
+  const practice = isAddedProfession(game) ? practiceLabel(game) : { undecided: '수련 준비', employed: '봉직의', clinic: '개원', research: '연구', untrained: '미수련·일반진료' }[c.practice];
   const journey = journeySummary(game);
   const careerTitle = journey.title ?? (journey.field ? `${journey.field} · ${journey.qualification}` : practice);
   return <section className="panel career-panel" aria-label="활동과 진로">
     <details className="career-disclosure"><summary>진로 · {school ? (SPECIALTIES.find(s => s.id === c.interest)?.name ?? '탐색 중') : careerTitle}<span>설정</span></summary><div className="career-disclosure-body">
-    <div className="career-summary"><h3>{school ? '어떤 의사가 될까요?' : current ? `${current.name} · ${careerTitle}` : careerTitle}</h3>{c.institution && <p>{INSTITUTIONS.find(i => i.id === c.institution)?.name}</p>}</div>
-    <SpecialtyJourneyPanel game={game}/>
+    <div className="career-summary"><h3>{school ? `어떤 ${professionDefinition(game).job}가 될까요?` : current ? `${current.name} · ${careerTitle}` : careerTitle}</h3>{c.institution && <p>{INSTITUTIONS.find(i => i.id === c.institution)?.name}</p>}</div>
+    {isAddedProfession(game) ? <p>{professionalSummary(game)}</p> : <SpecialtyJourneyPanel game={game}/>}
     {club && <div className="campus-summary"><strong>{club.name}</strong><p>{club.mentor}</p><small>{game.campus!.project === 'accepted' ? `${club.project} 준비 중` : game.campus!.project === 'finished' ? `함께 마친 활동: ${club.project}` : '모임에서 함께한 일이 쌓입니다.'}</small></div>}
     {!school && game.depth && <details className="money-details"><summary>수련·업무 기록</summary><p>숙련 경험 {roundedValue(game.depth.skill)} · 안전관리 경험 {roundedValue(game.depth.safety)}</p>{game.depth.institutionPath && <p>수련 일정과 몇 달 뒤 결과는 생애 기록에 남습니다.</p>}{game.stageIndex === 2 && c.practice !== 'undecided' && game.status !== 'completed' && <label className="career-field"><span>업무 일정</span><select aria-label="업무 일정" value={game.depth.workload} disabled={disabled} onChange={ev => act({ type: 'workload', id: crypto.randomUUID(), workload: ev.target.value as 'balanced' | 'extended' | 'learning' })}><option value="balanced">기본 일정</option>{c.practice !== 'research' && <option value="extended">추가 업무</option>}<option value="learning">교육·동료 검토</option></select><small>{game.depth.workload === 'extended' ? `월 추가 ${won(c.practice === 'clinic' ? DEPTH_RUNTIME.extendedRevenue : DEPTH_RUNTIME.extendedSalary)}${c.practice === 'clinic' ? ` · 운영비 ${won(DEPTH_RUNTIME.extendedCost)}` : ''} · 석 달마다 건강 -2` : game.depth.workload === 'learning' ? `월 교육비 ${won(DEPTH_RUNTIME.learningCost)} · 잔액 부족 시 중단` : '기본 수입과 생활 시간을 유지합니다.'}</small></label>}<p className="career-assumption">업무·비용·사건 수치는 가상 게임 설정입니다. 실제 병원의 급여나 사고 확률을 뜻하지 않습니다.</p></details>}
     {school && <div className="specialty-explorer"><label className="career-field"><span>이번 학기에 알아볼 과</span><select aria-label="이번 학기에 알아볼 과" value={chosen.id} disabled={disabled} onChange={ev => setSelection(ev.target.value)}>{available.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><p>{chosen.summary}</p><button className="subtle-button" disabled={disabled || c.interest === chosen.id} onClick={() => act({ type: 'explore', id: crypto.randomUUID(), specialtyId: chosen.id })}>{c.explored.includes(chosen.id) ? '관심 전공으로 정하기' : '알아보기'}</button><small>{c.interest ? `관심 전공: ${SPECIALTIES.find(s => s.id === c.interest)?.name} · ` : ''}6개월마다 견학할 과가 바뀝니다.</small></div>}

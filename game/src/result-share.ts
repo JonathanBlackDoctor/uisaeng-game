@@ -1,5 +1,8 @@
+import { isAddedProfession, professionDefinition, professionOf, practiceLabel } from './professions';
+import { professionalSummary } from './profession-runtime';
 import { STAT_LABELS, type GameState, type Stat } from './contracts';
-import { SPECIALTIES } from './career';
+import { compactJournal } from './journal-retention';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { lifeStartAge } from './random-life';
 import { calendarMonths, GENDER_LABELS, serviceSummary } from './identity';
 import { encounterLabel, netAssets } from './life-goals';
@@ -12,7 +15,7 @@ import { roundedValue } from './display-values';
 export const GAME_SHARE_URL = 'https://JonathanBlackDoctor.github.io/uisaeng-game/';
 export function resultShareData(game: GameState): ShareData {
   const lines = ['의생게임 · 나의 결과'];
-  if (game.career) lines.push(`누적 진료 ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : formatWon(netAssets(game)!)}`);
+  if (game.career) lines.push(`${professionOf(game) === 'nursing' ? '누적 돌봄' : '누적 진료'} ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : formatWon(netAssets(game)!)}`);
   if (game.career) lines.push(`가족과 보낸 시간 ${familyTimeLabel(game)} · 발표한 논문 ${publicationLabel(game)}`);
   if (game.life) {
     const months = calendarMonths(game);
@@ -22,10 +25,11 @@ export function resultShareData(game: GameState): ShareData {
   if (game.career) {
     const specialty = SPECIALTIES.find(item => item.id === game.career!.specialty)?.name;
     const practice = { undecided: '진로 탐색', employed: '봉직의', clinic: '개원', research: '연구', untrained: '일반진료' }[game.career.practice];
-    lines.push([specialty, practice].filter(Boolean).join(' · '));
+    lines.push([isAddedProfession(game) ? professionDefinition(game).label : null, specialty, isAddedProfession(game) ? practiceLabel(game) : practice].filter(Boolean).join(' · '));
+    if (isAddedProfession(game)) lines.push(professionalSummary(game)!);
   }
   lines.push((Object.keys(STAT_LABELS) as Stat[]).map(key => `${STAT_LABELS[key]} ${roundedValue(game.stats[key])}`).join(' · '));
-  lines.push(`생애 기록 ${game.journal.length}개`);
+  lines.push(`생애 기록 ${compactJournal(game.journal).length}개`);
   return { title: '의생게임 · 나의 결과', text: lines.join('\n'), url: GAME_SHARE_URL };
 }
 

@@ -1,5 +1,8 @@
 /** All amounts are provisional game settings in whole KRW, not real-world data. */
 export type EconomyContext = {
+  salary?: number;
+  tuition?: number;
+  trainingIncome?: number;
   stage: 'university' | 'training' | 'career' | 'retirement';
   practice: 'undecided' | 'employed' | 'clinic' | 'research' | 'untrained';
   working: boolean;
@@ -53,7 +56,8 @@ export const ECONOMY_RULES = {
   employedSalary: 6_000_000,
   researchIncome: 3_500_000,
   untrainedIncome: 2_500_000,
-  retirementIncome: 0,
+  // Adjustable fictional pension, approved direction; not a real-world entitlement.
+  retirementIncome: 1_500_000,
   clinicRevenue: 12_000_000,
   clinicOperatingCost: 7_000_000,
   clinicOpeningCost: 20_000_000,
@@ -134,7 +138,7 @@ function clinicOwned(state: EconomyState): boolean {
 }
 
 function assertContext(context: EconomyContext): void {
-  if (!record(context) || !['university', 'training', 'career', 'retirement'].includes(context.stage)
+  if (!record(context) || ['salary','tuition','trainingIncome'].some(k => context[k as keyof EconomyContext] !== undefined && !money(context[k as keyof EconomyContext])) || !['university', 'training', 'career', 'retirement'].includes(context.stage)
     || !['undecided', 'employed', 'clinic', 'research', 'untrained'].includes(context.practice)
     || typeof context.working !== 'boolean' || typeof context.scholarship !== 'boolean'
     || (context.familyMonthly !== undefined && !money(context.familyMonthly))
@@ -156,7 +160,7 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
   const next = clone(state);
   next.income = 0;
   next.expenses = 0;
-  const r = ECONOMY_RULES;
+  const r = { ...ECONOMY_RULES, ...(context.salary === undefined ? {} : { employedSalary: context.salary, untrainedIncome: context.salary }), ...(context.tuition === undefined ? {} : { tuition: context.tuition }), ...(context.trainingIncome === undefined ? {} : { trainingSalary: context.trainingIncome }) };
   const price = context.priceIndex ?? 1, wage = context.wageIndex ?? 1, living = context.livingFactor ?? 1;
   if (![price, wage, living].every(n => Number.isFinite(n) && n > 0 && n < 1000)) throw new RangeError('물가·급여 설정을 확인해 주세요.');
   const receive = (key: string, label: string, amount: number) => {
@@ -190,7 +194,7 @@ export function settleEconomyMonth(state: EconomyState, month: number, context: 
     if (context.practice === 'untrained') receive('untrained', '미수련 경로 수입', r.untrainedIncome);
     if (context.practice === 'clinic' && clinicOwned(state)) receive('revenue', '개원 매출', context.clinicRevenue ?? r.clinicRevenue);
   } else {
-    receive('retirement', '은퇴 수입', r.retirementIncome);
+    receive('retirement', '연금', r.retirementIncome);
   }
   spend('living', '생활비', r.livingCost);
   if (context.stage === 'university' && month % r.tuitionInterval === 0) spend('tuition', '학비', r.tuition);

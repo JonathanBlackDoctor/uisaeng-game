@@ -1,3 +1,4 @@
+import { PROFESSION_SPECIALTIES, PROFESSION_INSTITUTIONS, validProfession, type ProfessionId } from './professions.ts';
 // Independent runtime-modules-1 module. All scenes and scoring are game assumptions.
 export type Practice = 'undecided' | 'employed' | 'clinic' | 'research' | 'untrained';
 export type Experience = { study: number; research: number; people: number; clinical: number };
@@ -13,6 +14,7 @@ export interface ApplicationRecord {
   abilityBonus?: number;
 }
 export interface CareerState {
+  profession?: ProfessionId;
   experience: Experience;
   explored: string[];
   interest: string | null;
@@ -93,10 +95,13 @@ export const CAREER_RULES = {
   } as Record<string, number[]>,
 };
 
+export const ALL_SPECIALTIES: Specialty[] = [...SPECIALTIES, ...PROFESSION_SPECIALTIES];
+export const ALL_INSTITUTIONS = [...INSTITUTIONS, ...PROFESSION_INSTITUTIONS];
+export const careerSpecialties = (state: { profession?: ProfessionId }) => state.profession && state.profession !== 'medicine' ? PROFESSION_SPECIALTIES.filter(x => x.profession === state.profession) : SPECIALTIES;
 const experienceKeys = ['study', 'research', 'people', 'clinical'] as const;
 const practices: Practice[] = ['undecided', 'employed', 'clinic', 'research', 'untrained'];
-const isSpecialty = (id: unknown): id is string => typeof id === 'string' && SPECIALTIES.some(s => s.id === id);
-const isInstitution = (id: unknown): id is string => typeof id === 'string' && INSTITUTIONS.some(i => i.id === id);
+const isSpecialty = (id: unknown): id is string => typeof id === 'string' && ALL_SPECIALTIES.some(s => s.id === id);
+const isInstitution = (id: unknown): id is string => typeof id === 'string' && ALL_INSTITUTIONS.some(i => i.id === id);
 const counter = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0;
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -118,17 +123,22 @@ function jsonSafe(v: unknown, ancestors = new Set<object>()): boolean {
 export function validCareer(value: unknown): value is CareerState {
   try {
     if (!object(value) || !jsonSafe(value) || !object(value.experience)) return false;
+    if (value.profession !== undefined && !validProfession(value.profession)) return false;
+    const own = careerSpecialties(value as unknown as CareerState);
+    if (!Array.isArray(value.explored) || !value.explored.every(id => own.some(x => x.id === id)) || (value.specialty !== null && !own.some(x => x.id === value.specialty))) return false;
+    if (value.profession === 'nursing' && value.practice === 'clinic') return false;
     if (!experienceKeys.every(k => counter((value.experience as Record<string, unknown>)[k]))) return false;
     if (!Array.isArray(value.explored) || !value.explored.every(isSpecialty) || new Set(value.explored).size !== value.explored.length) return false;
     if (value.interest !== null && (!isSpecialty(value.interest) || !value.explored.includes(value.interest))) return false;
     if (value.specialty !== null && !isSpecialty(value.specialty)) return false;
     if (value.institution !== null && !isInstitution(value.institution)) return false;
+    if (typeof value.institution === 'string' && value.institution.startsWith('profession-') !== (value.profession !== undefined && value.profession !== 'medicine')) return false;
     if (!['none', 'accepted', 'rejected', 'untrained'].includes(value.application as string)) return false;
     if (!practices.includes(value.practice as Practice) || !counter(value.attempts) || !Number.isSafeInteger(value.lastMonth) || (value.lastMonth as number) < -1) return false;
     if (value.application === 'accepted' || value.application === 'rejected') {
       if (!isSpecialty(value.specialty) || !isInstitution(value.institution) || value.attempts < 1) return false;
     } else if (value.specialty !== null || value.institution !== null) return false;
-    if ((value.practice === 'employed' || value.practice === 'clinic') && value.application !== 'accepted') return false;
+    if ((value.practice === 'employed' || value.practice === 'clinic') && value.application !== 'accepted' && !(value.profession && value.profession !== 'medicine' && value.application === 'untrained')) return false;
     if (value.practice === 'untrained' && value.application !== 'untrained') return false;
     if (value.application === 'accepted' && value.practice === 'untrained') return false;
     if (value.lastApplication !== undefined) {
@@ -150,7 +160,7 @@ function requireState(state: CareerState): void {
   if (!validCareer(state)) throw new TypeError('잘못된 진로 상태입니다.');
 }
 function requireSpecialty(id: string): Specialty {
-  const specialty = SPECIALTIES.find(s => s.id === id);
+  const specialty = ALL_SPECIALTIES.find(s => s.id === id);
   if (!specialty) throw new RangeError('전공을 확인해 주세요.');
   return specialty;
 }
@@ -175,12 +185,14 @@ export function advanceCareerExperience(state: CareerState, month: number, focus
 
 export function exploreSpecialty(state: CareerState, id: string): CareerState {
   requireState(state); requireSpecialty(id);
+  if (!careerSpecialties(state).some(s => s.id === id)) throw new RangeError('직군에 맞는 분야를 선택해 주세요.');
   return { ...state, explored: state.explored.includes(id) ? [...state.explored] : [...state.explored, id], interest: id };
 }
 
 export function careerPreparation(state: CareerState, id: string): Preparation {
   requireState(state); requireSpecialty(id);
-  const weights = CAREER_RULES.preparationWeights[id];
+  if (!careerSpecialties(state).some(s => s.id === id)) throw new RangeError('직군에 맞는 분야를 선택해 주세요.');
+  const weights = CAREER_RULES.preparationWeights[id] ?? [0.25, 0.15, 0.25, 0.35];
   const parts = experienceKeys.map((k, i) => Math.min(state.experience[k], CAREER_RULES.experienceCap) * weights[i] * CAREER_RULES.experienceWeight);
   const exploration = state.explored.includes(id) ? CAREER_RULES.explorationBonus : 0;
   const interest = state.interest === id ? CAREER_RULES.interestBonus : 0;
@@ -190,7 +202,9 @@ export function careerPreparation(state: CareerState, id: string): Preparation {
 
 export function applySpecialty(state: CareerState, id: string, institutionId: string, knowledge: number, roll: number, abilityBonus = 0): { state: CareerState; accepted: boolean; detail: string } {
   requireState(state); requireSpecialty(id);
+  if (!careerSpecialties(state).some(s => s.id === id)) throw new RangeError('직군에 맞는 분야를 선택해 주세요.');
   if (!isInstitution(institutionId)) throw new RangeError('지원 기관을 확인해 주세요.');
+  if (institutionId.startsWith('profession-') !== (state.profession !== undefined && state.profession !== 'medicine')) throw new RangeError('직군에 맞는 기관을 선택해 주세요.');
   if (!finite(knowledge) || knowledge < 0 || knowledge > 100) throw new RangeError('지식은 0부터 100까지여야 합니다.');
   if (!finite(roll) || roll < 0 || roll >= 1) throw new RangeError('추첨값은 0 이상 1 미만이어야 합니다.');
   if (!finite(abilityBonus) || Math.abs(abilityBonus) > 8) throw new RangeError('역량 보정 범위를 확인해 주세요.');
@@ -209,8 +223,9 @@ export function applySpecialty(state: CareerState, id: string, institutionId: st
 
 export function choosePractice(state: CareerState, path: Practice): CareerState {
   requireState(state);
+  if (state.profession === 'nursing' && path === 'clinic') throw new RangeError('간호 경로에는 개원이 없습니다.');
   if (!practices.includes(path)) throw new RangeError('경력 경로를 확인해 주세요.');
-  if ((path === 'employed' || path === 'clinic') && state.application !== 'accepted') throw new RangeError('수련 경로를 먼저 선택해 주세요.');
+  if ((path === 'employed' || path === 'clinic') && state.application !== 'accepted' && !(state.profession && state.profession !== 'medicine' && state.application === 'untrained')) throw new RangeError('수련 경로를 먼저 선택해 주세요.');
   if (path === 'untrained') return { ...state, specialty: null, institution: null, application: 'untrained', practice: path };
   return { ...state, practice: path };
 }
@@ -225,7 +240,7 @@ export function careerScene(state: CareerState): { title: string; body: string }
   }
   if (state.application !== 'accepted' || !state.specialty) return { title: '진로 준비', body: '전공을 탐색하거나 다시 지원할 준비를 한다.' };
   const s = requireSpecialty(state.specialty);
-  const institution = INSTITUTIONS.find(i => i.id === state.institution)!;
+  const institution = ALL_INSTITUTIONS.find(i => i.id === state.institution)!;
   if (state.practice === 'undecided') return { title: `${s.name} 수련`, body: `${institution.name}에서 수련을 시작한다. ${s.training}` };
   if (state.practice === 'clinic') return { title: s.caseTitle, body: `${s.caseBody} 진료 뒤 직원과 예약·운영 일정을 확인한다.` };
   return { title: s.caseTitle, body: `${s.caseBody} 근무를 마치기 전에 동료에게 인계한다.` };

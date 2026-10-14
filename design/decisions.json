@@ -2,6 +2,35 @@
   "schemaVersion": 1,
   "decisions": [
     {
+      "id": "condensed-default-story-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "status": "confirmed",
+      "instruction": "너무 적게 줄였다. 스토리 관련도 줄여도 돼.",
+      "scope": "새 게임 기본 옵션에서 스토리 보조 장면도 감축. 대학 보조4→1, 전문 경력 장면4→2, 학술 각 단계 연구·교육·운영3→통합1. 입학/진로/관계/복무/승진/중도이탈/주요 연결서사 결말 유지. 시간 속도 유지. 진행 중인 저장은 기존 순서 유지. docs/condensed-default-story.md.",
+      "provisional": "새 통합 학술 선택의 경험·스탯 효과는 변경 가능한 게임 조정값. 별도 은퇴 개발의 자금 부족 선택 반복은 이번 스토리 감축과 분리해 기록하며 총 횟수를 과장하지 않는다. 공개 배포 미수행."
+    },
+    {
+      "id": "fewer-choices-preserve-story-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "status": "confirmed",
+      "instruction": "아냐 그건 건들지 마. 선택지와 로그를 줄이라는 뜻이었어. 대신 스토리라인에 절대 손상이 가선 안 돼.",
+      "scope": "기본 시간 속도 복구·유지. 기본 옵션에서 새로 시작하는 반복 진료 사건과 독립 일상 선택만 줄인다. 연결 이야기·진로·관계·복무·학교 프로젝트 선택과 후속·결말 및 이미 열린 사건 보존. 반복 생활 보고는 전체 기록으로 묶고 최근 기록은 같은 사건의 최신 부담만 표시. 상세 docs/fewer-choices-preserve-story.md.",
+      "provisional": "반복 선택 한도는 조정 가능한 시험값. 서사 보존을 우선하므로 학술 경로 등에서 선택 수가 그대로일 수 있다. 사람 플레이타임 단축률은 주장하지 않는다. 공개 배포 미수행.",
+      "storyRestrictionSupersededBy": "condensed-default-story-v1"
+    },
+    {
+      "id": "shorter-default-playtime-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "status": "superseded",
+      "instruction": "전반적으로 기본 옵션의 플레이타임을 좀 더 줄였으면 좋겠어.",
+      "scope": "사용자 의도를 잘못 해석한 속도 변경. 사용자 정정으로 대학 3000→3900ms, 이후 1500→2000ms로 복구하고 관련 잔여값 보정도 철회했다.",
+      "provisional": "이 변경의 속도 단축 수치는 사용자 승인이 아니며 현재 게임에 적용되지 않는다.",
+      "supersededBy": "fewer-choices-preserve-story-v1"
+    },
+    {
       "id": "clinic-simple-large-wealth-growth-v2",
       "date": "2026-10-14",
       "status": "confirmed",
@@ -1150,6 +1179,49 @@
       "status": "confirmed",
       "instruction": "좋아 배포해. 그러면 플레이타임은 어떻게 돼?",
       "scope": "공개1.3.1 기반에 진행 속도 조정만 반영해 1.3.2 배포. 기본·길게 플레이타임을 선택 읽기 가정과 함께 측정. 능력치 초과는 별도 미구현."
+    },
+    {
+      "id": "random-college-and-retry-admission-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "status": "confirmed",
+      "instruction": "입학할 대학도 랜덤으로 하고, 입학 나이도 재수/n수로 랜덤 요소 조금 넣어.",
+      "scope": "새 게임의 의대·치대·한의대·간호대 배정과 입학 나이를 무작위로 생성. 세부 분포는 ADMISSION_RULES의 provisional 조정값이며 사용자 확정 확률이 아님. 기존 저장은 다시 추첨하지 않음. 장수생 별도 능력치·비용 효과는 미적용. docs/random-admission.md 참고."
+    },
+    {
+      "id": "age-health-retirement-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "status": "confirmed",
+      "instruction": "노화가 빨리 와야지. 그리고 건강이 안 좋은 경우도 노화와 은퇴가 빨라져야지.",
+      "scope": "입학 나이·복무를 포함한 실제 나이로 노화와 은퇴를 계산하며 낮은 건강의 누적 부담이 노화·은퇴를 앞당김. 세부 기준과 강도는 AGING_RULES의 provisional 시험 설정. docs/aging-and-retirement.md 참고."
+    },
+    {
+      "id": "integrated-current-changes-release-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13862-5aa0-7391-900e-a0103e68573f",
+      "status": "confirmed",
+      "instruction": "여러 변경사항들이 있는데 서로 충돌하지 않고 조화롭게 적용해서 배포해.",
+      "scope": "현재 완료된 직군 확장·입학 대학/나이 무작위화·노화/은퇴·기본 선택/스토리 축소·로그 정리·오프닝 연출 등 로컬 게임 변경을 통합하고 충돌·저장 호환·실제 진행을 검증한 뒤 기존 공개 주소에 배포. 새 핵심 규칙 임의 추가/능력100초과 자동 구현은 포함하지 않음. 다른 작업 및 연구 원본 보존."
+    },
+    {
+      "id": "condensed-professions-integration-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13b34-818e-71f0-9af2-e1ff59aa233a",
+      "status": "confirmed",
+      "instruction": "특히 분량 줄이는게 치한간에 적용 안 됐을지도 모르는데 그런 식의 충돌 없도록 해줘.",
+      "scope": "치과·한의과·간호의 새 기본 게임에도 스토리 분량 축소를 연결. 직군별 면허·자격·진로·은퇴/회고 및 기존 저장/길게 계약을 유지하고 통합 검증한다. 세부 장면 상한은 변경 가능한 게임 조정값."
+    },
+    {
+      "id": "provisional-retirement-pension-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13b34-818e-71f0-9af2-e1ff59aa233a",
+      "status": "confirmed",
+      "instruction": "변경 가능한 시험 연금 수입을 넣고 금액을 명시",
+      "scope": "은퇴 후 월 연금 수입 추가. 기준 월 150만원에 기존 급여 경제배율을 적용하고 원장/재정에 표시. 금액은 변경 가능한 ECONOMY_RULES 시험 설정이며 실제 연금 수급권/통계나 정식 수치 승인으로 간주하지 않는다. 자동대출/미납삭제는 추가하지 않음."
     }
   ]
 }

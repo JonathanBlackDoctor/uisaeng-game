@@ -1,6 +1,7 @@
+import { PROFESSION_SPECIALTIES } from './professions';
 import type { CareerProgress, GameEvent, GameState, Stats } from './contracts';
-import { compactPacing, PACING_RULES } from './pacing';
-import { SPECIALTIES } from './career';
+import { compactPacing, PACING_RULES, condensedStory } from './pacing';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 
 
 import { ABILITIES, abilityBackgroundBonuses, isLegacyAbilities, legacyGame, migrateAbilities } from './ability-schema';
@@ -88,6 +89,7 @@ export const SPECIALTY_SYNERGY: Record<string, readonly AbilityId[]> = {
   family: ['communication', 'judgment', 'selfManagement'], occupational: ['research', 'communication'],
   nuclear: ['research', 'technique'], emergency: ['judgment', 'management', 'selfManagement'],
 };
+for (const s of PROFESSION_SPECIALTIES) SPECIALTY_SYNERGY[s.id] = s.track === 'surgical' ? ['technique','judgment'] : s.track === 'diagnostic' ? ['research','judgment'] : s.track === 'community' ? ['communication','management'] : s.profession === 'nursing' ? ['judgment','communication','selfManagement'] : ['judgment','technique','communication'];
 export function specialtySynergy(s: GameState, focus: Focus): number {
   const id = s.career?.specialty;
   if (!s.abilities || !id || s.career?.application !== 'accepted' || ![1, 2].includes(s.stageIndex)
@@ -206,6 +208,7 @@ export function abilityEvent(s: GameState, key: string): Pick<GameEvent, 'title'
   ] };
 }
 export function nextAbilityEvent(s: GameState): string | null {
+  if (condensedStory(s)) return null;
   const a = s.abilities, m = month(s);
   if (compactPacing(s) && Object.keys(a?.seen ?? {}).length >= PACING_RULES.abilityLimit) return null;
   if (!a || m % ABILITY_RULES.eventSpacing) return null;

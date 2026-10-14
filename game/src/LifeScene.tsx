@@ -15,6 +15,7 @@ export interface LifeSceneProps {
   designVariant?: DesignVariant;
   stage: 'university' | 'training' | 'career' | 'retirement';
   age: number;
+  agingAge?: number;
   month: number;
   running: boolean;
   focus: SceneActivity;
@@ -31,6 +32,7 @@ export interface LifeSceneProps {
   awaitingChoice?: boolean;
   serviceRoute?: ServiceRoute;
   specialty?: string;
+  profession?: string;
   exercise?: boolean;
   extraStudy?: boolean;
 }
@@ -159,7 +161,7 @@ function Actor({ x, scale = 1, palette, older = false, medical = false, military
   </g>;
 }
 
-export default function LifeScene({ stage, age, month, running, focus, seed, gender, protagonistName, relationship, partnerName, children = 'none', eventTitle, workContext, reaction, companionName, guestName, notebook = 'none', awaitingChoice = false, serviceRoute, specialty, exercise, extraStudy, designVariant }: LifeSceneProps) {
+export default function LifeScene({ stage, age, agingAge, month, running, focus, seed, gender, protagonistName, relationship, partnerName, children = 'none', eventTitle, workContext, reaction, companionName, guestName, notebook = 'none', awaitingChoice = false, serviceRoute, specialty, profession, exercise, extraStudy, designVariant }: LifeSceneProps) {
   const id = useId();
   const room = serviceRoute ? serviceRoute === 'army' ? 'barracks' : serviceRoute === 'doctor' ? 'military-clinic' : 'public-health' : sceneRoom(stage, focus, workContext, notebook);
   const variant = designVariant ?? sceneDesign(seed, room);
@@ -218,7 +220,7 @@ export default function LifeScene({ stage, age, month, running, focus, seed, gen
           {outdoor && <OutdoorBackdrop room={room} season={season.index} variant={variant}/>}
           {outdoor && <OutdoorMotion pond={room === 'park' && variant === 2}/>}
           {outdoor && <WindowMotion season={season.index}/>}
-          <RoomFurniture key={room} variant={variant} room={room} specialty={shownSpecialty} children={children} exercise={exercise} extraStudy={extraStudy} retired={stage === 'retirement'}/>
+          <RoomFurniture key={room} variant={variant} room={room} specialty={shownSpecialty ?? (medical && !serviceRoute && profession && profession !== 'medicine' ? `${profession}:general` : undefined)} children={children} exercise={exercise} extraStudy={extraStudy} retired={stage === 'retirement'}/>
           <RoomMotion room={room} variant={variant}/>
 
           {military && <g className="ls-barracks-furniture">
@@ -244,7 +246,7 @@ export default function LifeScene({ stage, age, month, running, focus, seed, gen
           <g style={{ '--ls-sleeve': '#85948b' } as Vars}>
             <Actor hair={(hair + 1) % 4} appearanceSeed={seed} appearanceId={guestLabel || 'guest'} identity="guest" x={guestLabel ? 494 : 706} palette={(palette + 1) % 4} visible={!!guestLabel} pose={storyGuest && notebook === 'kept' ? 'study' : 'connect'} older={age >= 60 && partner} facing={-1}/>
           </g>
-          <Actor hair={hair} gender={gender} appearanceSeed={seed} identity="protagonist" x={domestic ? 295 : 346} palette={palette} older={age >= 60} medical={medical && outfit !== 'scrubs'} military={military} outfit={outfit} season={season.index} pose={pose} motion={motion}/>
+          <Actor hair={hair} gender={gender} appearanceSeed={seed} identity="protagonist" x={domestic ? 295 : 346} palette={palette} older={(agingAge ?? age) >= 60} medical={medical && outfit !== 'scrubs'} military={military} outfit={outfit} season={season.index} pose={pose} motion={motion}/>
           <g style={{ '--ls-sleeve': '#b49967' } as Vars}>
             <Actor hair={(hair + 2) % 4} appearanceSeed={seed} identity="child" x={child ? 598 : 725} scale={children === 'young' ? .5 : children === 'school' ? .65 : .92} palette={(palette + 2) % 4} visible={child} pose="connect" motion={children === 'young' ? 'play' : 'connect'}/>
           </g>

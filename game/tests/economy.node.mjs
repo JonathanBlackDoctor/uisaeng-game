@@ -118,7 +118,7 @@ test('training, employment, research, untrained, undecided and retirement have d
   for (const [stage, practice, expectedIncome] of [
     ['training', 'undecided', 3_000_000], ['career', 'employed', 6_000_000],
     ['career', 'research', 3_500_000], ['career', 'untrained', 2_500_000],
-    ['career', 'undecided', 0], ['retirement', 'employed', 0],
+    ['career', 'undecided', 0], ['retirement', 'employed', 1_500_000],
   ]) {
     const state = settleEconomyMonth(initialEconomy('comfortable'), 1,
       { ...context(stage, practice), working: true, scholarship: true });

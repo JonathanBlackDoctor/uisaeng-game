@@ -1,9 +1,11 @@
+import { professionOf, professionDefinition } from './professions';
 import type { GameState, GameEvent, Stats } from './contracts';
-import { MAJOR_EVENTS, type IncidentDefinition } from './major-event-catalog';
+import { ALL_MAJOR_EVENTS as MAJOR_EVENTS, type IncidentDefinition } from './major-event-catalog';
 import { elapsedMonths, nextRandom, adjustStats, lifeAge } from './random-life';
 import { INCIDENT_BALANCE, adverseIncident, incidentAmount, recoveryPlan } from './incident-balance';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { isServing } from './identity';
+import { compactChoices, COMPACT_CHOICE_RULES } from './pacing';
 
 export const INCIDENT_RULES = { version: 1, provisional: true, medicalMonthly: .012, lifeMonthly: .005,
   rareMonthly: .0005, medicalCooldown: 12, lifeCooldown: 24, filingChance: .5 } as const;
@@ -55,9 +57,9 @@ export function medicalProfile(s: GameState): MedicalProfile | null {
   if (!resident && (c.practice === 'undecided' || c.practice === 'clinic' && !s.economy?.ledger.some(t => t.kind === 'open-clinic'))) return null;
   const role = resident ? 'resident' : c.practice === 'clinic' ? 'clinic' : c.practice === 'untrained' ? 'general' : 'employed';
   const specialty = c.specialty ?? 'general';
-  const p = profiles[specialty] ?? { tags: ['outpatient'], exposure: .85, liability: .85 };
+  const p = professionOf(s) === 'nursing' ? { tags: ['nursing'], exposure: .85, liability: .35 } : profiles[specialty] ?? { tags: ['outpatient'], exposure: .85, liability: .85 };
   const workload = s.depth?.workload === 'extended' ? 1.2 : s.depth?.workload === 'learning' ? .85 : 1;
-  return { specialty, role, label: `${SPECIALTIES.find(x => x.id === specialty)?.name ?? '일반 진료'} · ${{ resident: '수련의', clinic: '개원의', general: '일반의', employed: '봉직의' }[role]}`,
+  return { specialty, role, label: `${SPECIALTIES.find(x => x.id === specialty)?.name ?? '일반 진료'} · ${professionOf(s) === 'medicine' ? { resident: '수련의', clinic: '개원의', general: '일반의', employed: '봉직의' }[role] : professionDefinition(s).job}`,
     tags: [...p.tags, ...(role === 'clinic' ? ['clinic'] : [])],
     exposure: p.exposure * (resident ? .65 : role === 'clinic' ? 1.15 : 1) * workload,
     liability: p.liability * (resident ? .25 : role === 'clinic' ? 1.3 : .55) };
@@ -262,6 +264,8 @@ export function advanceIncidents(s: GameState) {
   ];
   for (const [pool, probability, ready] of attempts) {
     if (!ready || probability <= 0) continue;
+    // Only stop opening more medical cases. Active cases and all their consequences run above.
+    if (pool === 'medical' && compactChoices(s) && r.seen.filter(id => definition(id)?.pool === 'medical').length >= COMPACT_CHOICE_RULES.medicalIncidents) continue;
     const candidates = eligibleIncidents(s, pool); if (!candidates.length) continue;
     if (draw(s) >= probability) continue;
     // Specialty-specific scenes get more weight; adding scenes does not raise the pool's rate.

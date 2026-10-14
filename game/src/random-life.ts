@@ -278,7 +278,7 @@ export function validRandomState(s: GameState, stageEnds: readonly number[] = RA
     || !Number.isInteger(life.elapsedMs) || life.elapsedMs < 0 || life.elapsedMs > stageEnds[s.stageIndex] * RANDOM_RULES.monthMs
     || (s.stageIndex > 0 && life.elapsedMs < stageEnds[s.stageIndex - 1] * RANDOM_RULES.monthMs)
     || typeof life.paused !== 'boolean' || !TIME_SPEEDS.includes(life.speed)
-    || (life.startAge !== undefined && life.startAge !== 19 && life.startAge !== 20)
+    || (life.startAge !== undefined && (!Number.isInteger(life.startAge) || life.startAge < 19 || life.startAge > 24))
     || !life.focus || !['study', 'connect', 'rest'].includes(life.focus.main) || !['study', 'connect', 'rest'].includes(life.focus.supporting) || life.focus.main === life.focus.supporting
     || !Number.isInteger(life.contacts) || life.contacts < 0 || life.contacts > 20
     || !Array.isArray(life.flags) || new Set(life.flags).size !== life.flags.length || !life.flags.every(flag => ['club', 'asked-introduction', 'research', 'unmarried', 'childfree', 'scholarship'].includes(flag))

@@ -1,5 +1,6 @@
+import { isAddedProfession, NURSING_CERTIFICATES } from './professions';
 import type { GameState } from './contracts';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { CREDENTIALS, specialtyFields } from './credential-catalog';
 import { credentialEarned, fellowshipComplete, journeyCredential, journeyField } from './specialty-journey';
 import { elapsedMonths } from './random-life';
@@ -16,6 +17,7 @@ export const credentialKey = (id: string) => `credential:${id}`;
 const keys = new Set([
   ...SPECIALTIES.flatMap(s => [specialtyKey(s.id), specialtyKey(s.id, true), ...specialtyFields(s.id).flatMap(f => [fieldKey(s.id, f.id), fieldKey(s.id, f.id, true)])]),
   ...CREDENTIALS.map(c => credentialKey(c.id)),
+  ...NURSING_CERTIFICATES.map(c => credentialKey('nursing:' + c)),
 ]);
 export function validCareerRecord(value: unknown): value is CareerRecord {
   const r = value as CareerRecord;
@@ -31,6 +33,13 @@ export function recordCareer(s: GameState, at: string): CareerRecord {
   const r: CareerRecord = { version: 1, runId: s.runId, firstSeenAt: at, completed: s.status === 'completed', milestones: {}, statHighs: observedHighs(s) };
   const c = s.career, id = c?.specialty;
   if (!id || c.application !== 'accepted' || !SPECIALTIES.some(x => x.id === id) || s.stageIndex < 1) return r;
+  if (isAddedProfession(s)) {
+    const p = s.professional!;
+    r.milestones[specialtyKey(id)] = s.progress?.trainingStartMonth ?? p.licenseMonth!;
+    if (p.qualified) r.milestones[specialtyKey(id, true)] = p.qualifiedMonth!;
+    if (p.certificateEarned) r.milestones[credentialKey('nursing:' + p.certificate)] = p.decisions['certificate-review'].month;
+    return r;
+  }
   const start = s.progress?.trainingStartMonth ?? 72;
   if (elapsedMonths(s) < start) return r;
   r.milestones[specialtyKey(id)] = start;

@@ -1,10 +1,14 @@
+import { isAddedProfession, professionDefinition, professionOf } from './professions';
+import { createAdmissionGame } from './admission';
+import { agingAge } from './aging';
 import { formatMoneyText } from './money-format';
 import { encounterLabel, netAssets } from './life-goals';
 import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
 import { compactWon } from './finance-view';
 import Opening from './Opening';
-import { DEFAULT_RUN_LENGTH, setStartingLength } from './pacing';
+import { beginOpeningTransition } from './opening-motion';
+import { DEFAULT_RUN_LENGTH, setStartingLength, shortPacing } from './pacing';
 import CareerCollection from './CareerCollection';
 import LifetimeRecords from './LifetimeRecords';
 import { mergeCareerRecords, recordCareer, type CareerRecord } from './career-records';
@@ -13,7 +17,7 @@ import { calendarMonths, serviceMonths, isServing, serviceSummary, SERVICE_RULES
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TIME_SPEEDS, type ArchivedRun, type GameAction, type GameState, type TimeSpeed } from './contracts';
-import { createGame, reduceGame } from './engine';
+import { reduceGame } from './engine';
 import { EventEvidencePanel } from './EventEvidence';
 import { evidenceForEvent } from './evidence';
 import { familySummary, MEETINGS } from './family';
@@ -24,6 +28,7 @@ import { sceneActivity, sceneAppearance, sceneStory } from './scene-state';
 import { LifeMap, PeoplePanel } from './LifePanels';
 import PlayOverview from './PlayOverview';
 import PlayLog, { JournalHistory } from './PlayLog';
+import { compactJournal } from './journal-retention';
 import PlayDetails from './PlayDetails';
 import DecisionSheet from './DecisionSheet';
 import CareerPanel from './CareerPanel';
@@ -49,7 +54,10 @@ function App() {
   const [db, setDb] = useState<IDBDatabase | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [openingDraft, setOpeningDraft] = useState<GameState | null>(null);
+  const [openingRequested, setOpeningRequested] = useState(false);
   const [openingEntering, setOpeningEntering] = useState(false);
+  const openingFinish = useRef<(() => void) | null>(null);
+  const [openingLanded, setOpeningLanded] = useState(false);
   const [history, setHistory] = useState<ArchivedRun[]>([]);
   const [collection, setCollection] = useState<CareerRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +79,12 @@ function App() {
   const playHeading = useRef<HTMLHeadingElement>(null);
   const update = useGameUpdate();
   useEffect(() => {
+    if (!openingLanded) return;
+    const timer = window.setTimeout(() => setOpeningLanded(false), 650);
+    return () => window.clearTimeout(timer);
+  }, [openingLanded]);
+  useEffect(() => () => { openingFinish.current?.(); }, []);
+  useEffect(() => {
     let disposed = false; let connection: IDBDatabase | undefined;
     openGameDatabase().then(async database => {
       connection = database;
@@ -90,13 +104,22 @@ function App() {
   useEffect(() => { if (confirmReset) resetCancel.current?.focus(); }, [confirmReset]);
   useEffect(() => { setFeedback(null); }, [game?.runId, openingDraft?.runId]);
   useEffect(() => {
-    if (!feedback || game?.pendingEvent || view !== 'play' || showAbilities || showTimeAllocation || confirmReset || openingDraft) return;
+    if (!feedback || game?.pendingEvent || view !== 'play' || showAbilities || showTimeAllocation || confirmReset || openingDraft || openingRequested) return;
     const timer = window.setTimeout(() => setFeedback(null), 8000);
     return () => window.clearTimeout(timer);
-  }, [feedback, game?.pendingEvent?.id, view, showAbilities, showTimeAllocation, confirmReset, openingDraft]);
+  }, [feedback, game?.pendingEvent?.id, view, showAbilities, showTimeAllocation, confirmReset, openingDraft, openingRequested]);
+  function showOpening() {
+    if (!db || lock.current || error) return;
+    setOpeningRequested(true); setOpeningDraft(null); setConfirmReset(false); setView('play');
+    setFeedback(null);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function cancelOpening() {
+    setOpeningDraft(null); setOpeningRequested(false);
+  }
   function prepareStart() {
     if (!db || lock.current || error) return;
-    setOpeningDraft(setStartingLength(createGame(crypto.randomUUID(), undefined, 'career-preview-v1'), DEFAULT_RUN_LENGTH));
+    setOpeningDraft(setStartingLength(createAdmissionGame(crypto.randomUUID()), DEFAULT_RUN_LENGTH));
     setView('play'); setConfirmReset(false);
     window.scrollTo({ top: 0 });
   }
@@ -106,11 +129,15 @@ function App() {
     try {
       const next = reduceGame(openingDraft, { type: 'control', id: crypto.randomUUID(), paused: false });
       const saved = await persistGame(db, next, game ? { runId: game.runId, revision: game.revision } : null);
+      window.scrollTo({ top: 0, behavior: 'instant' });
       setOpeningEntering(true);
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        await new Promise<void>(resolve => window.setTimeout(resolve, 550));
-      }
+      const transition = beginOpeningTransition(window.matchMedia('(prefers-reduced-motion: reduce)'));
+      openingFinish.current = transition.skip;
+      await transition.finished;
+      openingFinish.current = null;
       latestGame.current = next; setGame(next); setSaveTime(saved.updatedAt); setView('play'); setConfirmReset(false); setOpeningDraft(null);
+      setOpeningRequested(false);
+      setOpeningLanded(true);
       setOpeningEntering(false);
     } catch (reason) { setError((reason as Error).message); }
     finally { lock.current = false; setBusy(false); }
@@ -152,7 +179,7 @@ function App() {
   async function resume() {
     if (!db || lock.current) return;
     lock.current = true; setBusy(true);
-    try { const saved = await loadGame(db); latestGame.current = saved?.state ?? null; setGame(saved?.state ?? null); setSaveTime(saved?.updatedAt ?? ''); setHistory(await archives(db)); setError(''); setView('play'); setOpeningDraft(null); }
+    try { const saved = await loadGame(db); latestGame.current = saved?.state ?? null; setGame(saved?.state ?? null); setSaveTime(saved?.updatedAt ?? ''); setHistory(await archives(db)); setError(''); setView('play'); setOpeningDraft(null); setOpeningRequested(false); }
     catch (reason) { setError((reason as Error).message); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -172,10 +199,10 @@ function App() {
   }
   latestAct.current = act;
   useEffect(() => {
-    if (game && !openingDraft) playHeading.current?.focus({ preventScroll: true });
-  }, [game?.runId, openingDraft]);
+    if (game && !openingDraft && !openingRequested) playHeading.current?.focus({ preventScroll: true });
+  }, [game?.runId, openingDraft, openingRequested]);
   useEffect(() => {
-    if (!db || view !== 'play' || busy || error || openingDraft || confirmReset || showAbilities || showTimeAllocation || game?.status !== 'active' || !game.life || game.life.paused || game.pendingEvent) return;
+    if (!db || view !== 'play' || busy || error || openingDraft || openingRequested || confirmReset || showAbilities || showTimeAllocation || game?.status !== 'active' || !game.life || game.life.paused || game.pendingEvent) return;
     let previous = performance.now();
     const resetClock = () => { previous = performance.now(); };
     document.addEventListener('visibilitychange', resetClock);
@@ -187,8 +214,9 @@ function App() {
       void latestAct.current({ type: 'tick', id: crypto.randomUUID(), elapsedMs });
     }, 500);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', resetClock); };
-  }, [db, view, busy, error, openingDraft, confirmReset, showAbilities, showTimeAllocation, game?.runId, game?.status, game?.life?.paused, game?.pendingEvent?.id]);
-  const baseStage = STAGES[game?.stageIndex ?? 0];
+  }, [db, view, busy, error, openingDraft, openingRequested, confirmReset, showAbilities, showTimeAllocation, game?.runId, game?.status, game?.life?.paused, game?.pendingEvent?.id]);
+  const standardStage = STAGES[game?.stageIndex ?? 0];
+  const baseStage = game && isAddedProfession(game) ? { ...standardStage, label: game.stageIndex === 0 ? professionDefinition(game).label + ' 생활' : game.stageIndex === 1 ? game.professional?.route === 'specialist' ? '수련 생활' : '첫 일과 적응' : game.stageIndex === 2 ? professionDefinition(game).job + '의 일상' : '은퇴와 회고', chapter: game.stageIndex === 0 ? '수업과 실습' : game.stageIndex === 1 ? '현장에서 배우기' : game.stageIndex === 2 ? '일과 생활' : '생애 기록', subtitle: '선택과 생활의 기록을 돌아봅니다.' } : standardStage;
   const stage = game?.stageIndex === 1 && game.career && game.career.application !== 'accepted' ? { ...baseStage, id: 'career' as const, label: '진로와 일', chapter: game.career.practice === 'research' ? '연구 생활' : game.career.practice === 'untrained' ? '일반진료와 생활' : '다음 지원 준비' } : baseStage;
   const workContext = game?.stageIndex !== 0 && game?.career?.practice === 'research' ? 'research' as const : game?.stageIndex === 1 && game.career?.application !== 'accepted' && game.career?.practice === 'undecided' ? 'preparation' as const : undefined;
   const completed = game?.status === 'completed';
@@ -202,20 +230,20 @@ function App() {
   const running = !!life && !life.paused && !game?.pendingEvent && !completed && view === 'play' && !confirmReset && !showAbilities && !showTimeAllocation && !error;
   const timeStatus = completed ? '이야기 마침' : error ? '저장 확인 필요' : game?.pendingEvent ? '선택 대기' : showAbilities ? '능력 확인 중' : showTimeAllocation ? '시간·생활 설정 중' : confirmReset || life?.paused ? '일시정지' : '진행 중';
   const partnerName = game?.family?.partner?.name ?? (game?.family?.meeting ? MEETINGS[game.family.meeting].name : undefined);
-  const shownJournal = selectedArchive?.state.journal ?? game?.journal ?? [];
+  const shownJournal = compactJournal(selectedArchive?.state.journal ?? game?.journal ?? []);
   const knownPeer = game?.stories?.peer && PEER_IDS.some(id => game.stories?.decisions[id]) ? game.stories.peer : undefined;
   const feedbackNotice = feedback ? <ChoiceFeedback result={feedback} onClose={() => setFeedback(null)}/> : null;
   const visualStory = sceneStory(game);
   const visualFocus = sceneActivity(game);
   const visualWork = game?.progress?.focus === 'research' ? 'research' as const : workContext;
-  const updateNotice = update.version && !showAbilities && !showTimeAllocation && !confirmReset && !openingDraft ? <UpdateToast key={update.version} onApply={applyUpdate} onLater={update.later} disabled={busy || loading || !db || !!error}/> : null;
-  const opening = view === 'play' && (!game || !!openingDraft);
-  return <div className={opening ? 'app-shell opening-shell' : view === 'play' ? 'app-shell play-shell' : 'app-shell'}>
-    <header className="site-header">
+  const updateNotice = update.version && !showAbilities && !showTimeAllocation && !confirmReset && !openingDraft && !openingRequested ? <UpdateToast key={update.version} onApply={applyUpdate} onLater={update.later} disabled={busy || loading || !db || !!error}/> : null;
+  const opening = view === 'play' && (!game || !!openingDraft || openingRequested);
+  return <div className={opening ? `app-shell opening-shell${!openingDraft && !loading && !error ? ' opening-invitation-shell' : ''}` : view === 'play' ? `app-shell play-shell${openingLanded ? ' play-arrival' : ''}` : 'app-shell'}>
+    <header className="site-header" inert={openingEntering}>
       <a className="brand" href="#" aria-label="의생게임 홈" onClick={e => { e.preventDefault(); setView('play'); setSelectedArchive(null); }}><span className="brand-logo" aria-hidden="true" /></a>
       <nav aria-label="주 메뉴">
         <button className={view === 'play' ? 'nav active' : 'nav'} aria-current={view === 'play' ? 'page' : undefined} onClick={() => { setView('play'); setSelectedArchive(null); }}>지금의 삶</button>
-        <button className={view === 'journal' ? 'nav active' : 'nav'} aria-current={view === 'journal' ? 'page' : undefined} onClick={() => { setView('journal'); setSelectedArchive(null); }}>생애 기록 <span className="count">{game?.journal.length ?? 0}</span></button>
+        <button className={view === 'journal' ? 'nav active' : 'nav'} aria-current={view === 'journal' ? 'page' : undefined} onClick={() => { setView('journal'); setSelectedArchive(null); }}>생애 기록 <span className="count">{compactJournal(game?.journal ?? []).length}</span></button>
         <button className={view === 'archive' ? 'nav active' : 'nav'} aria-current={view === 'archive' ? 'page' : undefined} onClick={() => { setView('archive'); setSelectedArchive(null); }}>회고 보관함</button>
         <button className={view === 'collection' ? 'nav active' : 'nav'} aria-current={view === 'collection' ? 'page' : undefined} onClick={() => { setView('collection'); setSelectedArchive(null); }}>진료실 도감</button>
       </nav>
@@ -225,8 +253,8 @@ function App() {
       {error && <div className="error" role="alert"><strong>기록을 확인해 주세요</strong><p>{formatMoneyText(error)}</p><button onClick={resume} disabled={!db || busy}>저장 기록 다시 읽기</button><button onClick={download} disabled={!db}>원본 백업</button></div>}
       {!opening && <div className="page-heading"><div><h1 ref={playHeading} tabIndex={-1}>{view === 'play' ? completed ? '회고' : game ? stageLabel : '의생게임' : view === 'journal' ? '생애 기록' : view === 'collection' ? '진료실 도감' : '회고 보관함'}</h1></div>{game && <button className="subtle-button" onClick={() => setConfirmReset(true)} disabled={busy}>새 게임</button>}</div>}
       {loading ? <section className="panel empty">기록을 불러오는 중입니다…</section> : <>
-        {view === 'collection' && <CareerCollection records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>}
-        {opening && <Opening draft={openingDraft} busy={busy} disabled={!db || busy || !!error} entering={openingEntering} onPrepare={prepareStart} onEnter={start} onBack={() => setOpeningDraft(null)} onLengthChange={length => setOpeningDraft(draft => draft ? setStartingLength(draft, length) : draft)}/>}
+        {view === 'collection' && <CareerCollection initialProfession={game ? professionOf(game) : 'medicine'} records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>}
+        {opening && <Opening draft={openingDraft} busy={busy} disabled={!db || busy || !!error} entering={openingEntering} onSkipEnter={() => openingFinish.current?.()} onPrepare={prepareStart} onEnter={start} onBack={cancelOpening} onLengthChange={length => setOpeningDraft(draft => draft ? setStartingLength(draft, length) : draft)}/>}
         {view === 'play' && !opening && <>
           {game && <PlayOverview key={game.runId} game={game} feedback={feedback} busy={busy} onAbilities={() => setShowAbilities(true)} allocation={<TimeAllocation key={game.runId} game={game} busy={busy || !!error} onOpen={() => setShowTimeAllocation(true)}/>} >{life && <section className="time-ribbon" aria-label="나이와 시간 조작">
             <div className="age-display"><strong>{age}<span>세</span></strong><span>{month}개월 · {stageLabel}</span></div>
@@ -237,7 +265,7 @@ function App() {
             <div className="life-primary">
               <section className="scene-card" aria-label="지금의 생활 장면">
                 <div className="scene-heading"><div><span className="eyebrow">{game ? stageLabel : '새 게임'}</span><h2>{completed ? '은퇴와 회고' : serving ? '복무 중의 일상' : game ? stage.chapter : '의대 생활을 시작합니다.'}</h2></div><span className="scene-status">{game ? life ? `${age}세의 일상` : '생애 기록' : '의대 입학부터 은퇴까지'}</span></div>
-                {(!game || life) && <LifeScene {...visualStory} {...sceneAppearance(game)} serviceRoute={serving ? game?.identity?.service.route : undefined} key={game?.runId} awaitingChoice={!!game?.pendingEvent} stage={serving ? 'training' : stage.id} age={life ? age : RANDOM_RULES.startAge} month={month} running={running} focus={visualFocus} seed={life?.initialSeed ?? 2026} relationship={game?.family?.status ?? 'single'} partnerName={partnerName} children={game?.family?.children ?? 'none'} eventTitle={game?.pendingEvent?.title ?? feedback?.title} workContext={visualWork} reaction={feedback?.reaction} companionName={knownPeer && (feedback?.title.includes(knownPeer.person.name) || visualFocus === 'connect') ? knownPeer.person.name : undefined}/>}
+                {(!game || life) && <LifeScene {...visualStory} {...sceneAppearance(game)} serviceRoute={serving ? game?.identity?.service.route : undefined} key={game?.runId} awaitingChoice={!!game?.pendingEvent} stage={serving ? 'training' : stage.id} age={life ? age : RANDOM_RULES.startAge} agingAge={game ? agingAge(game) : undefined} month={month} running={running} focus={visualFocus} seed={life?.initialSeed ?? 2026} relationship={game?.family?.status ?? 'single'} partnerName={partnerName} children={game?.family?.children ?? 'none'} eventTitle={game?.pendingEvent?.title ?? feedback?.title} workContext={visualWork} reaction={feedback?.reaction} companionName={knownPeer && (feedback?.title.includes(knownPeer.person.name) || visualFocus === 'connect') ? knownPeer.person.name : undefined}/>}
                 {!game?.pendingEvent && feedbackNotice}
                 {(!game || completed) && <div className="scene-caption"><p>{completed ? '지금까지의 기록을 확인할 수 있습니다.' : game ? stage.subtitle : '진행 상황은 이 기기에 자동 저장됩니다.'}</p>{!game && <button className="primary" disabled={!db || busy || !!error} onClick={start}>시작하기 <span>→</span></button>}{completed && <button className="primary" onClick={() => setView('journal')}>기록 보기</button>}</div>}
               </section>
@@ -253,25 +281,28 @@ function App() {
               {game && life && <details className="life-map-disclosure"><summary>생애 지도</summary><LifeMap age={age} startAge={startAge} endAge={startAge + Math.ceil(((game.career ? careerStageEnds(game)[3] : RANDOM_RULES.stageEnds[3]) + serviceMonths(game)) / 12)} entries={game.journal}/></details>}
                 </>
               </PlayDetails>
-              {completed && game && <section className="panel completion"><h3>{game.journal.length}개의 기록</h3><p>회고를 보관함에 저장했습니다. 새 게임을 시작해도 남아 있습니다.</p><ResultShare key={game.runId} game={game}/></section>}
+              {completed && game && <section className="panel completion"><h3>{compactJournal(game.journal).length}개의 기록</h3><p>회고를 보관함에 저장했습니다. 새 게임을 시작해도 남아 있습니다.</p><ResultShare key={game.runId} game={game}/></section>}
             </div>
             {game && <aside className="life-companions" aria-label="생활 소식과 기록">
-              <PlayLog key={game.runId} entries={game.journal} onOpenJournal={() => { setView('journal'); setSelectedArchive(null); }}/>
+              <PlayLog key={game.runId} compact={shortPacing(game)} entries={game.journal} onOpenJournal={() => { setView('journal'); setSelectedArchive(null); }}/>
             </aside>}
           </div>
           {game && !['random-preview-v1', 'career-preview-v1'].includes(game.rulesVersion) && <p className="legacy-note">이전 버전의 기록은 기존 방식으로 이어갑니다. 무작위 배경과 연속 시간은 새 이야기에서 시작됩니다.</p>}
           {game?.pendingEvent && !error && <DecisionSheet key={game.pendingEvent.id} event={game.pendingEvent} busy={busy || confirmReset} onChoose={choiceId => act({ type: 'choose', id: crypto.randomUUID(), eventId: game.pendingEvent!.id, choiceId })} onAbilities={game.career ? () => setShowAbilities(true) : undefined} updateNotice={updateNotice} abilityImpact={<AbilitySummary game={game} decision/>} feedback={feedbackNotice} evidence={game.pendingEvent.sourceNote || evidenceForEvent(game.pendingEvent).length ? <EventEvidencePanel event={game.pendingEvent}/> : undefined}/>}
         </>}
-        {(view === 'journal' || (view === 'archive' && selectedArchive)) && <section className="panel journal"><div className="section-heading"><div><h3>{selectedArchive ? '보관된 회고' : '나의 생애 기록'}</h3><p>기록을 읽는 동안 게임 시간은 흐르지 않습니다.</p></div></div>{(selectedArchive?.state ?? game)?.status === 'completed' && <ResultShare key={(selectedArchive?.state ?? game)!.runId} game={(selectedArchive?.state ?? game)!}/>} {(selectedArchive ? selectedArchive.state.family : game?.family) && <p className="family-card">{familySummary((selectedArchive ? selectedArchive.state.family : game?.family)!)}</p>}<LifetimeRecords game={selectedArchive?.state ?? game ?? undefined} records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>{shownJournal.length === 0 ? <p className="empty">아직 남긴 기록이 없습니다. 첫 번째 선택을 해 보세요.</p> : <JournalHistory key={selectedArchive?.runId ?? game?.runId} entries={shownJournal}/>}</section>}
+        {(view === 'journal' || (view === 'archive' && selectedArchive)) && <section className="panel journal"><div className="section-heading"><div><h3>{selectedArchive ? '보관된 회고' : '나의 생애 기록'}</h3><p>기록을 읽는 동안 게임 시간은 흐르지 않습니다.</p></div></div>{(selectedArchive?.state ?? game)?.status === 'completed' && <ResultShare key={(selectedArchive?.state ?? game)!.runId} game={(selectedArchive?.state ?? game)!}/>} {(selectedArchive ? selectedArchive.state.family : game?.family) && <p className="family-card">{familySummary((selectedArchive ? selectedArchive.state.family : game?.family)!)}</p>}<LifetimeRecords game={selectedArchive?.state ?? game ?? undefined} records={mergeCareerRecords([...collection, ...(game && saveTime ? [recordCareer(game, saveTime)] : [])])}/>{shownJournal.length === 0 ? <p className="empty">아직 남긴 기록이 없습니다. 첫 번째 선택을 해 보세요.</p> : <JournalHistory key={`journal:${selectedArchive?.runId ?? game?.runId}`} entries={shownJournal} compact={!!(selectedArchive?.state ?? game) && shortPacing((selectedArchive?.state ?? game)!)}/>}</section>}
 
-        {view === 'archive' && !selectedArchive && <section className="panel journal"><h3>회고 보관함</h3>{history.length === 0 ? <p className="empty">이야기를 끝내면 이곳에 회고가 남습니다.</p> : history.map((record, i) => <button className="archive-card" key={record.runId} onClick={() => setSelectedArchive(record)}><span><strong>나의 {i + 1}번째 이야기</strong><small>{new Date(record.archivedAt).toLocaleDateString('ko-KR')} · {record.state.journal.length}개 기록</small>{record.state.career && <small>누적 진료 {encounterLabel(record.state)} · 순자산 {netAssets(record.state) === null ? '기록 없음' : compactWon(netAssets(record.state)!)}</small>}{record.state.career && <small>가족과 보낸 시간 {familyTimeLabel(record.state)} · 발표한 논문 {publicationLabel(record.state)}</small>}</span><span>기록 펼치기 →</span></button>)}</section>}
+        {view === 'archive' && !selectedArchive && <section className="panel journal"><h3>회고 보관함</h3>{history.length === 0 ? <p className="empty">이야기를 끝내면 이곳에 회고가 남습니다.</p> : history.map((record, i) => <button className="archive-card" key={record.runId} onClick={() => setSelectedArchive(record)}><span><strong>나의 {i + 1}번째 이야기</strong><small>{new Date(record.archivedAt).toLocaleDateString('ko-KR')} · {compactJournal(record.state.journal).length}개 기록</small>{record.state.career && <small>{professionDefinition(record.state).job} · {professionOf(record.state) === 'nursing' ? '누적 돌봄' : '누적 진료'} {encounterLabel(record.state)} · 순자산 {netAssets(record.state) === null ? '기록 없음' : compactWon(netAssets(record.state)!)}</small>}{record.state.career && <small>가족과 보낸 시간 {familyTimeLabel(record.state)} · 발표한 논문 {publicationLabel(record.state)}</small>}</span><span>기록 펼치기 →</span></button>)}</section>}
       </>}
-      <footer className="disclosure"><div><span><a href="https://1in8b.life/ko/" target="_blank" rel="noreferrer">80억 분의 1</a>을 오마주한 게임</span><button className="text-button" onClick={download} disabled={!db}>저장 기록 백업</button></div><details><summary>게임 안내</summary><p>인물과 사건, 능력치와 금액은 게임을 위한 창작 설정입니다. 실제 의료 제도나 개인의 삶을 예측하지 않습니다.</p></details>{APP_DISPLAY_VERSION && <small className="app-version">버전 {APP_DISPLAY_VERSION}</small>}</footer>
+      <footer className="disclosure" inert={openingEntering}><div><span><a href="https://1in8b.life/ko/" target="_blank" rel="noreferrer">80억 분의 1</a>을 오마주한 게임</span><button className="text-button" onClick={download} disabled={!db}>저장 기록 백업</button></div><details><summary>게임 안내</summary><p>인물과 사건, 능력치와 금액은 게임을 위한 창작 설정입니다. 실제 의료 제도나 개인의 삶을 예측하지 않습니다.</p></details>{APP_DISPLAY_VERSION && <small className="app-version">버전 {APP_DISPLAY_VERSION}</small>}</footer>
     </main>
     {showTimeAllocation && game && <TimeAllocationDialog key={game.runId} game={game} busy={busy || !!error} error={error} act={act} onClose={() => setShowTimeAllocation(false)}/>}
     {showAbilities && game && <AbilityPanel game={game} onClose={() => setShowAbilities(false)}/>}
     {(!game?.pendingEvent || !!error) && updateNotice}
-    {confirmReset && <div className="modal-backdrop" onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false); if (e.key === 'Tab') { const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'); if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); buttons[buttons.length - 1]?.focus(); } else if (!e.shiftKey && document.activeElement === buttons[buttons.length - 1]) { e.preventDefault(); buttons[0]?.focus(); } } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span className="eyebrow">새 게임</span><h2 id="reset-title">새 게임을 시작할까요?</h2><p>진행 중인 생애 기록은 새 게임으로 바뀝니다. 진로 기록과 완료된 회고는 남습니다. 필요한 기록은 먼저 백업해 주세요.</p><div><button ref={resetCancel} className="subtle-button" onClick={() => setConfirmReset(false)} disabled={busy}>계속하기</button><button className="primary" onClick={prepareStart} disabled={busy || !!error}>입학 배경 보기</button></div></section></div>}
+    {confirmReset && <div className="modal-backdrop" onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false); if (e.key === 'Tab') { const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'); if (e.shiftKey && document.activeElement === buttons[0]) { e.preventDefault(); buttons[buttons.length - 1]?.focus(); } else if (!e.shiftKey && document.activeElement === buttons[buttons.length - 1]) { e.preventDefault(); buttons[0]?.focus(); } } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span className="eyebrow">새 게임</span><h2 id="reset-title">새 게임을 시작할까요?</h2><p>진행 중인 생애 기록은 새 게임으로 바뀝니다. 진로 기록과 완료된 회고는 남습니다. 필요한 기록은 먼저 백업해 주세요.</p><div><button ref={resetCancel} className="subtle-button" onClick={() => setConfirmReset(false)} disabled={busy}>계속하기</button><button className="primary" onClick={showOpening} disabled={busy || !!error}>새 게임 시작</button></div></section></div>}
   </div>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>);
+
+
+

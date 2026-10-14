@@ -2,10 +2,10 @@ import { createCareerGame } from '../../src/career-runtime';
 import { reduceGame } from '../../src/engine';
 import { validState } from '../../src/storage';
 import type { TimeSpeed } from '../../src/contracts';
+import { setStartingLength } from '../../src/pacing';
 
 export function measureRun(seed: number, mode: 'untrained' | 'specialist' | 'academic', compact = true, speed: TimeSpeed = 16, length: 'standard' | 'short' = 'standard') {
-  let state = createCareerGame('pacing-measure', seed);
-  state.progress!.runLength = length;
+  let state = setStartingLength(createCareerGame('pacing-measure', seed), length);
   if (!compact) delete state.progress!.pacingVersion;
   state.life!.paused = false; state.life!.speed = speed;
   const keys: string[] = []; let chars = 0;

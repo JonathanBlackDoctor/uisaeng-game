@@ -64,7 +64,7 @@ describe('compact play layout data', () => {
     expect(html).toContain('log-milestone');
     expect(html).toContain('지원할 병원');
     expect(html).toContain('일상 기록');
-    expect(html).toContain('3개 기록');
+    expect(html).toContain('일상 기록 · 1개');
     for (const title of ['의대 입학', '지원할 병원', '이번 달 수입과 지출']) expect(html).toContain(title);
   });
   it('keeps monthly finances in details and shows a deficit only when expenses exceed income', () => {

@@ -80,10 +80,13 @@
 .play-log-scroll:focus-visible { outline: 2px solid #b58234; outline-offset: 3px; }
 .play-log ol { list-style: none; padding: 0; margin: 0; }
 .play-log li + li { border-top: 1px solid var(--line); }
-.play-log-entry { padding: 7px 0 10px; }
+.play-log-entry { padding: 8px 0; }
 .play-log summary { min-height: 38px; padding: 7px 0; font-size: 14px; cursor: pointer; overflow-wrap: anywhere; }
-.play-log p { color: var(--muted); font-size: 13px; line-height: 1.8; white-space: pre-wrap; padding: 4px 0 10px; overflow-wrap: anywhere; }
-.play-log-effects { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: #456b58; }
+.play-log p { color: var(--muted); font-size: 13px; line-height: 1.55; white-space: pre-wrap; padding: 0; overflow-wrap: anywhere; }
+.play-log .play-log-line { margin: 0; color: var(--ink, #263c35); }
+.play-log-effects { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; margin-left: 8px; font-size: 12px; color: #456b58; }
+.play-log-more > summary { min-height: 0; padding: 3px 0 0; font-size: 11px; color: var(--muted); }
+.play-log-more > p { padding-top: 5px; }
 .play-log-age { color: var(--muted); font-size: 11px; }
 .play-log-group > summary { padding-block: 14px; }
 .play-log-group > summary > span { font-size: 12px; color: var(--muted); }
@@ -98,7 +101,7 @@
 .play-log .log-consequence { border-left: 2px solid #c7aa8d; padding-left: 12px; }
 .play-log .log-routine > details > summary, .play-log-group > summary { font-size: 12px; color: var(--muted); }
 .play-log .log-routine { padding-block: 4px; }
-.journal .journal-history article { display: block; border-bottom: 0; margin: 0; padding: 14px 0; }
+.journal .journal-history article { display: block; border-bottom: 0; margin: 0; padding: 8px 0; }
 .journal .journal-history .log-milestone { padding-left: 14px; margin-block: 10px; }
 .journal .journal-history .log-major { padding: 12px 14px; margin-block: 10px; }
 .journal .journal-history .log-consequence { padding-left: 14px; }
@@ -121,8 +124,7 @@
 }
 .play-log-choice { overflow-wrap: anywhere; }
 .play-log-choice > strong { font-size: 14px; font-weight: 600; }
-.play-log-choice > p { margin: 5px 0 0; font-size: 13px; line-height: 1.6; }
-.play-log-choice > .play-log-action { font-weight: 600; }
+.play-log-choice .play-log-action { font-weight: 600; }
 
 @media (max-width: 760px) {
   .play-shell .site-header { padding: 12px 18px; gap: 10px; flex-wrap: wrap; }

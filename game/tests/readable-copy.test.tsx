@@ -92,12 +92,17 @@ describe('readable events and choice records', () => {
       expect(validState(broken)).toBe(false);
     } finally { db.close(); }
   });
-  it('shows the selected action and context directly in the left log', () => {
+  it('shows the selected action and outcome together, with context folded away', () => {
     const s = at('club-required'), next = reduceGame(s, choose(s, 'pass'));
     const html = renderToStaticMarkup(<PlayLog entries={next.journal} onOpenJournal={() => {}}/>);
     expect(html).toContain('play-log-action'); expect(html).toContain('가입하지 않기');
     expect(html).toContain('공부와 휴식 시간을 남겼습니다.');
     const choice = html.split('class="play-log-choice"')[1].split('</article>')[0];
-    expect(choice).not.toContain('<details');
+    const line = choice.split('</p>')[0];
+    expect(line).toContain('가입하지 않기');
+    expect(line).toContain('공부와 휴식 시간을 남겼습니다.');
+    expect(line).not.toContain('<strong');
+    expect(choice).toContain('<details class="play-log-more">');
+    expect(choice).not.toContain('<details open');
   });
 });

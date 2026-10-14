@@ -29,7 +29,7 @@ export interface LifeBackground { region: string; environment: string; finances:
 export interface RandomLife {
   initialSeed: number; background: LifeBackground; elapsedMs: number;
   focus: { main: Activity; supporting: Activity }; paused: boolean; speed: TimeSpeed;
-  startAge?: 19 | 20;
+  startAge?: 19 | 20 | 21 | 22 | 23 | 24;
   seen: Record<string, number>; flags: string[]; contacts: number;
   childBornMonth?: number;
 }
@@ -37,6 +37,9 @@ export type FamilyScene = 'meeting' | 'gwating' | 'blind-date' | 'campus' | 'con
 export interface GameEvent { id: string; stage: LifeStage; title: string; body: string; choices: EventChoice[]; provenance: 'integration-fixture' | 'family-preview' | 'random-preview' | 'career-preview'; choiceVersion?: 1; abilityImpactVersion?: 1; opportunityVersion?: 1; familyScene?: FamilyScene; randomKey?: string; person?: Person; sourceNote?: { text: string; url: string; sha256: string } }
 export interface JournalEntry { id: string; stage: LifeStage; title: string; detail: string; effects: Partial<Stats>; importance?: 'major'; choice?: { label: string; detail: string; context?: string; effects: Partial<Stats>; resultId?: string } }
 export interface GameState {
+  aging?: import('./aging').AgingState;
+  profession?: import('./professions').ProfessionId;
+  professional?: import('./profession-runtime').ProfessionalLife;
   statHighs?: import('./stat-highs').StatHighs;
   clinic?: import('./clinic').ClinicState;
   identity?: import('./identity').IdentityState;

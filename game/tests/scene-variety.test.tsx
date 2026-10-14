@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import LifeScene, { type LifeSceneProps } from '../src/LifeScene';
-import { SPECIALTIES } from '../src/career';
+import { ALL_SPECIALTIES as SPECIALTIES } from '../src/career';
 import { SPECIALTY_VISUALS } from '../src/SceneScenery';
 import { sceneAppearance, sceneRoom } from '../src/scene-state';
 import { createCareerGame } from '../src/career-runtime';
@@ -16,7 +16,7 @@ describe('state-driven scene variety', () => {
     for (const { id } of SPECIALTIES) {
       const html = render({ specialty: id });
       expect(html).toContain(`data-specialty-art="${id}"`);
-      expect(html).toContain(`data-equipment="${SPECIALTY_VISUALS[id].equipment}"`);
+      expect(html).toContain(id.includes(':') ? `data-profession-art="${id.split(':')[0]}"` : `data-equipment="${SPECIALTY_VISUALS[id].equipment}"`);
       expect(html).not.toMatch(/NaN|undefined|\[object Object\]/);
     }
     expect(render({ specialty: 'unknown-future-specialty' })).not.toContain('data-specialty-art');

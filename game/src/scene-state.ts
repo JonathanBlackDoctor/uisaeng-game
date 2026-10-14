@@ -1,5 +1,6 @@
 import type { GameState } from './contracts';
 import { campusClub } from './campus';
+import { professionOf } from './professions';
 
 export type SceneActivity = 'study' | 'connect' | 'rest';
 export type SceneRoom = 'library' | 'ward' | 'clinic' | 'research' | 'preparation' | 'home' | 'lounge' | 'campus' | 'park';
@@ -42,6 +43,7 @@ export function sceneAppearance(game: GameState | null) {
   return {
     gender: game?.identity?.gender,
     protagonistName: game?.identity?.name,
+    profession: game && game.stageIndex > 0 ? professionOf(game) : undefined,
     specialty: game && game.stageIndex > 0 && game.career?.application === 'accepted'
       ? game.career.specialty ?? undefined : undefined,
     exercise: game?.lifestyle?.enabled.exercise === true,

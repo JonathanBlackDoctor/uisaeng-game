@@ -12,12 +12,21 @@ export const compactPacing = (s: GameState) => s.progress?.pacingVersion === 1;
 // Adjustable short-session tuning; the simulated calendar and monthly effects stay intact.
 export const SHORT_PACING = { monthMs: [3900, 2000, 2000, 2000], randomChance: 0.0175, serviceRate: 2 } as const;
 export const shortPacing = (s: GameState) => compactPacing(s) && s.progress?.runLength === 'short';
+// Reduce optional repeat encounters only. Story, career and relationship chains keep their slots.
+export const COMPACT_CHOICE_RULES = { enabled: true, depthIncidents: 1, medicalIncidents: 2, routineChoices: 1 } as const;
+export const compactChoices = (s: GameState) => shortPacing(s) && COMPACT_CHOICE_RULES.enabled;
+export const CONDENSED_STORY_RULES = { enabled: true } as const;
+// New admission drafts opt in; existing journeys retain their original event contract.
+export const condensedStory = (s: GameState) => shortPacing(s) && s.journey?.version === 3;
+const ROUTINE_CHOICES = ['friend', 'rest', 'home', 'friend-request', 'retirement-hobby'];
+export const allowRoutineChoice = (s: GameState, key: string) => !compactChoices(s) || !ROUTINE_CHOICES.includes(key)
+  || ROUTINE_CHOICES.reduce((total, id) => total + (s.progress?.counts[id] ?? 0), 0) < COMPACT_CHOICE_RULES.routineChoices;
 export const careerMonthMs = (s: GameState) => shortPacing(s) ? SHORT_PACING.monthMs[s.stageIndex] : compactPacing(s) ? PACING_RULES.monthMs[s.stageIndex] : [6000, 500, 500, 500][s.stageIndex];
 export const careerRandomChance = (s: GameState) => shortPacing(s) ? SHORT_PACING.randomChance : PACING_RULES.randomChance;
 export const servicePacingRate = (s: GameState) => shortPacing(s) ? SHORT_PACING.serviceRate : 1;
 export function setStartingLength(s: GameState, length: 'standard' | 'short'): GameState {
   if (!s.progress || !compactPacing(s) || s.revision !== 0 || s.life?.elapsedMs !== 0 || s.pendingEvent || !s.life.paused || !['standard', 'short'].includes(length)) return s;
-  return { ...s, progress: { ...s.progress, runLength: length } };
+  return { ...s, progress: { ...s.progress, runLength: length }, ...(s.journey ? { journey: { ...s.journey, version: length === 'short' && CONDENSED_STORY_RULES.enabled ? 3 as const : 2 as const } } : {}) };
 }
 
 function pick(s: GameState, salt: number, count: number) {
@@ -28,4 +37,4 @@ function pick(s: GameState, salt: number, count: number) {
 }
 export const pacingArc = (s: GameState) => pick(s, 0x6c696665, 2) === 0 ? 'notebook' : 'peer';
 export const pacingExtraStage = (s: GameState) => pick(s, 0x65787472, 4);
-export const pacingStoryLimit = (s: GameState) => 1 + Number(s.stageIndex === 2) + Number(!shortPacing(s) && s.stageIndex === pacingExtraStage(s));
+export const pacingStoryLimit = (s: GameState) => 1 + Number(!condensedStory(s) && s.stageIndex === 2) + Number(!shortPacing(s) && s.stageIndex === pacingExtraStage(s));

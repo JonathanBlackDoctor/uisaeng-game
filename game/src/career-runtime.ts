@@ -1,11 +1,15 @@
+import { type ProfessionId, isAddedProfession, professionDefinition, professionOf, validProfession } from './professions';
+import { initialProfessionalLife, professionStageEnds, requiredProfession, professionEvent, settleProfession, advanceProfession, validProfessionalLife } from './profession-runtime';
+import { PROFESSION_EVIDENCE, PROFESSION_LICENSE_EVIDENCE } from './profession-evidence';
 import { TIME_SPEEDS, type CareerProgress, type GameAction, type GameEvent, type GameState, type Stats } from './contracts';
+import { initialAging, advanceAging, agingStageEnds, validAging, retirementDetail } from './aging';
 import { captureHighs } from './stat-highs';
 import { initialIncidents, upgradeIncidents, advanceIncidents, requiredIncident, incidentEvent, settleIncident, validIncidents } from './major-events';
 import { initialJourney, upgradeJourney, requiredJourney, journeyEvent, settleJourney, advanceJourney, validJourney, finishJourney } from './specialty-journey';
 import { initialEncounters, settleEncounters, validEncounters } from './life-goals';
 import { initialLegacy, validLegacy } from './legacy-goals';
 import { initialPublications, validPublications } from './publications';
-import { applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, INSTITUTIONS, SPECIALTIES, validCareer } from './career';
+import { applySpecialty, careerPreparation, careerScene, careerAdverseScene, choosePractice, exploreSpecialty, initialCareer, ALL_INSTITUTIONS as INSTITUTIONS, ALL_SPECIALTIES as SPECIALTIES, validCareer } from './career';
 import { economyAction, ECONOMY_RULES, initialEconomy, settleEconomyMonth, validEconomy, fundEducationDue } from './economy';
 import { familyFunding } from './background';
 import { initialCampus, campusChoice, settleCampusChoice, requiredCampus, advanceCampus, validCampus } from './campus';
@@ -20,7 +24,7 @@ import { explorationOptions, specialtyOptions, institutionOptions } from './oppo
 import { initialStories, advanceStories, storyEvent, requiredStory, settleStory, validStories, finishStories, upgradeStoryPeople, validStoryContext } from './life-stories';
 import { designEvent } from './event-design';
 import { abilityRoute, designAbilityImpact, settleAbilityImpact } from './ability-impact';
-import { careerMonthMs, careerRandomChance, servicePacingRate, compactPacing, PACING_RULES } from './pacing';
+import { careerMonthMs, careerRandomChance, servicePacingRate, compactPacing, PACING_RULES, allowRoutineChoice, condensedStory } from './pacing';
 import { initialIdentity, identityEvent, requiredIdentity, settleIdentity, advanceService, isServing, waitingForGraduationService, calendarMonths, validIdentity, medicalPlacement } from './identity';
 import { SERVICE_EVIDENCE } from './service-evidence';
 import { canExpandClinic, clinicEvent, clinicLevel, clinicOpen, clinicRevenue, clinicTier, prepareClinic, requiredClinic, settleClinic, settleClinicChoice, validClinic, legacyClinicQuote } from './clinic';
@@ -41,8 +45,9 @@ const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 const spec = (s: GameState) => SPECIALTIES.find(p => p.id === (s.progress?.selectedSpecialty ?? s.career?.specialty ?? s.career?.interest));
 const stage = (s: GameState) => STAGES[s.stageIndex].id;
 export function careerStageEnds(s: GameState): number[] {
+  if (isAddedProfession(s)) return professionStageEnds(s);
   const delay = Math.max(0, (s.progress?.trainingStartMonth ?? 72) - 72);
-  return RANDOM_RULES.stageEnds.map((m, i) => m + (i > 0 ? delay : 0));
+  return agingStageEnds(s, RANDOM_RULES.stageEnds.map((m, i) => m + (i > 0 ? delay : 0)));
 }
 const has = (s: GameState, key: string) => s.progress!.resolved.includes(key);
 const resolved = (s: GameState, key: string) => { if (!has(s, key)) s.progress!.resolved.push(key); };
@@ -72,7 +77,8 @@ function upgradeCampus(s: GameState) {
     if (elapsedMonths(s) > at) s.campus.milestones.push(key);
   }
 }
-export function createCareerGame(runId: string, seed: number): GameState {
+export function createCareerGame(runId: string, seed: number, profession: ProfessionId = 'medicine'): GameState {
+  if (!validProfession(profession)) throw new RangeError('직군을 확인해 주세요.');
   const s = createRandomGame(runId, seed);
   s.rulesVersion = s.contentVersion = 'career-preview-v1';
   s.identity = initialIdentity(seed);
@@ -90,14 +96,16 @@ export function createCareerGame(runId: string, seed: number): GameState {
   s.progress = { version: 1, clockVersion: 2, focus: 'study', club: 'pending', marriage: 'pending', resolved: [], counts: {}, activeMs: [0, 0, 0, 0], remainder: 0, retryMonth: 0, result: '' };
   s.progress.pacingVersion = PACING_RULES.version;
   s.progress.runLength = 'standard';
-  s.journal[0].title = '의대 입학';
+  if (profession !== 'medicine') { s.profession = profession; s.career.profession = profession; s.professional = initialProfessionalLife(); }
+  s.journal[0].title = professionDefinition(s).label + ' 입학';
   s.journal[0].detail = `${lifeAge(s)} · ${s.journal[0].detail}`;
+  s.aging = initialAging(s);
   return s;
 }
 export function careerEvent(s: GameState, key: string, legacyOptions = false, legacyStory = false, legacyChoices = false, legacyImpact = false): GameEvent | null {
   const p = s.progress!, c = s.career!, e = s.economy!, subject = spec(s);
   let title: string, body: string, choices: GameEvent['choices'];
-  const campus = (s.campus || key.startsWith('campus-')) ? campusChoice(s, key, legacyOptions) : null;
+  const campus = !isAddedProfession(s) && (s.campus || key.startsWith('campus-')) ? campusChoice(s, key, legacyOptions) : null;
   const depth = key.startsWith('depth-') ? depthEvent(s, key) : null;
   const ability = key.startsWith('ability-') ? abilityEvent(s, key) : null;
   const story = key.startsWith('story:') ? storyEvent(s, key, legacyStory) : null;
@@ -105,7 +113,10 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
   const identity = key.startsWith('service:') || key.startsWith('identity:') ? identityEvent(s, key) : null;
   const incident = key.startsWith('incident:') ? incidentEvent(s, key) : null;
   const clinic = key.startsWith('clinic:') ? clinicEvent(s, key) : null;
-  if (clinic) {
+  const professional = key.startsWith('profession:') ? professionEvent(s, key) : null;
+  if (professional) {
+    ({ title, body, choices } = professional);
+  } else if (clinic) {
     ({ title, body, choices } = clinic);
   } else if (incident) {
     ({ title, body, choices } = incident);
@@ -134,15 +145,15 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
     title = '장학금 신청'; body = '장학금 신청 기간입니다. 학업 기록을 내고 심사를 받을 수 있습니다.';
     choices = [ch('apply', '신청하기', '선발되면 재학 중 매달 지원'), ch('pass', '이번에는 신청하지 않기')];
   } else if (key.startsWith('rotation-')) {
-    const i = Number(key.slice(9)); const choicesSpecs = SPECIALTIES.slice(i * 5, i * 5 + 5);
+    const i = Number(key.slice(9)); const choicesSpecs = SPECIALTIES.filter(x => !x.id.includes(':')).slice(i * 5, i * 5 + 5);
     title = '진료과 알아보기'; body = '견학할 진료과를 고릅니다. 보고 들은 내용은 진로 기록에 남습니다.';
     choices = choicesSpecs.map(x => ch(x.id, x.name, x.exploration));
   } else if (key === 'specialty-required') {
     title = '전공과 수련 결정'; body = '대학에서 쌓은 경험을 바탕으로 지원할 과를 정합니다. 수련하지 않는 길도 선택할 수 있습니다.';
-    choices = [...(legacyOptions ? SPECIALTIES : specialtyOptions(s)).map(x => ch(x.id, x.name, `${x.summary} · 준비 ${Math.round(careerPreparation(c, x.id).total)}`)), ch('untrained', '수련하지 않기', '일반진료·연구 경로를 선택합니다.')];
+    choices = [...(legacyOptions ? SPECIALTIES.filter(x => !x.id.includes(':')) : specialtyOptions(s)).map(x => ch(x.id, x.name, `${x.summary} · 준비 ${Math.round(careerPreparation(c, x.id).total)}`)), ch('untrained', '수련하지 않기', '일반진료·연구 경로를 선택합니다.')];
   } else if (key === 'institution-required') {
     title = `${subject?.name ?? '전공'} 지원`; body = `${subject?.training ?? ''} 지원할 병원을 고릅니다. 선발 결과는 지원 뒤 확인합니다.`;
-    choices = (legacyOptions ? INSTITUTIONS : institutionOptions(s)).map(x => ch(x.id, x.name, x.description));
+    choices = (legacyOptions ? INSTITUTIONS.filter(x => !x.id.startsWith('profession-')) : institutionOptions(s)).map(x => ch(x.id, x.name, x.description));
   } else if (key === 'application-result') {
     title = c.application === 'accepted' ? '수련 지원 결과' : '지원 결과와 다음 준비'; body = p.result;
     choices = c.application === 'accepted' ? [ch('continue', '수련 준비하기')] : [ch('retry', '다른 과도 살펴보고 재지원'), ch('untrained', '수련 없이 진료하기'), ch('research', '연구 경로로 가기')];
@@ -172,7 +183,7 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
     choices = [ch('support', '지원 부서와 기록 검토하기', '', { happiness: -3, relationships: 1 }), ch('explain', '동료와 함께 설명 준비하기', '', { happiness: -4, health: -1, knowledge: 2 })];
   } else if (key === 'stage-end') {
     title = ['졸업 이후', c.application === 'accepted' ? '수련 이후' : '일과 생활', '은퇴 준비', '회고'][s.stageIndex];
-    body = s.stageIndex === 3 ? '대학에서 시작한 선택과 이후의 일·생활을 기록으로 돌아봅니다.' : '지금까지의 진로와 생활을 이어갑니다.';
+    body = s.stageIndex === 3 ? '대학에서 시작한 선택과 이후의 일·생활을 기록으로 돌아봅니다.' : s.stageIndex === 2 && s.aging ? retirementDetail(s) : '지금까지의 진로와 생활을 이어갑니다.';
     choices = [ch('continue', s.stageIndex === 3 ? '회고 남기기' : '계속하기')];
   } else return null;
   const info = key === 'depth-institution' ? institutionOpportunity(s) : undefined;
@@ -180,9 +191,12 @@ export function careerEvent(s: GameState, key: string, legacyOptions = false, le
     ? { text: '서울대학교병원 2026년 공고는 온라인 접수와 방문 접수를 모두 요구했습니다.', url: 'https://dept.snuh.org/dept/RTO/content.do?menuId=002003', sha256: 'ffaf83d4296437cb3fe8d8d52acf6e67d709fd00ffa06838b1f7a75e6ab50384' }
     : { text: '서울아산병원 2026년 공고는 지원서 작성과 교육수련팀 방문 접수 시간을 안내했습니다.', url: 'https://edtr.amc.seoul.kr/education/service/template/view.do?seq=75', sha256: 'aeed9ee3523b05390be302a71d16a9b0a4c1fe356ad8f4c2c47cabef25392a06' }) : undefined;
   const serviceSource = key === 'service:plan' ? SERVICE_EVIDENCE.army : key === 'service:timing' ? SERVICE_EVIDENCE['medical-training'] : key === 'service:placement' && medicalPlacement(s) === 'public-health' ? SERVICE_EVIDENCE['public-health'] : undefined;
-  return designAbilityImpact(s, designEvent(s, { id: `${s.runId}:career:${key}:${elapsedMonths(s)}:${s.revision}`, stage: stage(s), title, body, choices, provenance: 'career-preview', randomKey: key,
+  const profession = professionOf(s);
+  const professionSource = profession !== 'medicine' ? key === 'profession:license' ? PROFESSION_LICENSE_EVIDENCE[profession] : ['profession:qualification', 'profession:certificate', 'profession:certificate-review'].includes(key) || key === 'profession:route' && profession !== 'nursing' ? PROFESSION_EVIDENCE[profession] : undefined : undefined;
+  const built = designEvent(s, { id: `${s.runId}:career:${key}:${elapsedMonths(s)}:${s.revision}`, stage: stage(s), title, body, choices, provenance: 'career-preview', randomKey: key,
     ...(!legacyOptions && (['specialty-required', 'institution-required', 'campus-club-kind'].includes(key) || (key === 'club-required' && s.campus)) ? { opportunityVersion: 1 as const } : {}),
-    ...(info ? { sourceNote: { text: info.fact, url: info.url, sha256: info.sha256 } } : applicationSource ? { sourceNote: applicationSource } : serviceSource ? { sourceNote: serviceSource } : {}) }, legacyChoices), legacyImpact || legacyChoices);
+    ...(professionSource ? { sourceNote: professionSource } : info ? { sourceNote: { text: info.fact, url: info.url, sha256: info.sha256 } } : applicationSource ? { sourceNote: applicationSource } : serviceSource ? { sourceNote: serviceSource } : {}) }, legacyChoices);
+  return isAddedProfession(s) && key.startsWith('profession:') ? { ...built, abilityImpactVersion: 1 } : designAbilityImpact(s, built, legacyImpact || legacyChoices);
 }
 function pending(s: GameState, key: string) { s.pendingEvent = careerEvent(s, key); }
 function automaticSupport(s: GameState) {
@@ -225,6 +239,7 @@ function required(s: GameState): string | null {
   if (identity) return identity;
   if (isServing(s)) return null;
   const incident = requiredIncident(s); if (incident) return incident;
+  if (isAddedProfession(s)) return requiredProfession(s);
   if (s.stageIndex === 0) {
     if (p.club === 'pending' && m >= 1) return 'club-required';
     const campus = requiredCampus(s); if (campus) return campus;
@@ -250,7 +265,7 @@ function required(s: GameState): string | null {
     return journey;
   }
   const story = requiredStory(s); if (story) return story;
-  if (s.stageIndex === 2 && m >= 156 && !has(s, 'clinical-case')) return 'clinical-case';
+  if (!condensedStory(s) && s.stageIndex === 2 && m >= 156 && !has(s, 'clinical-case')) return 'clinical-case';
   if (!s.depth && s.stageIndex === 2 && c.practice !== 'research' && m >= 216 && !has(s, 'patient-loss')) return 'patient-loss';
   if (!s.depth && s.stageIndex === 2 && c.practice !== 'research' && m >= 300 && !has(s, 'dispute')) return 'dispute';
   if (m >= careerStageEnds(s)[s.stageIndex]) {
@@ -273,9 +288,10 @@ function advanceMonth(s: GameState) {
   advanceAbilities(s);
   preparePortfolio(s);
   prepareClinic(s);
-  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s), familyMonthly: funding.monthly, familySemester: funding.semester, clinicRevenue: clinicRevenue(s), clinicCost: clinicTier(s).cost });
+  s.economy = settleEconomyMonth(s.economy!, m, { stage: s.stageIndex === 1 && s.career!.application !== 'accepted' ? 'career' : stage(s), practice: s.career!.practice, working: p.focus === 'work', scholarship: s.life!.flags.includes('scholarship'), priceIndex: s.portfolio!.priceIndex / 1_000_000, wageIndex: s.portfolio!.wageIndex / 1_000_000, livingFactor: monthlyDietFactor(s), familyMonthly: funding.monthly, familySemester: funding.semester, clinicRevenue: clinicRevenue(s), clinicCost: clinicTier(s).cost, ...(isAddedProfession(s) ? { salary: professionDefinition(s).salary, tuition: professionDefinition(s).tuition, trainingIncome: professionOf(s) === 'nursing' ? professionDefinition(s).salary : 3_000_000 } : {}) });
   if (s.life!.childBornMonth !== undefined) { const age = calendarMonths(s) - s.life!.childBornMonth; s.family!.children = age >= 216 ? 'adult' : age >= 72 ? 'school' : 'young'; }
-  advanceCampus(s);
+  if (!isAddedProfession(s)) advanceCampus(s);
+  else advanceProfession(s);
   advanceStories(s);
   advanceDepth(s);
   advanceJourney(s);
@@ -283,6 +299,7 @@ function advanceMonth(s: GameState) {
   settleVariableEarnings(s);
   settleLifestyle(s);
   advanceIncidents(s);
+  advanceAging(s);
   coverDueFromSavings(s);
   automaticSupport(s);
   if (s.stageIndex === 0 && s.campus?.automaticFunding && s.economy.due > 0) s.economy = fundEducationDue(s.economy, `month:${m}:planned-funding`, m);
@@ -303,7 +320,9 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
   upgradeDepth(s);
   s.encounters ??= initialEncounters(elapsedMonths(s));
   if (!key.startsWith('ability-')) upgradeAbilities(s);
-  if (key.startsWith('clinic:')) {
+  if (key.startsWith('profession:')) {
+    if (!settleProfession(s, key, id)) return null;
+  } else if (key.startsWith('clinic:')) {
     if (!settleClinicChoice(s, key, id)) return null;
   } else if (key.startsWith('incident:')) {
     if (!settleIncident(s, key, id)) return null;
@@ -386,7 +405,7 @@ function chooseCareer(s: GameState, action: Extract<GameAction, { type: 'choose'
     upgradeDynamics(s);
     const roll = nextRandom(s.dynamics!.seed); s.dynamics!.seed = roll.seed;
     settleAbilityImpact(s, before, e, action.choiceId, action.id, roll.value);
-  } else {
+  } else if (!key.startsWith('profession:')) {
     resolveChoiceEffort(s, key, id, action.id, true);
     practiceAbilityChoice(s, key, id);
   }
@@ -499,12 +518,14 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   upgradeDynamics(s);
   upgradeAbilities(s);
   upgradeIncidents(s);
+  if (!s.aging && s.stageIndex < 3) s.aging = initialAging(s);
   s.lifestyle ??= initialLifestyle(elapsedMonths(s)); s.portfolio ??= initialPortfolio(s.life!.initialSeed, elapsedMonths(s));
   const keyNow = required(s); if (keyNow) { pending(s, keyNow); return finish(s, action); }
   if (s.status === 'completed') return finish(s, action);
   if (isServing(s)) {
     const before = s.identity!.service.elapsedMs;
     advanceService(s, action.elapsedMs);
+    advanceAging(s);
     s.progress!.activeMs[s.stageIndex] += (s.identity!.service.elapsedMs - before) / (s.life!.speed * servicePacingRate(s));
     const key = required(s); if (key) pending(s, key);
     return finish(s, action);
@@ -532,7 +553,7 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
     const m = elapsedMonths(s);
     const chance = nextRandom(s.seed); s.seed = chance.seed;
     if (m % CAREER_TIME.randomSpacing !== 0 || chance.value >= (compactPacing(s) ? careerRandomChance(s) : CAREER_TIME.randomChance)) continue;
-    const candidates = eligibleEvents(s).filter(d => !['club', 'mentor', 'research', 'research-followup', 'study-cost'].includes(d.key) && (s.progress!.counts[d.key] ?? 0) < CAREER_TIME.maxRandomPerKind && !(d.key === 'marriage' && s.progress!.marriage === 'settled'));
+    const candidates = eligibleEvents(s).filter(d => !['club', 'mentor', 'research', 'research-followup', 'study-cost'].includes(d.key) && (s.progress!.counts[d.key] ?? 0) < CAREER_TIME.maxRandomPerKind && !(d.key === 'marriage' && s.progress!.marriage === 'settled') && allowRoutineChoice(s, d.key));
     if (!candidates.length) continue;
     const draw = nextRandom(s.seed); s.seed = draw.seed;
     const d = weightedAbilityPick(candidates, draw.value, candidate => candidate.weight(s) * abilityEventWeight(s, candidate.key));
@@ -546,6 +567,8 @@ export function reduceCareerGame(state: GameState, action: GameAction): GameStat
   return finish(s, action);
 }
 export function validCareerGame(s: GameState): boolean {
+  if (!validAging(s)) return false;
+  if (!validProfessionalLife(s)) return false;
   if (!validClinic(s)) return false;
   if (!validIncidents(s)) return false;
   if (!validIdentity(s)) return false;
@@ -569,7 +592,7 @@ export function validCareerGame(s: GameState): boolean {
     || !Number.isInteger(p.remainder) || p.remainder < 0 || p.remainder >= (p.clockVersion === 2 ? careerMonthMs(s) : s.stageIndex === 0 ? 20_000 : 1_000)
     || !Number.isInteger(p.retryMonth) || p.retryMonth < 0 || typeof p.result !== 'string' || (p.selectedSpecialty !== undefined && !SPECIALTIES.some(x => x.id === p.selectedSpecialty)) || !s.life) return false;
   if ((p.marriageRetryMonth !== undefined && (!Number.isSafeInteger(p.marriageRetryMonth) || p.marriageRetryMonth < 0 || p.marriageRetryMonth > elapsedMonths(s) + 36))
-    || (p.trainingStartMonth !== undefined && (!Number.isSafeInteger(p.trainingStartMonth) || p.trainingStartMonth < 72 || p.trainingStartMonth > Math.max(72, elapsedMonths(s) + 6)))) return false;
+    || (p.trainingStartMonth !== undefined && (!Number.isSafeInteger(p.trainingStartMonth) || p.trainingStartMonth < professionDefinition(s).studyMonths || p.trainingStartMonth > Math.max(professionDefinition(s).studyMonths, elapsedMonths(s) + 6)))) return false;
   const base: GameState = { ...s, rulesVersion: 'random-preview-v1', contentVersion: 'random-preview-v1' };
   if (base.pendingEvent?.provenance === 'career-preview') base.pendingEvent = null;
   const ends = careerStageEnds(s);

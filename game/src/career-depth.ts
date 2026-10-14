@@ -1,8 +1,10 @@
+import { isAddedProfession } from './professions';
 import type { GameState, GameEvent, Stats } from './contracts';
-import { SPECIALTIES } from './career';
+import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { campusClub } from './campus';
 import { SPECIALTY_DEPTH, DEPTH_RULES } from './specialty-depth';
 import { elapsedMonths, adjustStats, lifeAge } from './random-life';
+import { compactChoices, COMPACT_CHOICE_RULES, condensedStory } from './pacing';
 
 // Fictional opportunities, never admission advantages or hospital wage/risk rankings.
 export interface CareerDepth {
@@ -36,17 +38,18 @@ function note(s: GameState, id: string, title: string, body: string, effects: Pa
 }
 export function upgradeDepth(s: GameState) { s.depth ??= initialDepth(month(s)); }
 export function requiredDepth(s: GameState): string | null {
+  if (isAddedProfession(s)) return null;
   const d = s.depth, c = s.career;
   if (!d || !c || s.stageIndex === 0 || s.stageIndex === 3) return null;
   const start = Math.max(72, s.progress!.trainingStartMonth ?? 72, d.since), m = month(s);
   if (c.application === 'accepted' && s.stageIndex === 1) {
-    if (m >= start + 1 && !d.decisions['depth-institution']) return 'depth-institution';
-    if (m >= start + 6 && !d.decisions['depth-training']) return 'depth-training';
+    if (!condensedStory(s) && m >= start + 1 && !d.decisions['depth-institution']) return 'depth-institution';
+    if (!condensedStory(s) && m >= start + 6 && !d.decisions['depth-training']) return 'depth-training';
     const club = campusClub(s);
     if (club && s.campus?.project === 'finished' && s.campus.mentorMeetings > 0 && m >= start + 9 && !d.decisions['depth-mentor']) return 'depth-mentor';
   }
   if (s.stageIndex === 2 && c.practice !== 'undecided') {
-    if (!d.decisions['depth-workload']) return 'depth-workload';
+    if (!condensedStory(s) && !d.decisions['depth-workload']) return 'depth-workload';
     if (subject(s) && c.practice !== 'research' && m >= Math.max(150, d.since) + 6 && !d.decisions['depth-work']) return 'depth-work';
   }
   return null;
@@ -190,8 +193,9 @@ export function advanceDepth(s: GameState) {
 }
 // Stable, specialty-keyed fictional story draws preserve speed/save consistency.
 export function incidentDepth(s: GameState): string | null {
+  if (isAddedProfession(s)) return null;
   const d = s.depth, c = s.career, x = incidentSubject(s), m = month(s);
-  if (d && Object.keys(d.decisions).filter(k => k.startsWith('depth-incident:')).length >= 2) return null;
+  if (d && Object.keys(d.decisions).filter(k => k.startsWith('depth-incident:')).length >= (compactChoices(s) ? COMPACT_CHOICE_RULES.depthIncidents : 2)) return null;
   if (!d || !c || !x || s.stageIndex !== 2 || c.practice === 'research' || c.practice === 'undecided' || m % 12 !== 0 || m - d.lastIncident < DEPTH_RUNTIME.incidentCooldown) return null;
   let hash = (s.life!.initialSeed ^ m) >>> 0;
   for (const char of `${x.id}:${DEPTH_RULES.version}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;

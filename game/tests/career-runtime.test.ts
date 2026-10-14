@@ -148,7 +148,7 @@ describe('career preview connected runtime', () => {
     expect(slow.s.portfolio).toEqual(fast.s.portfolio);
     expect(slow.s.lifestyle).toEqual(fast.s.lifestyle);
   }, 30000);
-  it('records varied automatic life events without forcing specialty visits for every activity', () => {
+  it('keeps varied automatic life events but retains only their latest snapshot', () => {
     for (const focus of ['work', 'rest', 'clinical'] as const) {
       let s = createCareerGame(`notes-${focus}`, 42);
       s = reduceGame(s, { type: 'explore', id: 'explore', specialtyId: 'internal' });
@@ -156,8 +156,10 @@ describe('career preview connected runtime', () => {
       s = reduceGame(s, { type: 'control', id: 'start', paused: false, speed: 8 });
       s = until(s, x => x.life!.elapsedMs >= 20_000);
       const notes = s.journal.filter(e => e.id.startsWith('auto:campus:ambient:'));
-      expect(notes.length).toBeGreaterThan(8);
-      expect(new Set(notes.map(e => e.title)).size).toBeGreaterThan(5);
+      expect(Object.values(s.campus!.seen).reduce((sum, event) => sum + event.count, 0)).toBeGreaterThan(8);
+      expect(Object.keys(s.campus!.seen).length).toBeGreaterThan(5);
+      expect(notes).toHaveLength(1);
+      expect(notes[0].id).toBe(`auto:campus:ambient:${s.campus!.lastAmbient}`);
       if (focus !== 'clinical') expect(s.career!.explored).not.toContain('pediatrics');
       expect(s.career!.explored).not.toContain('preventive');
       expect(notes.some(e => Object.values(e.effects).some(n => n !== 0))).toBe(true);

@@ -22,7 +22,7 @@ function recordedAge(detail: string): number | null {
 }
 
 function RecordList({ entries }: { entries: LifeEntry[] }) {
-  return <ul className="lp-records">{entries.map(entry => <li key={entry.id}>
+  return <ul className="lp-records">{entries.map((entry,index) => <li key={`${entry.id}:${index}`}>
     <strong>{formatMoneyText(entry.title)}</strong><p>{formatMoneyText(entry.detail.replaceAll('이 미리보기에서는', '게임에서는'))}</p>
   </li>)}</ul>;
 }
