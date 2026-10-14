@@ -9,6 +9,7 @@ import './opening.css';
 import { roundedValue } from './display-values';
 import { ABILITIES, abilityState } from './abilities';
 import { startingAbilityReason, startingStatReason } from './ability-origin';
+import { RUN_LENGTH_LABELS, RUN_LENGTH_OPTIONS } from './pacing';
 
 interface Props {
   draft: GameState | null;
@@ -52,8 +53,8 @@ export default function Opening({ draft, busy, disabled, entering, onPrepare, on
         </details>
         {onLengthChange && <fieldset className="opening-length" disabled={disabled || entering}>
           <legend>한 판 분량</legend>
-          {(['standard', 'short'] as const).map(length => <label key={length}><input type="radio" name="run-length" value={length} checked={(draft.progress?.runLength ?? 'standard') === length} onChange={() => onLengthChange(length)}/>{length === 'standard' ? '기본' : '짧게'}</label>)}
-          <p>{draft.progress?.runLength === 'short' ? '빠른 시간 진행 · 생활 이벤트 적게' : '기본 속도와 이벤트 수로 진행'}</p>
+          {RUN_LENGTH_OPTIONS.map(length => <label key={length}><input type="radio" name="run-length" value={length} checked={(draft.progress?.runLength ?? 'standard') === length} onChange={() => onLengthChange(length)}/>{RUN_LENGTH_LABELS[length]}</label>)}
+          <p>{draft.progress?.runLength === 'short' ? '빠른 시간 진행 · 생활 이벤트 적게' : '천천히 진행 · 생활 이벤트 더 많이'}</p>
         </fieldset>}
         <div className="opening-actions"><button className="primary" disabled={disabled} onClick={onEnter}>{entering ? '첫 학기로' : busy ? '저장 중…' : '첫 학기 시작'} <span aria-hidden="true">→</span></button><button className="text-button" disabled={busy} onClick={onBack}>돌아가기</button></div>
         <p className="opening-hint">시작하면 시간이 흐르고, 중요한 선택 앞에서 멈춥니다.</p>

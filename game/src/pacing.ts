@@ -1,5 +1,10 @@
 import type { GameState } from './contracts';
 
+// UI defaults apply to a new opening draft only; saved length IDs keep their meaning.
+export const DEFAULT_RUN_LENGTH = 'short' as const;
+export const RUN_LENGTH_OPTIONS = ['short', 'standard'] as const;
+export const RUN_LENGTH_LABELS = { short: '기본', standard: '길게' } as const;
+
 // Game tuning, not a model of real-world event frequencies. Missing version keeps old saves intact.
 export const PACING_RULES = { version: 1, monthMs: [3900, 325, 325, 325], abilityLimit: 1, randomChance: 0.035 } as const;
 export const compactPacing = (s: GameState) => s.progress?.pacingVersion === 1;

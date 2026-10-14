@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createCareerGame } from '../src/career-runtime';
-import { careerMonthMs, setStartingLength, pacingArc } from '../src/pacing';
+import { careerMonthMs, DEFAULT_RUN_LENGTH, setStartingLength, pacingArc } from '../src/pacing';
 import { reduceGame } from '../src/engine';
 import { loadGame, openGameDatabase, persistGame, validState } from '../src/storage';
 import { measureRun } from './helpers/pacing';
@@ -13,14 +13,20 @@ import type { JournalEntry } from '../src/contracts';
 describe('session length and readable recent history', () => {
   it('changes only the draft setting and locks the length after starting', () => {
     const base = createCareerGame('length', 42), snapshot = structuredClone(base);
-    const short = setStartingLength(base, 'short');
+    const short = setStartingLength(base, DEFAULT_RUN_LENGTH);
     expect(short.life).toEqual(base.life); expect(short.identity).toEqual(base.identity);
     expect(base).toEqual(snapshot); expect(careerMonthMs(short)).toBe(1950);
     expect(careerMonthMs(setStartingLength(short, 'standard'))).toBe(3900);
     const begun = reduceGame(short, { type: 'control', id: 'start', paused: false });
     expect(setStartingLength(begun, 'standard')).toBe(begun);
     const html = renderToStaticMarkup(<Opening draft={short} onLengthChange={() => {}} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
-    expect(html).toContain('한 판 분량'); expect(html).toContain('짧게'); expect(html).toContain('checked=""');
+    expect(html).toContain('한 판 분량'); expect(html).toContain('길게');
+    expect(html).toMatch(/<input(?=[^>]*value="short")(?=[^>]*checked="")[^>]*\/>기본/);
+    expect(html.indexOf('value="short"')).toBeLessThan(html.indexOf('value="standard"'));
+    const long = setStartingLength(short, 'standard');
+    const longHtml = renderToStaticMarkup(<Opening draft={long} onLengthChange={() => {}} busy={false} disabled={false} entering={false} onPrepare={() => {}} onEnter={() => {}} onBack={() => {}}/>);
+    expect(longHtml).toMatch(/<input(?=[^>]*value="standard")(?=[^>]*checked="")[^>]*\/>길게/);
+    expect(careerMonthMs(long)).toBe(3900);
   });
   it('restores the chosen length and preserves both generations of old pacing', async () => {
     let short = setStartingLength(createCareerGame('restore-length', 42), 'short');

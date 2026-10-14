@@ -4,7 +4,7 @@ import { familyTimeLabel } from './legacy-goals';
 import { publicationLabel } from './publications';
 import { compactWon } from './finance-view';
 import Opening from './Opening';
-import { setStartingLength } from './pacing';
+import { DEFAULT_RUN_LENGTH, setStartingLength } from './pacing';
 import CareerCollection from './CareerCollection';
 import LifetimeRecords from './LifetimeRecords';
 import { mergeCareerRecords, recordCareer, type CareerRecord } from './career-records';
@@ -96,7 +96,7 @@ function App() {
   }, [feedback, game?.pendingEvent?.id, view, showAbilities, showTimeAllocation, confirmReset, openingDraft]);
   function prepareStart() {
     if (!db || lock.current || error) return;
-    setOpeningDraft(createGame(crypto.randomUUID(), undefined, 'career-preview-v1'));
+    setOpeningDraft(setStartingLength(createGame(crypto.randomUUID(), undefined, 'career-preview-v1'), DEFAULT_RUN_LENGTH));
     setView('play'); setConfirmReset(false);
     window.scrollTo({ top: 0 });
   }
