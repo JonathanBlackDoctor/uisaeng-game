@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createCareerGame } from '../src/career-runtime';
 import { copyResult, GAME_SHARE_URL, resultShareData, resultShareText, shareResult } from '../src/result-share';
 import ResultShare from '../src/ResultShare';
+import { settleStory, advanceStories } from '../src/life-stories';
 
 describe('result sharing', () => {
   const data = { title: '결과', text: '건강 70', url: GAME_SHARE_URL };
@@ -20,9 +21,9 @@ describe('result sharing', () => {
     expect(shared.text).toContain('건강 70 · 행복 60 · 지식 90 · 관계 80');
     expect(shared.text!.split('\n').length).toBeLessThanOrEqual(8);
     expect(shared.text).toContain('의생게임 · 이번 생의 기록');
-    expect(shared.text).toContain('주력 능력 ·');
+    expect(shared.text).toContain('가족과 보낸 시간 0시간 · 발표한 논문 0편');
     expect(shared.text).toContain('정형외과 · 봉직의 · 77세');
-    expect(shared.text).not.toMatch(/생애 기록 \d+개|병역|남자|여자|발표한 논문|가족과 보낸 시간/);
+    expect(shared.text).not.toMatch(/생애 기록 \d+개|병역|남자|여자|주력 능력|인생 최고점|🎬/);
     expect(shared.url).toBe(GAME_SHARE_URL);
     expect(JSON.stringify(shared)).not.toMatch(/private-|localhost|127\.0\.0\.1/);
     expect(game).toEqual(snapshot);
@@ -65,16 +66,59 @@ describe('result sharing', () => {
     expect(resultShareData(game).text).not.toMatch(/undefined|NaN|세/);
     expect(resultShareData(game).text).not.toMatch(/주력 능력|인생 최고점|남긴 논문/);
   });
-  it('highlights earned achievements and complete-run peaks without inventing missing history', () => {
-    const game = createCareerGame('highlights', 3, 'nursing');
+  it.each(['medicine', 'dentistry', 'korean-medicine', 'nursing'] as const)('restores family and papers and removes ability/peak rows for %s', profession => {
+    const game = createCareerGame('highlights', 3, profession);
     game.statHighs = { fromStart: true, values: { health: 98.6, happiness: 70, knowledge: 90, relationships: 80 } };
-    game.professional!.certificate = '임상'; game.professional!.certificateEarned = true;
+    game.legacy!.familyTimeUnits = 2_480_000;
+    game.publications!.papers = Array.from({ length: 34 }, (_, i) => ({ id: `paper:${i}`, title: 'private-paper-title', kind: 'study', startedMonth: 0, publishedMonth: 1 }));
     const before = structuredClone(game);
-    expect(resultShareData(game).text).toContain('인생 최고점 · 건강 99');
-    expect(resultShareData(game).text).toContain('전문자격까지 · 임상 전문간호사');
+    const shared = resultShareData(game);
+    expect(shared.text).toContain('🩺 의생게임 · 논문 쓰는 가족파');
+    expect(shared.text).toContain('가족과 보낸 시간 2,480시간 · 발표한 논문 34편');
+    expect(shared.text).not.toMatch(/주력 능력|인생 최고점|private-paper-title/);
     expect(game).toEqual(before);
-    game.statHighs.fromStart = false; game.professional!.certificateEarned = false;
-    expect(resultShareData(game).text).not.toMatch(/인생 최고점|전문자격까지/);
+    expect(resultShareData(structuredClone(game))).toEqual(shared);
+    game.legacy!.familyTimeUnits = 0;
+    expect(resultShareData(game).text).toContain('마감과 평생 동행');
+  });
+  it('selects one actual scene, omits unresolved choices, and keeps a stable summary after restoration', () => {
+    const game = createCareerGame('scene', 42);
+    expect(resultShareData(game).text).not.toContain('🎬');
+    expect(settleStory(game, 'story:poster-print', 'simplify')).toBe(true);
+    expect(resultShareData(game).text).toContain('🎬 발표 전날 사라진 그림, 표 하나로 정리했다.');
+    game.campus!.club = 'test-club';
+    expect(settleStory(game, 'story:club-reservation', 'outside')).toBe(true);
+    const before = structuredClone(game), shared = resultShareData(game);
+    expect(shared.text).toContain('🎬 동아리 모임, 장소보다 예약자가 많았다.');
+    expect(shared.text!.match(/🎬/g)).toHaveLength(1);
+    expect(shared.text!.match(/🩺|🎬/g)).toHaveLength(2);
+    expect(shared.text!.split('\n').length).toBeLessThanOrEqual(8);
+    expect(resultShareData(structuredClone(game))).toEqual(shared);
+    expect(game).toEqual(before);
+  });
+  it('requires the recorded follow-up before describing its result', () => {
+    const game = createCareerGame('follow-up', 42);
+    game.stageIndex = 3;
+    expect(settleStory(game, 'story:walking-route', 'new')).toBe(true);
+    expect(resultShareData(game).text).not.toContain('단골 벤치');
+    game.life!.elapsedMs += 3000;
+    advanceStories(game);
+    expect(resultShareData(game).text).toContain('새 산책로에서 단골 벤치를 찾았다.');
+  });
+  it('counts actual expansion contracts rather than monthly bills or declined requests', () => {
+    const game = createCareerGame('expansions', 42);
+    game.economy!.ledger = [1, 2].map(n => ({ id: `clinic:${n}:0:settled`, month: n, label: '병원 월 결산', cashDelta: 0, debtDelta: 0, kind: 'monthly' }));
+    expect(resultShareData(game).text).not.toContain('또 확장');
+    game.economy!.ledger.push(...[1, 2].map(n => ({ id: `clinic:${n}:1:expand`, month: n, label: '병원 확장 계약', cashDelta: -1, debtDelta: 1, kind: 'monthly' as const })));
+    expect(resultShareData(game).text).toContain('원장님, 또 확장이요?');
+  });
+  it('keeps partial or missing record labels instead of manufacturing a lifetime total', () => {
+    const game = createCareerGame('partial', 42);
+    game.legacy!.sinceMs = 500; game.publications!.sinceMs = 500;
+    expect(resultShareData(game).text).toContain('가족과 보낸 시간 0시간 (집계 시작 이후) · 발표한 논문 0편 (집계 시작 이후)');
+    delete game.legacy; delete game.publications;
+    expect(resultShareData(game).text).toContain('가족과 보낸 시간 집계 전 · 발표한 논문 집계 전');
+    expect(resultShareData(game).text).toContain('이번 생의 기록');
   });
   it('only renders a share button for completed games', () => {
     const game = createCareerGame('render', 2);

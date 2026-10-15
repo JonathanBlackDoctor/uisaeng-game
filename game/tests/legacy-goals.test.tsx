@@ -128,7 +128,9 @@ describe('family time and students', () => {
     const s = working(); advance(s, 1000, ['family', 'mentoring']);
     const html = renderToStaticMarkup(<PlayOverview game={s} busy={false} onAbilities={() => {}}>시간</PlayOverview>);
     expect(html).toContain('가족과 보낸 시간'); expect(html).toContain('발표한 논문'); expect(html).not.toContain('길러낸 제자');
-    expect(resultShareData(s).text).not.toMatch(/가족과 보낸 시간|발표한 논문|길러낸 제자/);
+    expect(resultShareData(s).text).toContain('가족과 보낸 시간 24시간 (집계 시작 이후)');
+    expect(resultShareData(s).text).toContain('발표한 논문 0편');
+    expect(resultShareData(s).text).not.toContain('길러낸 제자');
     expect(familyTimeLabel(s)).toBe('24시간 (집계 시작 이후)');
     s.status = 'completed'; expect(renderToStaticMarkup(<MentoringRecord game={s}/>)).toContain('지도 미완료');
   });

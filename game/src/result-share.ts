@@ -6,7 +6,37 @@ import { calendarMonths } from './identity';
 import { encounterLabel, netAssets } from './life-goals';
 import { formatWon } from './money-format';
 import { roundedValue } from './display-values';
-import { ABILITIES, abilityState } from './abilities';
+import { familyTimeLabel } from './legacy-goals';
+import { publicationLabel } from './publications';
+
+// Presentation rules only: use saved accomplishments and resolved choices.
+function shareNickname(game: GameState): string {
+  const papers = game.publications?.papers.length ?? 0;
+  if (papers >= 5 && (game.legacy?.familyTimeUnits ?? 0) >= 1_000_000) return '논문 쓰는 가족파';
+  const expansions = new Set(game.economy?.ledger.filter(t => /^clinic:\d+:\d+:expand$/.test(t.id)).map(t => t.id));
+  if (expansions.size >= 2) return '원장님, 또 확장이요?';
+  if (papers >= 20) return '마감과 평생 동행';
+  return '이번 생의 기록';
+}
+
+const SHARE_SCENES = [
+  { id: 'club-reservation', choices: ['outside', 'negotiate', 'reschedule'], text: '동아리 모임, 장소보다 예약자가 많았다.' },
+  { id: 'poster-print', choices: ['simplify'], text: '발표 전날 사라진 그림, 표 하나로 정리했다.' },
+  { id: 'roommate-exam', choices: ['agree'], text: '룸메이트와 협상한 안건: 불 끄는 시간.' },
+  { id: 'work-boundary', choices: ['today'], text: '퇴근 후 알림 끄기. 오늘의 마지막 업무였다.' },
+  { id: 'library-shift', choices: ['read'], text: '도서관에서 책을 빌렸다. 이번 마감은 반납일.' },
+  { id: 'walking-route', choices: ['new'], followed: true, text: '새 산책로에서 단골 벤치를 찾았다.' },
+  { id: 'notebook-handover', choices: ['lead'], followed: true, text: '노트의 다음 담당자를 찾았다. 저녁 시간도 되찾았다.' },
+  { id: 'notebook-ending', choices: ['share'], followed: true, text: '노트는 후배에게. 다음 만남의 안건은 서로의 근황.' },
+] as const;
+
+function shareScene(game: GameState): string | undefined {
+  return SHARE_SCENES.find(scene => {
+    const saved = game.stories?.decisions[scene.id];
+    return saved && (scene.choices as readonly string[]).includes(saved.choice)
+      && (!('followed' in scene) || saved.followed);
+  })?.text;
+}
 
 // Only the public game address is shared, never local preview URLs or save data.
 export const GAME_SHARE_URL = 'https://JonathanBlackDoctor.github.io/uisaeng-game/';
@@ -21,26 +51,14 @@ export function resultShareData(game: GameState): ShareData {
     const months = calendarMonths(game);
     context.push(`${lifeStartAge(game) + Math.floor(months / 12)}세${months % 12 ? ` ${months % 12}개월` : ''}`);
   }
-  const lines = ['의생게임 · 이번 생의 기록'];
+  const lines = [`🩺 의생게임 · ${shareNickname(game)}`];
   if (context.length) lines.push([...new Set(context)].join(' · '));
   lines.push('');
   if (game.career) lines.push(`${professionOf(game) === 'nursing' ? '누적 돌봄' : '누적 진료'} ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : formatWon(netAssets(game)!)}`);
-  if (game.abilities) {
-    const values = abilityState(game).values;
-    const strongest = [...ABILITIES].sort((a, b) => values[b.id] - values[a.id])[0];
-    if (values[strongest.id] > 0) lines.push(`주력 능력 · ${strongest.label} ${roundedValue(values[strongest.id])}`);
-  }
-  if (game.statHighs?.fromStart) {
-    const highs = game.statHighs.values;
-    const peak = (Object.keys(STAT_LABELS) as Stat[]).sort((a, b) => highs[b] - highs[a])[0];
-    lines.push(`인생 최고점 · ${STAT_LABELS[peak]} ${roundedValue(highs[peak])}`);
-  }
-  if (game.professional?.certificateEarned && game.professional.certificate) {
-    lines.push(`전문자격까지 · ${game.professional.certificate} 전문간호사`);
-  } else if (game.publications?.papers.length) {
-    lines.push(`남긴 논문 · ${game.publications.papers.length.toLocaleString('ko-KR')}편`);
-  }
+  if (game.career) lines.push(`가족과 보낸 시간 ${familyTimeLabel(game)} · 발표한 논문 ${publicationLabel(game)}`);
   lines.push((Object.keys(STAT_LABELS) as Stat[]).map(key => `${STAT_LABELS[key]} ${roundedValue(game.stats[key])}`).join(' · '));
+  const scene = shareScene(game);
+  if (scene) lines.push('', `🎬 ${scene}`);
   return { title: '의생게임', text: lines.join('\n'), url: GAME_SHARE_URL };
 }
 

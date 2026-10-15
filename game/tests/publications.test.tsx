@@ -20,7 +20,7 @@ describe('published papers as a lifetime record', () => {
   it('counts only finished papers and carries actual partial-month research across breaks', () => {
     const s = researcher(); advance(s, 11999);
     expect(s.publications!.papers).toHaveLength(0);
-    expect(resultShareData(s).text).not.toContain('남긴 논문');
+    expect(resultShareData(s).text).toContain('발표한 논문 0편');
     s.progress!.focus = 'rest'; const before = s.publications!.effortUnits;
     advance(s, 3000); expect(s.publications!.effortUnits).toBe(before);
     s.progress!.focus = 'research'; advance(s, 1);
@@ -29,7 +29,7 @@ describe('published papers as a lifetime record', () => {
     const restored = JSON.parse(JSON.stringify(s)); advance(s, 11000); advance(restored, 11000);
     expect(restored.publications).toEqual(s.publications); expect(s.publications!.papers).toHaveLength(2);
     expect(s.journal.filter(e => e.title === '논문 발표')).toHaveLength(2);
-    expect(resultShareData(s).text).toContain('남긴 논문 · 2편');
+    expect(resultShareData(s).text).toContain('발표한 논문 2편');
   });
   it('rewards skill, actual research time, a research job and active academic work', () => {
     const s = researcher(); expect(publicationRate(s, [])).toBe(1000);
@@ -67,7 +67,7 @@ describe('published papers as a lifetime record', () => {
     const s = createCareerGame('old-papers', 42); delete s.publications;
     expect(validState(s)).toBe(true); const old = structuredClone(s);
     expect(renderToStaticMarkup(<LifeGoals game={s}/>)).toContain('집계 전');
-    expect(resultShareData(s).text).not.toMatch(/발표한 논문|남긴 논문/);
+    expect(resultShareData(s).text).toContain('발표한 논문 집계 전');
     expect(resultShareData(s).text).not.toContain('길러낸 제자');
     const db = await openGameDatabase('publication-old'); await persistGame(db, s, null);
     expect((await loadGame(db))!.state).toEqual(old); db.close();
