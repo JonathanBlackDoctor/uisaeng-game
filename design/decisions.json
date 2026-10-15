@@ -1222,6 +1222,24 @@
       "status": "confirmed",
       "instruction": "변경 가능한 시험 연금 수입을 넣고 금액을 명시",
       "scope": "은퇴 후 월 연금 수입 추가. 기준 월 150만원에 기존 급여 경제배율을 적용하고 원장/재정에 표시. 금액은 변경 가능한 ECONOMY_RULES 시험 설정이며 실제 연금 수급권/통계나 정식 수치 승인으로 간주하지 않는다. 자동대출/미납삭제는 추가하지 않음."
+    },
+    {
+      "id": "remove-opening-envelope-mark-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13b34-818e-71f0-9af2-e1ff59aa233a",
+      "status": "confirmed",
+      "instruction": "오프닝 편지 중앙에 붙어있는 이상한 이모티콘 같은거 없애",
+      "scope": "봉투 중앙의 ✳ 장식과 열림 전환용 복제 장식 및 전용 스타일 제거. 별도 공개 배포 지시는 없음."
+    },
+    {
+      "id": "release-opening-mark-removal-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13b34-818e-71f0-9af2-e1ff59aa233a",
+      "status": "confirmed",
+      "instruction": "배포해",
+      "scope": "직전 오프닝 봉투 중앙 장식 제거를 기존 공개 주소에 1.4.1로 배포. 다른 미승인 변경은 포함하지 않음."
     }
   ]
 }

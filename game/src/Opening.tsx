@@ -103,7 +103,6 @@ export default function Opening({ draft, busy, disabled, entering, onPrepare, on
       <span className="opening-window-light" aria-hidden="true"/>
       <span className="opening-envelope" ref={envelope} aria-hidden="true">
         <span className="envelope-flap"/>
-        <span className="envelope-address"><span className="envelope-mark">✳</span></span>
       </span>
       <span className="opening-desk-caption">도착한 편지 한 통</span>
     </button> : <article className="opening-paper" inert={revealing || entering}>
@@ -140,7 +139,7 @@ export default function Opening({ draft, busy, disabled, entering, onPrepare, on
         <p className="opening-hint">시작하면 시간이 흐르고, 중요한 선택 앞에서 멈춥니다.</p>
       </div> : null}
     </article>}
-    {revealing && envelopeBounds && <div className="opening-envelope opening-envelope-transition" style={envelopeBounds} aria-hidden="true"><div className="envelope-flap"/><div className="envelope-address"><span className="envelope-mark">✳</span></div></div>}
+    {revealing && envelopeBounds && <div className="opening-envelope opening-envelope-transition" style={envelopeBounds} aria-hidden="true"><div className="envelope-flap"/></div>}
     {entering && <div className="opening-journey" style={portal} aria-hidden="true">
       <div className="opening-journey-scene"><AdmissionCampus seed={draft?.life?.initialSeed ?? 2026} walking/></div>
       <div className="opening-term"><span>{school}</span><strong>{age}세 · 첫 학기</strong></div>

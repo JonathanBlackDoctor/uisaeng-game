@@ -11,10 +11,6 @@
 .opening-envelope { position: relative; width: min(550px, 76vw); aspect-ratio: 1.65; background: #f6f2e6; border: 1px solid #e1dbca; box-shadow: 0 25px 36px -18px #48463550, 0 3px 6px #48463512; transform: rotate(-3deg); animation: envelope-arrive var(--arrival-time) cubic-bezier(.16,1,.3,1) both; }
 .opening-envelope::after { content: ''; position: absolute; inset: 0; background: linear-gradient(33deg, transparent 49.7%, #d5ccba55 50%, transparent 50.3%), linear-gradient(-33deg, transparent 49.7%, #d5ccba55 50%, transparent 50.3%); pointer-events: none; }
 .envelope-flap { position: absolute; inset: 0 0 auto; height: 56%; clip-path: polygon(0 0,100% 0,50% 100%); background: linear-gradient(#fffaf0,#e9e2d2); filter: drop-shadow(0 2px 2px #534a351a); }
-.envelope-address { position: absolute; z-index: 1; inset: 14% 0 auto; text-align: center; }
-.envelope-mark { width: 36px; height: 36px; display: grid; place-items: center; margin: 0 auto 14px; border: 1px solid #708b78; border-radius: 50%; color: #45664d; font-size: 28px; background: #f9f5e9; }
-.opening .envelope-address h1 { font-family: 'Noto Serif KR','Batang','바탕',serif; color: #3c5e4b; font-size: clamp(22px,3vw,32px); font-weight: 500; letter-spacing: .12em; margin: 0; }
-.envelope-address p { font-size: 11px; color: #7d8273; margin-top: 8px; letter-spacing: .08em; }
 .envelope-open { position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; justify-content: space-between; gap: 36px; align-items: center; border: 1px solid #44624f; background: #345543; color: #fffdf5; border-radius: 3px; padding: 11px 18px; min-height: 44px; white-space: nowrap; font: inherit; font-size: 13px; box-shadow: 0 3px 8px #34473515; }
 .envelope-open:hover:not(:disabled) { background: #466e57; }
 .opening-desk-caption { position: relative; margin-top: 44px; font-size: 11px; color: #7e8274; letter-spacing: .04em; animation: opening-copy .4s .3s both; }
@@ -22,8 +18,6 @@
 .opening-surface:focus { outline: none; }
 .opening-surface:focus-visible .opening-desk-caption { text-decoration: underline; text-underline-offset: 7px; }
 .opening-surface .opening-desk-caption { font-size: 14px; }
-.opening-envelope .envelope-address { inset: 50% 0 auto; transform: translateY(-50%); }
-.opening-envelope .envelope-mark { margin-bottom: 0; }
 .opening-title .opening-tools { position: fixed; top: 16px; right: 16px; }
 .opening-title .opening-tools button { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 0; background: transparent; }
 .opening-invitation-shell .site-header, .opening-invitation-shell .disclosure { display: none; }
@@ -114,9 +108,6 @@
   .opening-tools { right: 0; }
   .opening-desk { min-height: min(570px,72svh); margin: 0 -8px; }
   .opening-envelope { width: 82%; }
-  .envelope-mark { width: 26px; height: 26px; font-size: 22px; margin-bottom: 8px; }
-  .envelope-address { top: 10%; }
-  .envelope-address p { font-size: 10px; margin-top: 4px; }
   .envelope-open { bottom: 9%; padding: 8px 15px; min-height: 42px; font-size: 12px; }
   .opening-paper { padding: 24px 23px; }
   .opening h1 { font-size: 29px; margin-top: 22px; }
@@ -131,9 +122,7 @@
 @media (max-width: 360px) {
   .opening-paper { padding: 20px 18px; }
   .opening h1 { font-size: 26px; }
-  .opening .envelope-address h1 { font-size: 22px; }
   .opening-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .envelope-address p { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .opening *, .opening *::before, .opening *::after, .play-arrival .time-ribbon, .play-arrival .life-layout { animation: none !important; transition: none !important; }
