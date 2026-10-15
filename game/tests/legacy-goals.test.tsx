@@ -124,11 +124,12 @@ describe('family time and students', () => {
     delete (bad.lifestyle!.accrued as Partial<NonNullable<GameState['lifestyle']>['accrued']>).family;
     expect(validState(bad)).toBe(false);
   });
-  it('shows both records in the overview and sharing without claiming uncompleted students', () => {
+  it('shows both records in the overview and keeps the public share concise', () => {
     const s = working(); advance(s, 1000, ['family', 'mentoring']);
     const html = renderToStaticMarkup(<PlayOverview game={s} busy={false} onAbilities={() => {}}>시간</PlayOverview>);
     expect(html).toContain('가족과 보낸 시간'); expect(html).toContain('발표한 논문'); expect(html).not.toContain('길러낸 제자');
-    expect(resultShareData(s).text).toContain('가족과 보낸 시간 24시간 (집계 시작 이후) · 발표한 논문 0편');
+    expect(resultShareData(s).text).not.toMatch(/가족과 보낸 시간|발표한 논문|길러낸 제자/);
+    expect(familyTimeLabel(s)).toBe('24시간 (집계 시작 이후)');
     s.status = 'completed'; expect(renderToStaticMarkup(<MentoringRecord game={s}/>)).toContain('지도 미완료');
   });
   it('preserves both records over a full life, choices, duplicate ticks and archive restoration', async () => {

@@ -1,36 +1,47 @@
 import { isAddedProfession, professionDefinition, professionOf, practiceLabel } from './professions';
-import { professionalSummary } from './profession-runtime';
 import { STAT_LABELS, type GameState, type Stat } from './contracts';
-import { compactJournal } from './journal-retention';
 import { ALL_SPECIALTIES as SPECIALTIES } from './career';
 import { lifeStartAge } from './random-life';
-import { calendarMonths, GENDER_LABELS, serviceSummary } from './identity';
+import { calendarMonths } from './identity';
 import { encounterLabel, netAssets } from './life-goals';
-import { familyTimeLabel } from './legacy-goals';
-import { publicationLabel } from './publications';
 import { formatWon } from './money-format';
 import { roundedValue } from './display-values';
+import { ABILITIES, abilityState } from './abilities';
 
 // Only the public game address is shared, never local preview URLs or save data.
 export const GAME_SHARE_URL = 'https://JonathanBlackDoctor.github.io/uisaeng-game/';
 export function resultShareData(game: GameState): ShareData {
-  const lines = ['의생게임 · 나의 결과'];
-  if (game.career) lines.push(`${professionOf(game) === 'nursing' ? '누적 돌봄' : '누적 진료'} ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : formatWon(netAssets(game)!)}`);
-  if (game.career) lines.push(`가족과 보낸 시간 ${familyTimeLabel(game)} · 발표한 논문 ${publicationLabel(game)}`);
-  if (game.life) {
-    const months = calendarMonths(game);
-    lines.push(`${lifeStartAge(game) + Math.floor(months / 12)}세 ${months % 12}개월에 마친 이야기`);
-  }
-  if (game.identity) lines.push(`${GENDER_LABELS[game.identity.gender]} · ${serviceSummary(game)}`);
+  const context: string[] = [];
   if (game.career) {
     const specialty = SPECIALTIES.find(item => item.id === game.career!.specialty)?.name;
     const practice = { undecided: '진로 탐색', employed: '봉직의', clinic: '개원', research: '연구', untrained: '일반진료' }[game.career.practice];
-    lines.push([isAddedProfession(game) ? professionDefinition(game).label : null, specialty, isAddedProfession(game) ? practiceLabel(game) : practice].filter(Boolean).join(' · '));
-    if (isAddedProfession(game)) lines.push(professionalSummary(game)!);
+    context.push(...[professionDefinition(game).label, specialty, isAddedProfession(game) ? practiceLabel(game) : practice].filter((value): value is string => !!value));
+  }
+  if (game.life) {
+    const months = calendarMonths(game);
+    context.push(`${lifeStartAge(game) + Math.floor(months / 12)}세${months % 12 ? ` ${months % 12}개월` : ''}`);
+  }
+  const lines = ['의생게임 · 이번 생의 기록'];
+  if (context.length) lines.push([...new Set(context)].join(' · '));
+  lines.push('');
+  if (game.career) lines.push(`${professionOf(game) === 'nursing' ? '누적 돌봄' : '누적 진료'} ${encounterLabel(game)} · 순자산 ${netAssets(game) === null ? '기록 없음' : formatWon(netAssets(game)!)}`);
+  if (game.abilities) {
+    const values = abilityState(game).values;
+    const strongest = [...ABILITIES].sort((a, b) => values[b.id] - values[a.id])[0];
+    if (values[strongest.id] > 0) lines.push(`주력 능력 · ${strongest.label} ${roundedValue(values[strongest.id])}`);
+  }
+  if (game.statHighs?.fromStart) {
+    const highs = game.statHighs.values;
+    const peak = (Object.keys(STAT_LABELS) as Stat[]).sort((a, b) => highs[b] - highs[a])[0];
+    lines.push(`인생 최고점 · ${STAT_LABELS[peak]} ${roundedValue(highs[peak])}`);
+  }
+  if (game.professional?.certificateEarned && game.professional.certificate) {
+    lines.push(`전문자격까지 · ${game.professional.certificate} 전문간호사`);
+  } else if (game.publications?.papers.length) {
+    lines.push(`남긴 논문 · ${game.publications.papers.length.toLocaleString('ko-KR')}편`);
   }
   lines.push((Object.keys(STAT_LABELS) as Stat[]).map(key => `${STAT_LABELS[key]} ${roundedValue(game.stats[key])}`).join(' · '));
-  lines.push(`생애 기록 ${compactJournal(game.journal).length}개`);
-  return { title: '의생게임 · 나의 결과', text: lines.join('\n'), url: GAME_SHARE_URL };
+  return { title: '의생게임', text: lines.join('\n'), url: GAME_SHARE_URL };
 }
 
 export function resultShareText(data: ShareData): string {

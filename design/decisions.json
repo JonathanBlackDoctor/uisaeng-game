@@ -1240,6 +1240,24 @@
       "status": "confirmed",
       "instruction": "배포해",
       "scope": "직전 오프닝 봉투 중앙 장식 제거를 기존 공개 주소에 1.4.1로 배포. 다른 미승인 변경은 포함하지 않음."
+    },
+    {
+      "id": "refined-native-share-release-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13b34-818e-71f0-9af2-e1ff59aa233a",
+      "status": "confirmed",
+      "instruction": "네이티브 공유 문구 깔끔하고 세련되게 바꿔서 배포",
+      "scope": "네이티브/복사 공유 문구를 제목·직군/진로/나이·누적진료/돌봄과순자산·4스탯의 짧은 형식으로 정돈. 공유 버튼·상태 문구 통일. 성별/병역/보조집계/로그수 제거. 게임·저장·공유API 취소/복사동작 유지. 기존 사이트 1.4.2 배포."
+    },
+    {
+      "id": "native-share-interesting-highlights-v1",
+      "date": "2026-10-15",
+      "source": "user",
+      "sourceThreadId": "01a13b34-818e-71f0-9af2-e1ff59aa233a",
+      "status": "confirmed",
+      "instruction": "줄인대신 시선을 끌 만한 재밌는 정보 넣고, 문구는 예쁘게 다듬어.",
+      "scope": "현재 공유 문구 정돈 작업에 실제 저장된 주력 능력·시작부터 집계된 최고 스탯·실제 취득 전문자격 또는 논문 성과를 추가. 정보가 없으면 생략하고 허구의 성격/순위/인물/성과를 만들지 않는다. 1.4.2 배포에 함께 포함."
     }
   ]
 }

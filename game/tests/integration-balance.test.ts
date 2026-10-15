@@ -98,7 +98,7 @@ describe('long life and combined save compatibility', () => {
       expect(new Set(ids).size).toBe(ids.length);
       const stored = (await archives(db))[0].state; expect(stored).toEqual(s);
       expect(stored.identity?.service.route).toBe('army');
-      expect(resultShareData(stored).text).toContain('77세 0개월');
+      expect(resultShareData(stored).text).toContain('77세');
       expect(reduceGame(stored, { type: 'next-choice', id: 'after-end' })).toBe(stored);
     } finally { db.close(); }
   }, 60_000);

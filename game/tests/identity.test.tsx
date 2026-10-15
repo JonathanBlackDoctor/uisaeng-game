@@ -103,7 +103,8 @@ describe('gender and military paths', () => {
     expect(serviceMonths(s)).toBe(serviceDuration(route));
     expect(s.encounters!.total).toBe(SERVICE_RULES[route].months * SERVICE_RULES[route].encounters);
     const final = until(s, x => x.status === 'completed', picks);
-    expect(resultShareData(final).text).toContain('복무 마침');
+    expect(final.identity!.service.status).toBe('completed');
+    expect(resultShareData(final).text).not.toContain('복무');
   });
   it('serves after training when accepted and after graduation when not training', () => {
     const untrained = until(male(), x => x.pendingEvent?.randomKey === 'service:placement');

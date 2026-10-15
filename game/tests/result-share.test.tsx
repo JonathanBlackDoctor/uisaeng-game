@@ -18,7 +18,11 @@ describe('result sharing', () => {
     const shared = resultShareData(game);
     expect(shared.text).toContain('정형외과 · 봉직의');
     expect(shared.text).toContain('건강 70 · 행복 60 · 지식 90 · 관계 80');
-    expect(shared.text).toContain('생애 기록 1개');
+    expect(shared.text!.split('\n').length).toBeLessThanOrEqual(8);
+    expect(shared.text).toContain('의생게임 · 이번 생의 기록');
+    expect(shared.text).toContain('주력 능력 ·');
+    expect(shared.text).toContain('정형외과 · 봉직의 · 77세');
+    expect(shared.text).not.toMatch(/생애 기록 \d+개|병역|남자|여자|발표한 논문|가족과 보낸 시간/);
     expect(shared.url).toBe(GAME_SHARE_URL);
     expect(JSON.stringify(shared)).not.toMatch(/private-|localhost|127\.0\.0\.1/);
     expect(game).toEqual(snapshot);
@@ -57,12 +61,25 @@ describe('result sharing', () => {
   });
   it('supports old saves without life or career fields', () => {
     const game = createCareerGame('old', 1); delete game.life; delete game.career;
+    delete game.abilities; delete game.statHighs; delete game.publications;
     expect(resultShareData(game).text).not.toMatch(/undefined|NaN|세/);
+    expect(resultShareData(game).text).not.toMatch(/주력 능력|인생 최고점|남긴 논문/);
+  });
+  it('highlights earned achievements and complete-run peaks without inventing missing history', () => {
+    const game = createCareerGame('highlights', 3, 'nursing');
+    game.statHighs = { fromStart: true, values: { health: 98.6, happiness: 70, knowledge: 90, relationships: 80 } };
+    game.professional!.certificate = '임상'; game.professional!.certificateEarned = true;
+    const before = structuredClone(game);
+    expect(resultShareData(game).text).toContain('인생 최고점 · 건강 99');
+    expect(resultShareData(game).text).toContain('전문자격까지 · 임상 전문간호사');
+    expect(game).toEqual(before);
+    game.statHighs.fromStart = false; game.professional!.certificateEarned = false;
+    expect(resultShareData(game).text).not.toMatch(/인생 최고점|전문자격까지/);
   });
   it('only renders a share button for completed games', () => {
     const game = createCareerGame('render', 2);
     expect(renderToStaticMarkup(<ResultShare game={game}/>)).toBe('');
     game.status = 'completed';
-    expect(renderToStaticMarkup(<ResultShare game={game}/>)).toContain('결과 공유하기');
+    expect(renderToStaticMarkup(<ResultShare game={game}/>)).toContain('기록 공유하기');
   });
 });
